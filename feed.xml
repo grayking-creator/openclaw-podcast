@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>OpenClaw Daily</title>
+    <link>https://grayking-creator.github.io/openclaw-podcast/</link>
+    <description>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models.</description>
+    <language>en-us</language>
+    <lastBuildDate>{{LAST_BUILD_DATE}}</lastBuildDate>
+    <itunes:author>Nova &amp; Alloy</itunes:author>
+    <itunes:summary>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models.</itunes:summary>
+    <itunes:owner>
+      <itunes:name>OpenClaw Daily</itunes:name>
+    </itunes:owner>
+    <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
+    
+    <!-- Full Episode -->
+    <item>
+      <title>Episode 1: The Full Story</title>
+      <link>https://grayking-creator.github.io/openclaw-podcast/episode_001_full.md</link>
+      <description>The inaugural episode of OpenClaw Daily covering the foundation transition, security debates, hardware options, model releases, and community ecosystem.</description>
+      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_001_full.mp3" length="988272" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>1</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+    </item>
+    
+    <!-- Highlights Episode -->
+    <item>
+      <title>Episode 1: Highlights (3 min)</title>
+      <link>https://grayking-creator.github.io/openclaw-podcast/episode_001_highlights.md</link>
+      <description>Quick highlights from Episode 1 - covering the main news in 3 minutes.</description>
+      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_001_highlights.mp3" length="288288" type="audio/mpeg"/>
+      <itunes:duration>3:00</itunes:duration>
+      <itunes:episode>1</itunes:episode>
+      <itunes:episodeType>trailer</itunes:episodeType>
+    </item>
+    
+  </channel>
+</rss>
