@@ -5,12 +5,12 @@
     <link>https://tobyonfitnesstech.com/podcasts/</link>
     <description>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. Hosted by Nova and Alloy.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 20 Feb 2026 16:35:00 GMT</lastBuildDate>
+    <lastBuildDate>Fri, 20 Feb 2026 16:56:00 GMT</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. From hardware setups to security tips, model releases to community highlights — everything you need to know about the future of personal AI, right here.</itunes:summary>
     <itunes:owner>
       <itunes:name>OpenClaw Daily</itunes:name>
-      <itunes:email>toby@tobyonfitnesstech.com</itunes:email>
+      <itunes:email>admin@tobyonfitnesstech.com</itunes:email>
     </itunes:owner>
     <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
     <itunes:category text="Technology"/>
@@ -19,7 +19,7 @@
     <!-- Episode 2 -->
     <item>
       <title>Episode 2: The Local AI Revolution</title>
-      <link>https://grayking-creator.github.io/openclaw-podcast/episode_002.md</link>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-2/</link>
       <description>Episode 2 covers Raspberry Pi official support, Mac Mini shortage, Bitsight security research (30K exposed instances), Peter Steinberger profile, VentureBeat coverage, Trend Micro analysis, Georgetown research, developer tools, hardware guides, and the future of local AI agents.</description>
       <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
       <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_002_full.mp3" length="28765247" type="audio/mpeg"/>
@@ -32,7 +32,7 @@
     <!-- Episode 1 -->
     <item>
       <title>Episode 1: The Full Story</title>
-      <link>https://grayking-creator.github.io/openclaw-podcast/episode_001_full_v2.md</link>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-1/</link>
       <description>The inaugural episode of OpenClaw Daily covering the foundation transition, security debates, hardware options, model releases, and community ecosystem.</description>
       <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
       <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_001_full_v2.mp3" length="14159468" type="audio/mpeg"/>
@@ -45,7 +45,7 @@
     <!-- Episode 0 -->
     <item>
       <title>Episode 0: Hardware Deep Dive - Fixing Local Model Failures</title>
-      <link>https://grayking-creator.github.io/openclaw-podcast/episode_000.md</link>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-0/</link>
       <description>Episode 0 covers the context overflow bug with Clarity (Qwen3-Coder 30B), a full hardware comparison (NVIDIA DGX Spark, Mac Studio M3 Ultra, AMD Ryzen AI Max+ 395, AMD MI300X), and the one-line config fix that solved the problem without any new hardware.</description>
       <pubDate>Tue, 18 Feb 2026 06:00:00 EST</pubDate>
       <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_000.mp3" length="5036708" type="audio/mpeg"/>
