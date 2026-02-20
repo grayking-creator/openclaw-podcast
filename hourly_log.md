@@ -60,3 +60,7 @@
 [2026-02-20 11:00:01] === Complete ===
 [2026-02-20 11:00:34] Updated RSS for episode 4
 [2026-02-20 11:00:34] Deploying to GitHub...
+[2026-02-20 11:00:38] Deployed!
+[2026-02-20 11:00:38] No TELEGRAM_BOT_TOKEN, skipping notification
+[2026-02-20 11:00:38] Episode complete!
+[2026-02-20 11:00:38] === Complete ===
