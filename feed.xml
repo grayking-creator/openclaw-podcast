@@ -23,6 +23,7 @@
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>1</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
     </item>
     
     <!-- Episode 2 -->
@@ -35,6 +36,7 @@
       <itunes:duration>29:52</itunes:duration>
       <itunes:episode>2</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
     </item>
     
     <!-- Episode 3 -->
@@ -47,6 +49,7 @@
       <itunes:duration>11:25</itunes:duration>
       <itunes:episode>3</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
     </item>
     
     <!-- Episode 0 (Pilot) -->
@@ -61,6 +64,7 @@
       <itunes:episode>0</itunes:episode>
       <itunes:episodeType>trailer</itunes:episodeType>
       <itunes:explicit>false</itunes:explicit>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
     </item>
     
   </channel>
