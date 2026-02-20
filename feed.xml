@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>OpenClaw Daily</title>
-    <link>https://grayking-creator.github.io/openclaw-podcast/</link>
+    <link>https://tobyonfitnesstech.com/podcasts/</link>
     <description>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models.</description>
     <language>en-us</language>
     <lastBuildDate>{{LAST_BUILD_DATE}}</lastBuildDate>
