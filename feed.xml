@@ -42,17 +42,5 @@
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
     </item>
     
-  
-    <item>
-      <title>Episode 4: Hourly Update</title>
-      <link>https://grayking-creator.github.io/openclaw-podcast/episode_004.md</link>
-      <description>Hourly news update covering the latest OpenClaw developments.</description>
-      <pubDate>Fri, 20 Feb 2026 11:00:34 EST</pubDate>
-      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_004_full.mp3" length="0" type="audio/mpeg"/>
-      <itunes:duration>10:16</itunes:duration>
-      <itunes:episode>4</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
-    </item>
   </channel>
 </rss>
