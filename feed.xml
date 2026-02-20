@@ -37,5 +37,17 @@
       <itunes:episodeType>trailer</itunes:episodeType>
     </item>
     
+    <!-- Episode 2 -->
+    <item>
+      <title>Episode 2: The Local AI Revolution</title>
+      <link>https://grayking-creator.github.io/openclaw-podcast/episode_002.md</link>
+      <description>Episode 2 covers Raspberry Pi official support, Mac Mini shortage, security research (30K exposed instances), Peter Steinberger profile, and the future of local AI agents.</description>
+      <pubDate>Fri, 20 Feb 2026 05:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_002_full_v3.mp3" length="13800000" type="audio/mpeg"/>
+      <itunes:duration>14:22</itunes:duration>
+      <itunes:episode>2</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+    </item>
+    
   </channel>
 </rss>
