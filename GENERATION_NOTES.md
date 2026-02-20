@@ -14,12 +14,14 @@ pip install edge-tts
 - `ffmpeg` must be installed (for audio processing)
 - Python 3.8+
 
-## Voice Configuration
+## Voice Configuration (LOCKED IN - Feb 20, 2026)
 
 | Host | Voice | Description |
 |------|-------|-------------|
 | Nova | `en-GB-SoniaNeural` | Warm British female voice |
-| Alloy | `en-GB-RyanNeural` | Neutral British male voice |
+| Alloy | `en-US-JennyNeural` | American female voice |
+
+⚠️ DO NOT CHANGE VOICES WITHOUT APPROVAL
 
 ### Available Voices
 To see all available Edge TTS voices:
@@ -32,12 +34,21 @@ To filter for British English:
 edge-tts --list-voices | grep "en-GB"
 ```
 
-## Usage
+## Generating Episodes
 
-### Generate Audio for an Episode
+### Step 1: Write Script
+Write the episode script to `episode_XXX.md`
+
+### Step 2: Generate Show Notes (REQUIRED)
+Create `show_notes_episode_XXX.md` with:
+- Topics covered (with links to sources when available)
+- Tips from the episode
+- Links mentioned
+- Timestamps if applicable
+
+### Step 3: Generate Audio
 ```bash
-cd /Users/tobyglennpeters/.openclaw/workspace/podcast
-python generate_audio.py episode_002.md
+python generate_audio.py episode_XXX.md -o episode_XXX_full
 ```
 
 This will generate:
