@@ -5,26 +5,16 @@
     <link>https://grayking-creator.github.io/openclaw-podcast/</link>
     <description>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 20 Feb 2026 14:24:00 +0000</lastBuildDate>
+    <lastBuildDate>{{LAST_BUILD_DATE}}</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models.</itunes:summary>
     <itunes:owner>
       <itunes:name>OpenClaw Daily</itunes:name>
+      <itunes:email>toby@tobyonfitnesstech.com</itunes:email>
     </itunes:owner>
     <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
-    
-    <!-- Episode 1 -->
-    <item>
-      <title>Episode 1: The Full Story</title>
-      <link>https://grayking-creator.github.io/openclaw-podcast/episode_001_full.md</link>
-      <description>The inaugural episode of OpenClaw Daily covering the foundation transition, security debates, hardware options, model releases, and community ecosystem.</description>
-      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_001_full.mp3" length="988272" type="audio/mpeg"/>
-      <itunes:duration>30:00</itunes:duration>
-      <itunes:episode>1</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
-    </item>
+    <itunes:category text="Technology"/>
+    <itunes:explicit>false</itunes:explicit>
     
     <!-- Episode 2 -->
     <item>
@@ -32,38 +22,23 @@
       <link>https://grayking-creator.github.io/openclaw-podcast/episode_002.md</link>
       <description>Episode 2 covers Raspberry Pi official support, Mac Mini shortage, Bitsight security research (30K exposed instances), Peter Steinberger profile, VentureBeat coverage, Trend Micro analysis, Georgetown research, developer tools, hardware guides, and the future of local AI agents.</description>
       <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_002_full.mp3" length="22087514" type="audio/mpeg"/>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_002_full.mp3" length="28765247" type="audio/mpeg"/>
       <itunes:duration>29:52</itunes:duration>
       <itunes:episode>2</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
     </item>
     
-    <!-- Episode 3 -->
+    <!-- Episode 1 -->
     <item>
-      <title>Episode 3: The Ecosystem Explodes</title>
-      <link>https://grayking-creator.github.io/openclaw-podcast/episode_003.md</link>
-      <description>Episode 3 covers DigitalOcean coverage, Cloudflare's Moltworker, CNBC capabilities, security updates, version patches, LLM stats, hardware guides, Adafruit tutorials, and the growing skills marketplace.</description>
-      <pubDate>Fri, 20 Feb 2026 07:00:00 EST</pubDate>
-      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_003_full.mp3" length="10961440" type="audio/mpeg"/>
-      <itunes:duration>11:25</itunes:duration>
-      <itunes:episode>3</itunes:episode>
+      <title>Episode 1: The Full Story</title>
+      <link>https://grayking-creator.github.io/openclaw-podcast/episode_001_full_v2.md</link>
+      <description>The inaugural episode of OpenClaw Daily covering the foundation transition, security debates, hardware options, model releases, and community ecosystem.</description>
+      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_001_full_v2.mp3" length="14159468" type="audio/mpeg"/>
+      <itunes:duration>38:00</itunes:duration>
+      <itunes:episode>1</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
-    </item>
-    
-    <!-- Episode 0 (Pilot) -->
-    <item>
-      <title>Episode 0: Hardware Deep Dive - Fixing Local Model Failures</title>
-      <description><![CDATA[The pilot episode. Nova and Alloy dig into local AI hardware setups and walk through debugging a critical bug causing local model failures on Mac hardware. Essential listening before the series proper.]]></description>
-      <link>https://grayking-creator.github.io/openclaw-podcast/</link>
-      <guid isPermaLink="false">openclaw-daily-episode-000</guid>
-      <pubDate>Wed, 18 Feb 2026 12:00:00 +0000</pubDate>
-      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_000.mp3" length="5036708" type="audio/mpeg"/>
-      <itunes:duration>11:45</itunes:duration>
-      <itunes:episode>0</itunes:episode>
-      <itunes:episodeType>trailer</itunes:episodeType>
-      <itunes:explicit>false</itunes:explicit>
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
     </item>
     
