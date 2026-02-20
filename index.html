@@ -3,65 +3,346 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenClaw Daily Podcast</title>
+    <title>OpenClaw Daily Podcast | TobyOnFitnessTech</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; line-height: 1.6; background: #fafafa; }
-        h1 { color: #1a1a1a; }
-        .episode { background: white; padding: 25px; margin: 20px 0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .episode h2 { margin-top: 0; color: #333; }
-        a { color: #0366d6; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .subscribe { background: linear-gradient(135deg, #1DB954, #1ed760); color: white; padding: 20px; border-radius: 12px; margin: 30px 0; text-align: center; }
-        .subscribe a { color: white; font-weight: bold; font-size: 18px; }
-        .subscribe a:hover { text-decoration: underline; }
-        .duration { color: #666; font-size: 14px; }
-        hr { border: none; border-top: 1px solid #eee; margin: 30px 0; }
-        footer { color: #888; font-size: 12px; text-align: center; }
+        :root {
+            --bg: #0a0a0a;
+            --bg-card: #171717;
+            --bg-header: rgba(10,10,10,0.8);
+            --border: #262626;
+            --text-primary: #f5f5f5;
+            --text-secondary: #a3a3a3;
+            --text-muted: #737373;
+            --blue: #3b82f6;
+            --blue-dim: rgba(59,130,246,0.1);
+            --blue-text: #60a5fa;
+            --purple: #a855f7;
+            --radius: 12px;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 50;
+            background: var(--bg-header);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            text-decoration: none;
+            background: linear-gradient(to right, var(--blue), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            transition: opacity 0.2s;
+        }
+        .logo:hover { opacity: 0.8; }
+
+        .back-link {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--text-primary); }
+
+        /* ── Main ── */
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 100px 24px 60px;
+        }
+
+        /* ── Hero ── */
+        .hero {
+            text-align: center;
+            padding: 48px 0 56px;
+        }
+
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(to right, var(--blue), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+
+        .hero p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* ── Episodes ── */
+        .section-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .episodes { display: flex; flex-direction: column; gap: 16px; margin-bottom: 48px; }
+
+        .episode {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            transition: border-color 0.2s;
+        }
+        .episode:hover { border-color: #404040; }
+
+        .episode-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+
+        .episode-badge {
+            flex-shrink: 0;
+            background: var(--blue-dim);
+            color: var(--blue-text);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            white-space: nowrap;
+            margin-top: 3px;
+        }
+
+        .episode h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #ffffff;
+            line-height: 1.4;
+        }
+
+        .episode p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+
+        .episode-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 16px !important;
+        }
+
+        .episode-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 6px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+
+        .btn-listen {
+            border: 1px solid var(--blue);
+            color: var(--blue-text);
+            background: transparent;
+        }
+        .btn-listen:hover { background: var(--blue-dim); }
+
+        .btn-notes {
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            background: transparent;
+        }
+        .btn-notes:hover { border-color: #525252; color: var(--text-primary); }
+
+        /* ── RSS Subscribe ── */
+        .rss-card {
+            background: var(--blue-dim);
+            border: 1px solid rgba(59,130,246,0.3);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 48px;
+        }
+
+        .rss-card h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .rss-card p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .rss-url {
+            font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+            font-size: 0.8rem;
+            color: var(--blue-text);
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 14px;
+            display: block;
+            word-break: break-all;
+            text-decoration: none;
+        }
+        .rss-url:hover { color: #93c5fd; }
+
+        /* ── Footer ── */
+        footer {
+            background: var(--bg-header);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .footer-inner p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .footer-inner a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .footer-inner a:hover { color: var(--text-primary); }
+
+        @media (max-width: 600px) {
+            .header-inner { padding: 0 16px; }
+            main { padding: 88px 16px 48px; }
+            .hero { padding: 32px 0 40px; }
+        }
     </style>
 </head>
 <body>
-    <h1>🎙️ OpenClaw Daily Podcast</h1>
-    <p>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models.</p>
-    <p><strong>Hosts:</strong> Nova (warm British) & Alloy (neutral)</p>
-    
-    <div class="subscribe">
-        <strong>📥 Subscribe via RSS:</strong><br>
-        <a href="https://grayking-creator.github.io/openclaw-podcast/feed.xml">https://grayking-creator.github.io/openclaw-podcast/feed.xml</a>
-    </div>
-    
-    <div class="episode">
-        <h2>Episode 3: The Ecosystem Explodes</h2>
-        <p>DigitalOcean coverage, Cloudflare's Moltworker, CNBC capabilities, security updates, version patches, LLM stats, hardware guides, Adafruit tutorials, and the growing skills marketplace.</p>
-        <p class="duration"><strong>Duration:</strong> ~11 minutes | <strong>Published:</strong> February 20, 2026</p>
-        <p><a href="https://grayking-creator.github.io/openclaw-podcast/audio/episode_003_full.mp3">🎧 Listen</a> &nbsp;|&nbsp; <a href="https://grayking-creator.github.io/openclaw-podcast/episode_003.md">📄 Show Notes</a></p>
-    </div>
 
-    <div class="episode">
-        <h2>Episode 2: The Local AI Revolution</h2>
-        <p>Raspberry Pi official support, Mac Mini shortage, Bitsight security research (30K exposed instances), Peter Steinberger profile, VentureBeat coverage, Trend Micro analysis, Georgetown research, developer tools, hardware guides, and the future of local AI agents.</p>
-        <p class="duration"><strong>Duration:</strong> ~30 minutes | <strong>Published:</strong> February 20, 2026</p>
-        <p><a href="https://grayking-creator.github.io/openclaw-podcast/audio/episode_002_full.mp3">🎧 Listen</a> &nbsp;|&nbsp; <a href="https://grayking-creator.github.io/openclaw-podcast/episode_002.md">📄 Show Notes</a></p>
-    </div>
-    
-    <hr>
+    <header>
+        <div class="header-inner">
+            <a href="https://tobyonfitnesstech.com" class="logo">TobyOnFitnessTech</a>
+            <a href="https://tobyonfitnesstech.com" class="back-link">← Back to Site</a>
+        </div>
+    </header>
 
-    <div class="episode">
-        <h2>Episode 1: The Full Story</h2>
-        <p>The inaugural episode covering the foundation transition, security debates, coverage reaction, hardware options, model releases, and community ecosystem.</p>
-        <p class="duration"><strong>Duration:</strong> ~38 minutes | <strong>Published:</strong> February 19, 2026</p>
-        <p><a href="https://grayking-creator.github.io/openclaw-podcast/audio/episode_001_full_v2.mp3">🎧 Listen (Full Episode)</a> &nbsp;|&nbsp; <a href="https://grayking-creator.github.io/openclaw-podcast/episode_001_full_v2.md">📄 Show Notes</a></p>
-    </div>
-    
-    <div class="episode">
-        <h2>Episode 1: Highlights</h2>
-        <p>Quick 3-minute summary of the main news and tips.</p>
-        <p class="duration"><strong>Duration:</strong> ~3 minutes | <strong>Published:</strong> February 19, 2026</p>
-        <p><a href="https://grayking-creator.github.io/openclaw-podcast/audio/episode_001_highlights_v2.mp3">🎧 Listen (Highlights)</a> &nbsp;|&nbsp; <a href="https://grayking-creator.github.io/openclaw-podcast/episode_001_highlights_v2.md">📄 Show Notes</a></p>
-    </div>
+    <main>
+        <section class="hero">
+            <h1>🎙️ OpenClaw Daily Podcast</h1>
+            <p>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models. Hosted by Nova &amp; Alloy.</p>
+        </section>
 
-    <hr>
+        <p class="section-label">Latest Episodes</p>
+
+        <div class="episodes">
+
+            <div class="episode">
+                <div class="episode-header">
+                    <span class="episode-badge">Ep 3</span>
+                    <h2>The Ecosystem Explodes</h2>
+                </div>
+                <p>The AI ecosystem is evolving faster than ever — new models, new tools, and new community projects reshaping what's possible with local AI.</p>
+                <p class="episode-meta">⏱ ~11 min &nbsp;·&nbsp; Feb 20, 2026</p>
+                <div class="episode-actions">
+                    <a href="https://grayking-creator.github.io/openclaw-podcast/audio/episode_003_full.mp3" class="btn btn-listen">🎧 Listen</a>
+                    <a href="https://grayking-creator.github.io/openclaw-podcast/episode_003.md" class="btn btn-notes">📄 Show Notes</a>
+                </div>
+            </div>
+
+            <div class="episode">
+                <div class="episode-header">
+                    <span class="episode-badge">Ep 2</span>
+                    <h2>The Local AI Revolution</h2>
+                </div>
+                <p>A deep dive into the local AI revolution — why running models on your own hardware is becoming not just feasible, but preferable for privacy-conscious creators.</p>
+                <p class="episode-meta">⏱ ~23 min &nbsp;·&nbsp; Feb 20, 2026</p>
+                <div class="episode-actions">
+                    <a href="https://grayking-creator.github.io/openclaw-podcast/audio/episode_002_full.mp3" class="btn btn-listen">🎧 Listen</a>
+                    <a href="https://grayking-creator.github.io/openclaw-podcast/episode_002.md" class="btn btn-notes">📄 Show Notes</a>
+                </div>
+            </div>
+
+            <div class="episode">
+                <div class="episode-header">
+                    <span class="episode-badge">Ep 1 · Full</span>
+                    <h2>The Full Story</h2>
+                </div>
+                <p>The inaugural episode covering the foundation transition, security debates, hardware options, model releases, and community ecosystem.</p>
+                <p class="episode-meta">⏱ ~38 min &nbsp;·&nbsp; Feb 19, 2026</p>
+                <div class="episode-actions">
+                    <a href="https://grayking-creator.github.io/openclaw-podcast/audio/episode_001_full_v2.mp3" class="btn btn-listen">🎧 Listen</a>
+                    <a href="https://grayking-creator.github.io/openclaw-podcast/episode_001_full_v2.md" class="btn btn-notes">📄 Show Notes</a>
+                </div>
+            </div>
+
+            <div class="episode">
+                <div class="episode-header">
+                    <span class="episode-badge">Ep 1 · Highlights</span>
+                    <h2>Highlights</h2>
+                </div>
+                <p>Quick 3-minute summary of the main news and tips from the inaugural episode.</p>
+                <p class="episode-meta">⏱ ~3 min &nbsp;·&nbsp; Feb 19, 2026</p>
+                <div class="episode-actions">
+                    <a href="https://grayking-creator.github.io/openclaw-podcast/audio/episode_001_highlights_v2.mp3" class="btn btn-listen">🎧 Listen</a>
+                    <a href="https://grayking-creator.github.io/openclaw-podcast/episode_001_highlights_v2.md" class="btn btn-notes">📄 Show Notes</a>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="rss-card">
+            <h3>📥 Subscribe via RSS</h3>
+            <p>Add this feed to your podcast app (Overcast, Pocket Casts, Apple Podcasts, etc.)</p>
+            <a href="https://grayking-creator.github.io/openclaw-podcast/feed.xml" class="rss-url">
+                https://grayking-creator.github.io/openclaw-podcast/feed.xml
+            </a>
+        </div>
+    </main>
+
     <footer>
-        <p>🎙️ OpenClaw Daily | Generated by OpenClaw</p>
+        <div class="footer-inner">
+            <p>🎙️ OpenClaw Daily &nbsp;·&nbsp; <a href="https://tobyonfitnesstech.com">TobyOnFitnessTech</a> &nbsp;·&nbsp; Generated by OpenClaw</p>
+        </div>
     </footer>
+
 </body>
 </html>
