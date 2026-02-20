@@ -5,7 +5,7 @@
     <link>https://grayking-creator.github.io/openclaw-podcast/</link>
     <description>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models.</description>
     <language>en-us</language>
-    <lastBuildDate>{{LAST_BUILD_DATE}}</lastBuildDate>
+    <lastBuildDate>Fri, 20 Feb 2026 14:24:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models.</itunes:summary>
     <itunes:owner>
@@ -36,5 +36,32 @@
       <itunes:episode>2</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
     </item>
+    
+    <!-- Episode 3 -->
+    <item>
+      <title>Episode 3: The Ecosystem Explodes</title>
+      <link>https://grayking-creator.github.io/openclaw-podcast/episode_003.md</link>
+      <description>Episode 3 covers DigitalOcean coverage, Cloudflare's Moltworker, CNBC capabilities, security updates, version patches, LLM stats, hardware guides, Adafruit tutorials, and the growing skills marketplace.</description>
+      <pubDate>Fri, 20 Feb 2026 07:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_003_full.mp3" length="10961440" type="audio/mpeg"/>
+      <itunes:duration>11:25</itunes:duration>
+      <itunes:episode>3</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+    </item>
+    
+    <!-- Episode 0 (Pilot) -->
+    <item>
+      <title>Episode 0: Hardware Deep Dive &amp; Fixing Local Model Failures</title>
+      <description><![CDATA[The pilot episode. Nova and Alloy dig into local AI hardware setups and walk through debugging a critical bug causing local model failures on Mac hardware. Essential listening before the series proper.]]></description>
+      <link>https://grayking-creator.github.io/openclaw-podcast/</link>
+      <guid isPermaLink="false">openclaw-daily-episode-000</guid>
+      <pubDate>Wed, 18 Feb 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_000.mp3" length="5036708" type="audio/mpeg"/>
+      <itunes:duration>11:45</itunes:duration>
+      <itunes:episode>0</itunes:episode>
+      <itunes:episodeType>trailer</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    
   </channel>
 </rss>
