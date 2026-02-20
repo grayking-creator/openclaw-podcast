@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/podcasts/</link>
     <description>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. Hosted by Nova and Alloy.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 20 Feb 2026 11:00:34 GMT</lastBuildDate>
+    <lastBuildDate>Fri, 20 Feb 2026 16:35:00 GMT</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. From hardware setups to security tips, model releases to community highlights — everything you need to know about the future of personal AI, right here.</itunes:summary>
     <itunes:owner>
@@ -38,6 +38,19 @@
       <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_001_full_v2.mp3" length="14159468" type="audio/mpeg"/>
       <itunes:duration>38:00</itunes:duration>
       <itunes:episode>1</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
+    </item>
+
+    <!-- Episode 0 -->
+    <item>
+      <title>Episode 0: Hardware Deep Dive - Fixing Local Model Failures</title>
+      <link>https://grayking-creator.github.io/openclaw-podcast/episode_000.md</link>
+      <description>Episode 0 covers the context overflow bug with Clarity (Qwen3-Coder 30B), a full hardware comparison (NVIDIA DGX Spark, Mac Studio M3 Ultra, AMD Ryzen AI Max+ 395, AMD MI300X), and the one-line config fix that solved the problem without any new hardware.</description>
+      <pubDate>Tue, 18 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_000.mp3" length="5036708" type="audio/mpeg"/>
+      <itunes:duration>11:45</itunes:duration>
+      <itunes:episode>0</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
     </item>
