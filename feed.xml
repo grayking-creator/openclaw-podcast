@@ -36,18 +36,5 @@
       <itunes:episode>2</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
     </item>
-    
-    <!-- Episode 3 -->
-    <item>
-      <title>Episode 3: The Ecosystem Explodes</title>
-      <link>https://grayking-creator.github.io/openclaw-podcast/episode_003.md</link>
-      <description>Episode 3 covers DigitalOcean coverage, Cloudflare's Moltworker, CNBC capabilities, security updates, version patches, LLM stats, hardware guides, Adafruit tutorials, and the growing skills marketplace.</description>
-      <pubDate>Fri, 20 Feb 2026 07:00:00 EST</pubDate>
-      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_003_full.mp3" length="10961440" type="audio/mpeg"/>
-      <itunes:duration>11:25</itunes:duration>
-      <itunes:episode>3</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-    </item>
-    
   </channel>
 </rss>
