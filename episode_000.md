@@ -1,4 +1,4 @@
-# Episode 0: Hardware Deep Dive & Fixing Local Model Failures
+# Episode 0: Hardware Deep Dive - Fixing Local Model Failures
 
 **Date:** February 18, 2026  
 **Duration:** 11:45  
