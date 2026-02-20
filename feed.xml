@@ -3,11 +3,11 @@
   <channel>
     <title>OpenClaw Daily</title>
     <link>https://tobyonfitnesstech.com/podcasts/</link>
-    <description>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models.</description>
+    <description>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. Hosted by Nova and Alloy.</description>
     <language>en-us</language>
     <lastBuildDate>{{LAST_BUILD_DATE}}</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
-    <itunes:summary>The podcast all about running your own AI agents, keeping your data private, and the ever-evolving world of local language models.</itunes:summary>
+    <itunes:summary>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. From hardware setups to security tips, model releases to community highlights — everything you need to know about the future of personal AI, right here.</itunes:summary>
     <itunes:owner>
       <itunes:name>OpenClaw Daily</itunes:name>
       <itunes:email>toby@tobyonfitnesstech.com</itunes:email>
