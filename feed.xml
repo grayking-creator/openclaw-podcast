@@ -51,7 +51,7 @@
     
     <!-- Episode 0 (Pilot) -->
     <item>
-      <title>Episode 0: Hardware Deep Dive &amp; Fixing Local Model Failures</title>
+      <title>Episode 0: Hardware Deep Dive - Fixing Local Model Failures</title>
       <description><![CDATA[The pilot episode. Nova and Alloy dig into local AI hardware setups and walk through debugging a critical bug causing local model failures on Mac hardware. Essential listening before the series proper.]]></description>
       <link>https://grayking-creator.github.io/openclaw-podcast/</link>
       <guid isPermaLink="false">openclaw-daily-episode-000</guid>
