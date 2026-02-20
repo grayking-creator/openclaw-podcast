@@ -12,7 +12,7 @@
       <itunes:name>OpenClaw Daily</itunes:name>
       <itunes:email>toby@tobyonfitnesstech.com</itunes:email>
     </itunes:owner>
-    <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
+    <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
@@ -26,7 +26,7 @@
       <itunes:duration>29:52</itunes:duration>
       <itunes:episode>2</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
     </item>
     
     <!-- Episode 1 -->
@@ -39,7 +39,7 @@
       <itunes:duration>38:00</itunes:duration>
       <itunes:episode>1</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.jpg"/>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
     </item>
     
   </channel>
