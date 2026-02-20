@@ -17,7 +17,7 @@ from pathlib import Path
 # Alloy: neutral male voice
 VOICES = {
     "NOVA": "en-GB-SoniaNeural",
-    "ALLOY": "en-GB-RyanNeural"
+    "ALLOY": "en-GB-ThomasNeural"
 }
 
 AUDIO_DIR = Path(__file__).parent / "audio"
