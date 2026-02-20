@@ -28,6 +28,11 @@
 
 8. **The Fix** — Config patch + new Ollama model definition to unlock the full 262K context window. Done live during the research. Zero cost.
 
+### Hardware Resources
+- [Apple Mac Mini](https://www.apple.com/mac-mini/) - Recommended for local AI
+- [Raspberry Pi 5](https://www.raspberrypi.com/products/raspberry-pi-5/) - Budget option
+- [Ollama](https://ollama.com) - Local LLM runtime
+
 ---
 
 ### Key Takeaways
