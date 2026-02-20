@@ -1,0 +1,152 @@
+ Most AI coverage tells you what to be excited about.
+ This show tells you what actually works, and what doesn't,
+ when you're running language models on your own hardware, on your own terms.
+ Open Claw Daily is for people who've moved past the cloud demo phase.
+ You're running local agents, you care where your data goes,
+ and you're skeptical of benchmarks published by the same team that trained the model.
+ Same.
+ Every episode comes from real systems, real failures, and real fixes, not press releases.
+ If something breaks mid-task, we investigate it.
+ OnAir.
+ No editorial cleanup, no hindsight polish.
+ This is the show for builders who run their own stack.
+ Let's get into it.
+ My coding agent, Clarity, running Quinn 3, Coder, 30B,
+ kept hitting context overflow errors right in the middle of tasks.
+ Not occasionally.
+ Reliably.
+ So I started pulling threads, maybe it's a hardware ceiling,
+ maybe I need a DGX Spark or an M3 Ultra to run this properly.
+ That question turned into a full hardware deep dive,
+ real specs, real costs, memory bandwidth, the works.
+ The twist?
+ It wasn't a hardware problem at all.
+ It was a config label.
+ And I found it and fixed it live while doing the research.
+ You'll get the numbers, the honest trade-offs, and a real recommendation.
+ The context overflows you've been hitting?
+ Not a hardware problem.
+ The model you're running, Quinn 3, Coder, 30B,
+ actually supports 262,144 tokens of context.
+ 262,000.
+ Open Claw was capping it at 131,072 because of how the Alima model was named at creation.
+ The V-128K label wasn't a capability ceiling, it was just a string.
+ A label from setup day that became a hard limit by accident.
+ The fix was a config patch and a new Alima model definition.
+ Done.
+ Live.
+ Free.
+ You didn't need new hardware.
+ You needed a one-line fix.
+ That's the plot twist.
+ So let's look at what actually happened on February 18 at 11.15 am.
+ You're prompted 146,760 tokens against a 131,072 limit.
+ Those five-minute timeouts weren't crashes, the model wasn't dying.
+ It was pre-filling.
+ At roughly 400 tokens per second pre-fill speed, processing 146,000 tokens take 6+ minutes.
+ Your timeout threshold was 5 minutes.
+ So the system hit the wall at minute 5, 3 times in a row.
+ 3 consecutive timeouts, perfectly explained by the math.
+ That's not instability.
+ That's a timeout value too short for a context window too large for a configured limit that was wrong to begin with.
+ Three layers of goops stacked on top of each other.
+ Now the memory math.
+ Quinn 3 coder is a mixture of experts' architecture with only four KV attention heads.
+ Compare that to LAMA-38B which has eight.
+ Half.
+ That's an intentional design choice making it dramatically more memory efficient for long context.
+ At 262k context, 15 GB for model weights, 24 GB for the KV cache, OS overhead.
+ Call it 44 GB total.
+ You have 64 GB unified memory.
+ That's 20 GB of headroom.
+ The model that was overflowing fits on your current machine at its full native context, with room to spare.
+ The hardware was fine the whole time.
+ You asked for a hardware report though, so here it is.
+ For options, because there's a new one worth adding to the conversation.
+ Option 1, the NVIDIA DGX spark at $3,000.
+ GBE 10 grace Blackwell chip, 128 GB of LPDDR 5X unified memory, 1 p2 flop of FP4 compute.
+ The number that jumps out, 273 GB per second memory bandwidth.
+ That is actually lower than your current Mac studio, which delivers around 800 GB per second.
+ So the machine NVIDIA is selling as an AI supercomputer has one-third the memory bandwidth of the machine on your desk.
+ Token generation is memory bandwidth bound, bandwidth is the bottleneck.
+ Where Blackwell compensates is FP4 tensor cores.
+ Benchmarks put it at 25 to 50 tokens per second on a 70B model versus your current 10 to 15.
+ Real improvement.
+ But Linux only, it's a sidecar, not a replacement.
+ Link 2 units for $6,000 and you can run 405B+ models.
+ Option 2, Mac Studio M3 Ultra.
+ For $1000 for 192 GB, 8 to 10,000 for 512 GB.
+ Bandwidth, 819 GB per second, modus step up.
+ Apple measured M3 Ultra at 2.1 times faster than M2 Ultra for LLM throughput,
+ architectural improvements in the neural engine and matrix multiplication units.
+ On a 70B model, 20 to 32 tokens per second, roughly double where you are now.
+ The 192 GB config unlocks simultaneous model loading, your 30B coding model, a 70B general model,
+ and the OS all in RAM at once, no swapping. Different workflow.
+ The 512 GB config exists for one reason, LAMA 3.1405B at Q4 weighs 230 GB.
+ That's the only consumer path to running a 400B class model locally.
+ Same Mac OS, same desk, zero friction.
+ Option 3, AMD.
+ And this is actually two very different stories.
+ The consumer path, Threadripper plus dual RX 7900 XTX cards, runs about $5,000 to $6,000.
+ Each card has 24 GB of VRAM.
+ The split VRAM problem means you don't get clean 48 GB of addressable memory,
+ you get 24 with expensive inter-GPU synchronization overhead.
+ ROCM still lags CUDA for LLM inference.
+ You'd spend $5,000 to get the same tokens per second you're getting right now.
+ Hard pass.
+ But AMD has a wildcard that deserves serious attention,
+ especially if your budget ceiling is closer to $2,500 than $25,000.
+ The Ryzen AI Max plus 395, codenamed Strix Halo.
+ 16's N5 cores, 40 RDNA 3.5 compute units for the IGPU, a 50 TOPS NPU, and support for up to 128 GB of LPDDR 5X in a fully unified memory pool.
+ CPU, GPU, and NPU all drawing from the same address space.
+ Sound familiar?
+ This is AMD's answer to Apple Silicon's architecture, on a laptop chip, at consumer pricing.
+ A complete framework desktop AMD edition runs around $2,000 to $2,500.
+ The Asus ROG flows Z13 ships at $24.99.
+ This is the cheapest path, by a significant margin, to 128 GB of unified memory in any form factor.
+ So why isn't it the obvious winner?
+ Bandwidth.
+ Always bandwidth.
+ The memory bus here is 256-bit, delivering roughly 256 GB per second.
+ Compare that to your M2 Ultra at 800 GB per second, that's a three-times deficit.
+ More memory capacity doesn't help if the tokens can't move fast enough.
+ In practice, via llama.cpp CPU backend, roughly 60 to 80 tokens per second on a 7B model, 15 to 20 on a 30B,
+ and 5 to 8 tokens per second on a 70B Q4.
+ Competitive with the M2 Ultra, but not beating it, despite double the addressable RAM.
+ That bandwidth gap is the entire explanation.
+ The iGPU ROCM path exists and works for some models, but it's not production ready yet.
+ Alama routes through CPU.
+ The Vulcan backend shows real promise as the near-term iGPU path on Windows.
+ Where the Ryzen genuinely wins, portability, Windows ecosystem, and raw memory capacity per dollar.
+ If you need 128 GB of unified memory under 3G, there is no other option.
+ This is the fit a 70B model in RAM and accept M2 Ultra Speed's machine.
+ The AMD MI 300X is extraordinary and completely irrelevant to this purchase decision.
+ 192 GB of HBM3 memory, 5.3 TB per second bandwidth, not gigabytes, terabytes, 80 to 120 tokens per second on a 70B model.
+ Also $25,000 minimum, enterprise sales channel only.
+ It belongs in this report for completeness.
+ It doesn't belong in your cart.
+ Here's the workflow insight that reframes everything.
+ The multi-file edit tasks, 5 or more templates at once, large code base refactors, represent maybe 20% of your total workload.
+ The other 80% runs cleanly on current hardware.
+ The question isn't, how do I handle my hardest jobs locally?
+ It's, should my hardest jobs be local at all?
+ DevStrel has 262K native context on the free Mistral API tier.
+ Gemini 2.5 Pro has 1 million tokens of context.
+ For non-private code, those cloud models are the right tool.
+ So here's what I'd actually do, now with the full picture.
+ If you want the best price to performance for everyday LLM work in the Apple ecosystem, MacStudio M3 Ultra 192 GB.
+ The memory bandwidth advantage is decisive.
+ Three times the RAM, twice the speed, same desk, $4,000.
+ If you're on a tight budget and need maximum memory capacity above all else, you want to fit a 70B model in RAM,
+ you're comfortable on Windows, and M2 Ultra Class speeds are acceptable.
+ The Ryzen AI Max+395 in a framework desktop or ROG Flow Z13 is genuinely compelling at $2,000 to $2,500.
+ Nothing else gets you 128GB of unified memory at that price.
+ If you specifically want the CUDA software ecosystem and are comfortable with Linux as a sidecar machine,
+ DGX Spark at $3,000 is the move.
+ Dual unit scale to 405B if you need it later.
+ And if you need 405B, class models running locally today,
+ MacStudio M3 Ultra 512GB at 8 to 10,000 is the only consumer accessible path.
+ The throughput ceiling right now isn't the silicon.
+ It's the config, and we already fixed it.
+ Let your actual workload tell you whether you need more hardware.
+ That's the answer the research came back with, and it's a better answer than any of these boxes.
