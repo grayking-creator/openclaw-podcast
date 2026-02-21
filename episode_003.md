@@ -64,6 +64,20 @@
 
 [SOURCE: https://www.wired.com/story/openclaw-banned-by-tech-companies-as-security-concerns-mount/]
 
+[NOVA]: Here's something worth considering. Remember how we mentioned Meta banned OpenClaw? Well, Peter Steinberger just joined OpenAI.
+
+[ALLOY]: That's an interesting coincidence, isn't it?
+
+[NOVA]: Now we're not saying there's any connection - but you have to wonder. Peter Steinberger, creator of OpenClaw, just left to work at OpenAI. Meanwhile, Meta is banning his creation.
+
+[ALLOY]: Maybe it's just coincidence. Or maybe Peter saw the writing on the wall and decided to go where he's most valued.
+
+[NOVA]: It's fun to speculate. Either way, it shows the complicated relationship between open source projects and the big tech companies.
+
+[ALLOY]: Open source is supposed to be about collaboration. But when big money enters the picture, things get complicated.
+
+[NOVA]: We'll probably never know the full story. But it's interesting to think about.
+
 ---
 
 # SECTION 3: THE ROGUE AGENT
