@@ -18,17 +18,17 @@
     
     <!-- Episode 3 -->
     <item>
-      <title>Episode 3: Real-World Applications</title>
+      <title>Episode 3: The Controversy</title>
       <link>https://tobyonfitnesstech.com/podcasts/episode-3/</link>
-      <description>Episode 3 dives into real-world applications of OpenClaw AI agents — solopreneurs running entire businesses with AI, healthcare and legal firms transforming workflows, real estate agents closing 40% more deals, and content creators doubling capacity. Nova and Alloy cover e-commerce automation, nonprofit fundraising, education, and the social and economic impact of autonomous agents in everyday life.</description>
+      <description>Episode 3 explores the controversies surrounding OpenClaw - expert skepticism, corporate bans, security incidents, the rogue agent story, government warnings, and the divide between companies banning vs. embracing AI agents. Also covers economics, community, accessibility, and the competitive landscape.</description>
       <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_003_full.mp3" length="24642916" type="audio/mpeg"/>
-      <itunes:duration>25:40</itunes:duration>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_003_full.mp3" length="29243811" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
       <itunes:episode>3</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_003_cover.png"/>
     </item>
-
+    
     <!-- Episode 2 -->
     <item>
       <title>Episode 2: The Local AI Revolution</title>
