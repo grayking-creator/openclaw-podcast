@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/podcasts/</link>
     <description>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. Hosted by Nova and Alloy.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 20 Feb 2026 16:56:00 GMT</lastBuildDate>
+    <lastBuildDate>Sat, 21 Feb 2026 17:00:00 GMT</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. From hardware setups to security tips, model releases to community highlights — everything you need to know about the future of personal AI, right here.</itunes:summary>
     <itunes:owner>
@@ -16,6 +16,19 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
+    <!-- Episode 3 -->
+    <item>
+      <title>Episode 3: Real-World Applications</title>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-3/</link>
+      <description>Episode 3 dives into real-world applications of OpenClaw AI agents — solopreneurs running entire businesses with AI, healthcare and legal firms transforming workflows, real estate agents closing 40% more deals, and content creators doubling capacity. Nova and Alloy cover e-commerce automation, nonprofit fundraising, education, and the social and economic impact of autonomous agents in everyday life.</description>
+      <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_003_full.mp3" length="24642916" type="audio/mpeg"/>
+      <itunes:duration>25:40</itunes:duration>
+      <itunes:episode>3</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_003_cover.png"/>
+    </item>
+
     <!-- Episode 2 -->
     <item>
       <title>Episode 2: The Local AI Revolution</title>
