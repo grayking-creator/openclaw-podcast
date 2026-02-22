@@ -16,6 +16,20 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
+    <!-- Episode 4 -->
+    <item>
+      <title>Episode 4: The Agents Awakening</title>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-4/</link>
+      <description>Episode 4 explores the emergence of autonomous AI agents — how they're waking up, taking action, and changing the way we build and interact with software. Covers the latest in agentic AI, local model orchestration, and what it means when your AI starts doing things without being asked.</description>
+      <pubDate>Sun, 22 Feb 2026 10:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_004.mp3" length="30016617" type="audio/mpeg"/>
+      <itunes:duration>31:15</itunes:duration>
+      <itunes:episode>4</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_004_cover.jpg"/>
+      <guid>https://grayking-creator.github.io/openclaw-podcast/audio/episode_004.mp3</guid>
+    </item>
+
     <!-- Episode 3 -->
     <item>
       <title>Episode 3: The Controversy</title>
