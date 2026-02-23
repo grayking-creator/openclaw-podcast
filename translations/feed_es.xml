@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>OpenClaw Daily (Español)</title>
+    <link>https://tobyonfitnesstech.com/podcasts/es/</link>
+    <description>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Aprende a ejecutar tu propia IA localmente, mantén tus datos privados y mantente a la vanguardia en el mundo de los modelos de lenguaje locales.</description>
+    <language>es-es</language>
+    <lastBuildDate>Sun, 22 Feb 2026 23:55:00 GMT</lastBuildDate>
+    <itunes:author>Nova y Alloy</itunes:author>
+    <itunes:summary>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Desde configuraciones de hardware hasta consejos de seguridad, lanzamientos de modelos y aspectos destacados de la comunidad — todo lo que necesitas saber sobre el futuro de la IA personal, aquí mismo.</itunes:summary>
+    <itunes:owner>
+      <itunes:name>OpenClaw Daily Español</itunes:name>
+      <itunes:email>admin@tobyonfitnesstech.com</itunes:email>
+    </itunes:owner>
+    <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
+    <itunes:category text="Technology"/>
+    <itunes:explicit>false</itunes:explicit>
+    
+    <item>
+      <title>Episodio 1: La Historia Completa</title>
+      <link>https://tobyonfitnesstech.com/podcasts/es/episodio-1/</link>
+      <description>El episodio inaugural de OpenClaw Daily que cubre la transición de la fundación, debates de seguridad, opciones de hardware, lanzamientos de modelos y el ecosistema de la comunidad.</description>
+      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_001_es.mp3" length="14159468" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>1</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_001_cover.png"/>
+    </item>
+
+    <item>
+      <title>Episodio 2: La Revolución de la IA Local</title>
+      <link>https://tobyonfitnesstech.com/podcasts/es/episodio-2/</link>
+      <description>El Episodio 2 cubre el soporte oficial de Raspberry Pi, la escasez de Mac Mini, investigación de seguridad de Bitsight y el futuro de los agentes de IA locales.</description>
+      <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_002_es.mp3" length="28765247" type="audio/mpeg"/>
+      <itunes:duration>29:52</itunes:duration>
+      <itunes:episode>2</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_002_cover.png"/>
+    </item>
+
+    <item>
+      <title>Episodio 3: La Controversia</title>
+      <link>https://tobyonfitnesstech.com/podcasts/es/episodio-3/</link>
+      <description>El Episodio 3 explora las controversias en torno a OpenClaw, el escepticismo de los expertos, las prohibiciones corporativas y el incidente del agente que se volvió loco.</description>
+      <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_003_es.mp3" length="29243811" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>3</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_003_cover.png"/>
+    </item>
+
+    <item>
+      <title>Episodio 4: El Ecosistema de los IndieHackers</title>
+      <link>https://tobyonfitnesstech.com/podcasts/es/episodio-4/</link>
+      <description>El Episodio 4 analiza el ecosistema de los IndieHackers que construyen negocios reales sobre OpenClaw y la economía de los empleados virtuales.</description>
+      <pubDate>Sun, 22 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_004_es.mp3" length="23354000" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>4</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_004_cover.png"/>
+    </item>
+
+  </channel>
+</rss>

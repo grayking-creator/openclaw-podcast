@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>OpenClaw Daily (Deutsch)</title>
+    <link>https://tobyonfitnesstech.com/podcasts/de/</link>
+    <description>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Lernen Sie, wie Sie Ihre eigene KI lokal betreiben, Ihre Daten privat halten und in der sich schnell entwickelnden Welt der lokalen Sprachmodelle die Nase vorn haben.</description>
+    <language>de-de</language>
+    <lastBuildDate>Sun, 22 Feb 2026 23:55:00 GMT</lastBuildDate>
+    <itunes:author>Nova &amp; Alloy</itunes:author>
+    <itunes:summary>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Von Hardware-Setups bis zu Sicherheitstipps, Modell-Releases bis zu Community-Highlights — alles, was Sie über die Zukunft der persönlichen KI wissen müssen, direkt hier.</itunes:summary>
+    <itunes:owner>
+      <itunes:name>OpenClaw Daily Deutsch</itunes:name>
+      <itunes:email>admin@tobyonfitnesstech.com</itunes:email>
+    </itunes:owner>
+    <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
+    <itunes:category text="Technology"/>
+    <itunes:explicit>false</itunes:explicit>
+    
+    <item>
+      <title>Episode 1: Die ganze Geschichte</title>
+      <link>https://tobyonfitnesstech.com/podcasts/de/episode-1/</link>
+      <description>Die Eröffnungsepisode von OpenClaw Daily über den Stiftungsübergang, Sicherheitsdebatten, Hardwareoptionen, Modell-Releases und das Community-Ökosystem.</description>
+      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/de/episode_001_de.mp3" length="14159468" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>1</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_001_cover.png"/>
+    </item>
+
+    <item>
+      <title>Episode 2: Die lokale KI-Revolution</title>
+      <link>https://tobyonfitnesstech.com/podcasts/de/episode-2/</link>
+      <description>Episode 2 behandelt die offizielle Unterstützung für Raspberry Pi, den Mac-Mini-Mangel, Bitsight-Sicherheitsforschung und die Zukunft lokaler KI-Agenten.</description>
+      <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/de/episode_002_de.mp3" length="28765247" type="audio/mpeg"/>
+      <itunes:duration>29:52</itunes:duration>
+      <itunes:episode>2</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_002_cover.png"/>
+    </item>
+
+    <item>
+      <title>Episode 3: Die Kontroverse</title>
+      <link>https://tobyonfitnesstech.com/podcasts/de/episode-3/</link>
+      <description>Episode 3 untersucht die Kontroversen um OpenClaw – Experten-Skepsis, Unternehmensverbote und die Geschichte des durchgedrehten Agenten.</description>
+      <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/de/episode_003_de.mp3" length="29243811" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>3</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_003_cover.png"/>
+    </item>
+
+    <item>
+      <title>Episode 4: Das IndieHacker-Ökosystem</title>
+      <link>https://tobyonfitnesstech.com/podcasts/de/episode-4/</link>
+      <description>Episode 4 analysiert das Ökosystem der IndieHacker, die echte Unternehmen auf OpenClaw aufbauen, und die Wirtschaft der virtuellen Mitarbeiter.</description>
+      <pubDate>Sun, 22 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/de/episode_004_de.mp3" length="23316000" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>4</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_004_cover.png"/>
+    </item>
+
+  </channel>
+</rss>

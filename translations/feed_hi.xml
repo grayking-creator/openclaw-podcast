@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>OpenClaw Daily (हिंदी)</title>
+    <link>https://tobyonfitnesstech.com/podcasts/hi/</link>
+    <description>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। सीखें कि अपनी खुद की एआई स्थानीय रूप से कैसे चलाएं, अपने डेटा को निजी रखें, और स्थानीय भाषा मॉडल की तेजी से विकसित होती दुनिया में आगे रहें।</description>
+    <language>hi-in</language>
+    <lastBuildDate>Sun, 22 Feb 2026 23:55:00 GMT</lastBuildDate>
+    <itunes:author>नोवा और अलॉय</itunes:author>
+    <itunes:summary>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। हार्डवेयर सेटअप से लेकर सुरक्षा युक्तियों तक, मॉडल रिलीज से लेकर कम्युनिटी हाइलाइट्स तक — व्यक्तिगत एआई के भविष्य के बारे में वह सब कुछ जो आपको जानना आवश्यक है, ठीक यहाँ।</itunes:summary>
+    <itunes:owner>
+      <itunes:name>OpenClaw Daily Hindi</itunes:name>
+      <itunes:email>admin@tobyonfitnesstech.com</itunes:email>
+    </itunes:owner>
+    <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
+    <itunes:category text="Technology"/>
+    <itunes:explicit>false</itunes:explicit>
+    
+    <item>
+      <title>एपिसोड 1: पूरी कहानी</title>
+      <link>https://tobyonfitnesstech.com/podcasts/hi/episode-1/</link>
+      <description>ओपनक्लॉ डेली का उद्घाटन एपिसोड जिसमें फाउंडेशन संक्रमण, सुरक्षा बहस, हार्डवेयर विकल्प, मॉडल रिलीज और कम्युनिटी पारिस्थितिकी तंत्र को शामिल किया गया है।</description>
+      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/hi/episode_001_hi.mp3" length="14159468" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>1</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_001_cover.png"/>
+    </item>
+
+    <item>
+      <title>एपिसोड 2: स्थानीय एआई क्रांति</title>
+      <link>https://tobyonfitnesstech.com/podcasts/hi/episode-2/</link>
+      <description>एपिसोड 2 रास्पबेरी पाई आधिकारिक समर्थन, मैक मिनी की कमी, बिटसाइट सुरक्षा अनुसंधान और स्थानीय एआई एजेंटों के भविष्य को कवर करता है।</description>
+      <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/hi/episode_002_hi.mp3" length="28765247" type="audio/mpeg"/>
+      <itunes:duration>29:52</itunes:duration>
+      <itunes:episode>2</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_002_cover.png"/>
+    </item>
+
+    <item>
+      <title>एपिसोड 3: विवाद</title>
+      <link>https://tobyonfitnesstech.com/podcasts/hi/episode-3/</link>
+      <description>एपिसोड 3 ओपनक्लॉ के इर्द-गिर्द के विवादों - विशेषज्ञों के संदेह, कॉर्पोरेट प्रतिबंध और बेकाबू एजेंट की घटना की पड़ताल करता है।</description>
+      <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/hi/episode_003_hi.mp3" length="29243811" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>3</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_003_cover.png"/>
+    </item>
+
+    <item>
+      <title>एपिसोड 4: इंडी-हैकर पारिस्थितिकी तंत्र</title>
+      <link>https://tobyonfitnesstech.com/podcasts/hi/episode-4/</link>
+      <description>एपिसोड 4 ओपनक्लॉ पर वास्तविक व्यवसाय बनाने वाले इंडी-हैकर्स के पारिस्थितिकी तंत्र और आभासी कर्मचारी अर्थव्यवस्था का विश्लेषण करता है।</description>
+      <pubDate>Sun, 22 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/hi/episode_004_hi.mp3" length="18171000" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>4</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_004_cover.png"/>
+    </item>
+
+  </channel>
+</rss>
