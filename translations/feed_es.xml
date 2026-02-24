@@ -64,5 +64,18 @@
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_004_cover.png"/>
     </item>
 
+    <item>
+      <title>Episodio 5: La Revolución de la IA Local</title>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-5/</link>
+      <description>El Episodio 5 cubre el análisis empresarial de IBM sobre OpenClaw, guías de Raspberry Pi para IA y el nuevo hardware AI HAT+ 2, una inmersión profunda en Ollama local, la integración de Claude Code + Ollama, investigación de seguridad, y lo que la revolución de la IA local significa para individuos y empresas.</description>
+      <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_005.mp3" length="35258661" type="audio/mpeg"/>
+      <itunes:duration>36:43</itunes:duration>
+      <itunes:episode>5</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_005_cover.png"/>
+      <guid>https://grayking-creator.github.io/openclaw-podcast/audio/episode_005.mp3</guid>
+    </item>
+
   </channel>
 </rss>
