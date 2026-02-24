@@ -69,12 +69,12 @@
       <link>https://tobyonfitnesstech.com/de/podcasts/episode-5/</link>
       <description>Episode 5 behandelt IBMs Unternehmensanalyse von OpenClaw, Raspberry Pi KI-Anleitungen und neue AI HAT+ 2-Hardware, eine eingehende Untersuchung von Ollama lokal, die Claude Code + Ollama-Integration, Sicherheitsforschung und was die lokale KI-Revolution für Einzelpersonen und Unternehmen bedeutet.</description>
       <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_005.mp3" length="35258661" type="audio/mpeg"/>
-      <itunes:duration>36:43</itunes:duration>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/de/episode_005_de.mp3" length="16913808" type="audio/mpeg"/>
+      <itunes:duration>47:00</itunes:duration>
       <itunes:episode>5</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_005_cover.png"/>
-      <guid>https://grayking-creator.github.io/openclaw-podcast/audio/episode_005.mp3</guid>
+      <guid>https://grayking-creator.github.io/openclaw-podcast/translations/de/episode_005_de.mp3</guid>
     </item>
 
   </channel>
