@@ -16,6 +16,20 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
+    <!-- Episode 5 -->
+    <item>
+      <title>Episode 5: The Local AI Revolution</title>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-5/</link>
+      <description>Episode 5 covers IBM's enterprise analysis of OpenClaw, Raspberry Pi AI guides and new AI HAT+ 2 hardware, a deep dive into running Ollama locally, Claude Code + Ollama integration, security research, and what the local AI revolution means for individuals and enterprises alike.</description>
+      <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_005.mp3" length="35258661" type="audio/mpeg"/>
+      <itunes:duration>36:43</itunes:duration>
+      <itunes:episode>5</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_005_cover.png"/>
+      <guid>https://grayking-creator.github.io/openclaw-podcast/audio/episode_005.mp3</guid>
+    </item>
+
     <!-- Episode 4 -->
     <item>
       <title>Episode 4: The Agents Awakening</title>
