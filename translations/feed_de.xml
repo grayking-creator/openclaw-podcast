@@ -16,7 +16,20 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
+    <!-- Episode 6 -->
     <item>
+      <title>Folge 6: Das v2026.2.24 Update &amp; Bot-Soziale-Netzwerke</title>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-6/</link>
+      <description>Folge 6 behandelt das v2026.2.24 Update mit der neuen 5-Tab Android Shell, SSRF-Richtlinienänderung, die Ursprünge des Molty-Maskottchens, Moltbook — das exklusive Bot-Sozialnetzwerk, agentische Koordinationsrisiken, Nanbeige 4.1-3B und Claude 4.6 Support.</description>
+      <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/de/episode_006_de.mp3" length="53697349" type="audio/mpeg"/>
+      <itunes:duration>55:55</itunes:duration>
+      <itunes:episode>6</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <guid>https://grayking-creator.github.io/openclaw-podcast/translations/de/episode_006_de.mp3</guid>
+    </item>
+
+        <item>
       <title>Episode 1: Die ganze Geschichte</title>
       <link>https://tobyonfitnesstech.com/podcasts/de/episode-1/</link>
       <description>Die Eröffnungsepisode von OpenClaw Daily über den Stiftungsübergang, Sicherheitsdebatten, Hardwareoptionen, Modell-Releases und das Community-Ökosystem.</description>

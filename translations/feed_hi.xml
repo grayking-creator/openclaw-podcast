@@ -16,7 +16,20 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
+    <!-- Episode 6 -->
     <item>
+      <title>एपिसोड 6: v2026.2.24 अपडेट और बॉट सोशल नेटवर्क</title>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-6/</link>
+      <description>एपिसोड 6 में v2026.2.24 अपडेट, SSRF नीति परिवर्तन, Molty शुभंकर की उत्पत्ति, Moltbook — केवल बॉट्स के लिए सोशल नेटवर्क, एजेंटिक समन्वय के जोखिम, Nanbeige 4.1-3B और Claude 4.6 सपोर्ट शामिल है।</description>
+      <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/hi/episode_006_hi.mp3" length="58585799" type="audio/mpeg"/>
+      <itunes:duration>61:02</itunes:duration>
+      <itunes:episode>6</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <guid>https://grayking-creator.github.io/openclaw-podcast/translations/hi/episode_006_hi.mp3</guid>
+    </item>
+
+        <item>
       <title>एपिसोड 1: पूरी कहानी</title>
       <link>https://tobyonfitnesstech.com/podcasts/hi/episode-1/</link>
       <description>ओपनक्लॉ डेली का उद्घाटन एपिसोड जिसमें फाउंडेशन संक्रमण, सुरक्षा बहस, हार्डवेयर विकल्प, मॉडल रिलीज और कम्युनिटी पारिस्थितिकी तंत्र को शामिल किया गया है।</description>
