@@ -18,7 +18,7 @@
     
     <!-- Episode 6 -->
     <item>
-      <title>Episode 6: The v2026.2.24 Update &amp; Bot Social Networks</title>
+      <title><![CDATA[Episode 6: The v2026.2.24 Update & Bot Social Networks]]></title>
       <link>https://tobyonfitnesstech.com/podcasts/episode-6/</link>
       <description>Episode 6 covers the massive OpenClaw v2026.2.24 release with its new 5-tab Android shell and security hardening, the v2026.2.23 SSRF policy shift, the origins of the Molty mascot and the Lobster Way culture, Moltbook — a social network built by bots for bots with humans forbidden, the security risks of agentic coordination, the MoltMatch consent controversy, Nanbeige 4.1-3B for low-spec hardware, and Claude Opus 4.6 integration.</description>
       <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
