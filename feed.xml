@@ -22,12 +22,12 @@
       <link>https://tobyonfitnesstech.com/podcasts/episode-7/</link>
       <description>Episode 7 covers Fortune on AI agents working while you sleep, deterministic multi-agent pipelines, Steptoe legal analysis on AI agent liability, TechTarget enterprise explainer on OpenClaw and Moltbook, the official 30-minute onboarding playbook, the massive v2026.2.26 release with External Secrets Management and ACP thread-bound agents, Meta AI safety incident, Wikipedia updated entry, 150K GitHub stars milestone, 21 automations to build, the VirusTotal ClawHub partnership, and OpenClaw going mainstream with beginner tutorials.</description>
       <pubDate>Wed, 26 Feb 2026 20:00:00 EST</pubDate>
-      <enclosure url="https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_007.mp3" length="46407305" type="audio/mpeg"/>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_007.mp3" length="46407305" type="audio/mpeg"/>
       <itunes:duration>48:20</itunes:duration>
       <itunes:episode>7</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_007_cover.png"/>
-      <guid>https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_007.mp3</guid>
+      <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_007.mp3</guid>
     </item>
     <!-- Episode 6 -->
     <item>
@@ -35,12 +35,12 @@
       <link>https://tobyonfitnesstech.com/podcasts/episode-6/</link>
       <description>Episode 6 covers the massive OpenClaw v2026.2.24 release with its new 5-tab Android shell and security hardening, the v2026.2.23 SSRF policy shift, the origins of the Molty mascot and the Lobster Way culture, Moltbook — a social network built by bots for bots with humans forbidden, the security risks of agentic coordination, the MoltMatch consent controversy, Nanbeige 4.1-3B for low-spec hardware, and Claude Opus 4.6 integration.</description>
       <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
-      <enclosure url="https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_006.mp3" length="42049662" type="audio/mpeg"/>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_006.mp3" length="42049662" type="audio/mpeg"/>
       <itunes:duration>43:49</itunes:duration>
       <itunes:episode>6</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_006_cover.png"/>
-      <guid>https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_006.mp3</guid>
+      <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_006.mp3</guid>
     </item>
 
     <!-- Episode 5 -->
@@ -49,12 +49,12 @@
       <link>https://tobyonfitnesstech.com/podcasts/episode-5/</link>
       <description>Episode 5 covers IBM's enterprise analysis of OpenClaw, Raspberry Pi AI guides and new AI HAT+ 2 hardware, a deep dive into running Ollama locally, Claude Code + Ollama integration, security research, and what the local AI revolution means for individuals and enterprises alike.</description>
       <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_005.mp3" length="35258661" type="audio/mpeg"/>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_005.mp3" length="35258661" type="audio/mpeg"/>
       <itunes:duration>36:43</itunes:duration>
       <itunes:episode>5</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_005_cover.png"/>
-      <guid>https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_005.mp3</guid>
+      <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_005.mp3</guid>
     </item>
 
     <!-- Episode 4 -->
@@ -63,12 +63,12 @@
       <link>https://tobyonfitnesstech.com/podcasts/episode-4/</link>
       <description>Episode 4 explores the emergence of autonomous AI agents — how they're waking up, taking action, and changing the way we build and interact with software. Covers the latest in agentic AI, local model orchestration, and what it means when your AI starts doing things without being asked.</description>
       <pubDate>Sun, 22 Feb 2026 10:00:00 EST</pubDate>
-      <enclosure url="https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_004.mp3" length="30016617" type="audio/mpeg"/>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_004.mp3" length="30016617" type="audio/mpeg"/>
       <itunes:duration>31:15</itunes:duration>
       <itunes:episode>4</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_004_cover.jpg"/>
-      <guid>https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_004.mp3</guid>
+      <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_004.mp3</guid>
     </item>
 
     <!-- Episode 3 -->
@@ -77,7 +77,7 @@
       <link>https://tobyonfitnesstech.com/podcasts/episode-3/</link>
       <description>Episode 3 explores the controversies surrounding OpenClaw - expert skepticism, corporate bans, security incidents, the rogue agent story, government warnings, and the divide between companies banning vs. embracing AI agents. Also covers economics, community, accessibility, and the competitive landscape.</description>
       <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_003_full.mp3" length="29243811" type="audio/mpeg"/>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_003_full.mp3" length="29243811" type="audio/mpeg"/>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>3</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -90,7 +90,7 @@
       <link>https://tobyonfitnesstech.com/podcasts/episode-2/</link>
       <description>Episode 2 covers Raspberry Pi official support, Mac Mini shortage, Bitsight security research (30K exposed instances), Peter Steinberger profile, VentureBeat coverage, Trend Micro analysis, Georgetown research, developer tools, hardware guides, and the future of local AI agents.</description>
       <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_002_full.mp3" length="28765247" type="audio/mpeg"/>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_002_full.mp3" length="28765247" type="audio/mpeg"/>
       <itunes:duration>29:52</itunes:duration>
       <itunes:episode>2</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -103,7 +103,7 @@
       <link>https://tobyonfitnesstech.com/podcasts/episode-1/</link>
       <description>The inaugural episode of OpenClaw Daily covering the foundation transition, security debates, hardware options, model releases, and community ecosystem.</description>
       <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_001_full_v2.mp3" length="14159468" type="audio/mpeg"/>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_001_full_v2.mp3" length="14159468" type="audio/mpeg"/>
       <itunes:duration>38:00</itunes:duration>
       <itunes:episode>1</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -116,7 +116,7 @@
       <link>https://tobyonfitnesstech.com/podcasts/episode-0/</link>
       <description>Episode 0 covers the context overflow bug with Clarity (Qwen3-Coder 30B), a full hardware comparison (NVIDIA DGX Spark, Mac Studio M3 Ultra, AMD Ryzen AI Max+ 395, AMD MI300X), and the one-line config fix that solved the problem without any new hardware.</description>
       <pubDate>Tue, 18 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://media.githubusercontent.com/media/clawdassistant85-netizen/openclaw-podcast-audio/main/audio/episode_000.mp3" length="5036708" type="audio/mpeg"/>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_000.mp3" length="5036708" type="audio/mpeg"/>
       <itunes:duration>11:45</itunes:duration>
       <itunes:episode>0</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
