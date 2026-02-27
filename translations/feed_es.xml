@@ -22,11 +22,11 @@
       <link>https://tobyonfitnesstech.com/es/podcasts/episode-6/</link>
       <description>El episodio 6 cubre la actualización v2026.2.24, el cambio de política SSRF, los orígenes de la mascota Molty, Moltbook — la red social exclusiva de bots, riesgos de coordinación agentiva, Nanbeige 4.1-3B y soporte de Claude 4.6.</description>
       <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_006_es.mp3" length="48312363" type="audio/mpeg"/>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_006_es.mp3" length="48312363" type="audio/mpeg"/>
       <itunes:duration>50:20</itunes:duration>
       <itunes:episode>6</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_006_es.mp3</guid>
+      <guid>https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_006_es.mp3</guid>
     </item>
 
         <item>
@@ -34,7 +34,7 @@
       <link>https://tobyonfitnesstech.com/podcasts/es/episodio-1/</link>
       <description>El episodio inaugural de OpenClaw Daily que cubre la transición de la fundación, debates de seguridad, opciones de hardware, lanzamientos de modelos y el ecosistema de la comunidad.</description>
       <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_001_es.mp3" length="14159468" type="audio/mpeg"/>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_001_es.mp3" length="14159468" type="audio/mpeg"/>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>1</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -46,7 +46,7 @@
       <link>https://tobyonfitnesstech.com/podcasts/es/episodio-2/</link>
       <description>El Episodio 2 cubre el soporte oficial de Raspberry Pi, la escasez de Mac Mini, investigación de seguridad de Bitsight y el futuro de los agentes de IA locales.</description>
       <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_002_es.mp3" length="28765247" type="audio/mpeg"/>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_002_es.mp3" length="28765247" type="audio/mpeg"/>
       <itunes:duration>29:52</itunes:duration>
       <itunes:episode>2</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -58,7 +58,7 @@
       <link>https://tobyonfitnesstech.com/podcasts/es/episodio-3/</link>
       <description>El Episodio 3 explora las controversias en torno a OpenClaw, el escepticismo de los expertos, las prohibiciones corporativas y el incidente del agente que se volvió loco.</description>
       <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_003_es.mp3" length="29243811" type="audio/mpeg"/>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_003_es.mp3" length="29243811" type="audio/mpeg"/>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>3</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -70,7 +70,7 @@
       <link>https://tobyonfitnesstech.com/podcasts/es/episodio-4/</link>
       <description>El Episodio 4 analiza el ecosistema de los IndieHackers que construyen negocios reales sobre OpenClaw y la economía de los empleados virtuales.</description>
       <pubDate>Sun, 22 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_004_es.mp3" length="23354000" type="audio/mpeg"/>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_004_es.mp3" length="23354000" type="audio/mpeg"/>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>4</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -82,12 +82,12 @@
       <link>https://tobyonfitnesstech.com/es/podcasts/episode-5/</link>
       <description>El Episodio 5 cubre el análisis empresarial de IBM sobre OpenClaw, guías de Raspberry Pi para IA y el nuevo hardware AI HAT+ 2, una inmersión profunda en Ollama local, la integración de Claude Code + Ollama, investigación de seguridad, y lo que la revolución de la IA local significa para individuos y empresas.</description>
       <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_005_es.mp3" length="14717376" type="audio/mpeg"/>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_005_es.mp3" length="14717376" type="audio/mpeg"/>
       <itunes:duration>41:00</itunes:duration>
       <itunes:episode>5</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_005_cover.png"/>
-      <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_005_es.mp3</guid>
+      <guid>https://grayking-creator.github.io/openclaw-podcast/translations/es/episode_005_es.mp3</guid>
     </item>
 
   </channel>
