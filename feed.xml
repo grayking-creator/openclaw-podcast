@@ -74,6 +74,7 @@
     <!-- Episode 3 -->
     <item>
       <title>Episode 3: The Controversy</title>
+    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_003.mp3</guid>
       <link>https://tobyonfitnesstech.com/podcasts/episode-3/</link>
       <description>Episode 3 explores the controversies surrounding OpenClaw - expert skepticism, corporate bans, security incidents, the rogue agent story, government warnings, and the divide between companies banning vs. embracing AI agents. Also covers economics, community, accessibility, and the competitive landscape.</description>
       <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
@@ -87,6 +88,7 @@
     <!-- Episode 2 -->
     <item>
       <title>Episode 2: The Local AI Revolution</title>
+    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_002.mp3</guid>
       <link>https://tobyonfitnesstech.com/podcasts/episode-2/</link>
       <description>Episode 2 covers Raspberry Pi official support, Mac Mini shortage, Bitsight security research (30K exposed instances), Peter Steinberger profile, VentureBeat coverage, Trend Micro analysis, Georgetown research, developer tools, hardware guides, and the future of local AI agents.</description>
       <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
@@ -100,6 +102,7 @@
     <!-- Episode 1 -->
     <item>
       <title>Episode 1: The Full Story</title>
+    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_001.mp3</guid>
       <link>https://tobyonfitnesstech.com/podcasts/episode-1/</link>
       <description>The inaugural episode of OpenClaw Daily covering the foundation transition, security debates, hardware options, model releases, and community ecosystem.</description>
       <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
@@ -113,6 +116,7 @@
     <!-- Episode 0 -->
     <item>
       <title>Episode 0: Hardware Deep Dive - Fixing Local Model Failures</title>
+    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_000.mp3</guid>
       <link>https://tobyonfitnesstech.com/podcasts/episode-0/</link>
       <description>Episode 0 covers the context overflow bug with Clarity (Qwen3-Coder 30B), a full hardware comparison (NVIDIA DGX Spark, Mac Studio M3 Ultra, AMD Ryzen AI Max+ 395, AMD MI300X), and the one-line config fix that solved the problem without any new hardware.</description>
       <pubDate>Tue, 18 Feb 2026 06:00:00 EST</pubDate>
