@@ -17,6 +17,21 @@
     <itunes:explicit>false</itunes:explicit>
     
     <!-- Episode 7 -->
+
+    <item>
+      <title>Episode 8: The Open Source AI Revolution</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_008.mp3</guid>
+      <description>Episode 8 of OpenClaw Daily covers the open source AI revolution.
+
+Show notes: https://github.com/grayking-creator/openclaw-podcast/blob/main/show_notes_episode_008.md
+Podcast page: https://tobyonfitnesstech.com/podcasts/openclaw/</description>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_008.mp3" length="33219456" type="audio/mpeg"/>
+      <pubDate>Sat, 28 Feb 2026 18:00:00 +0000</pubDate>
+      <itunes:duration>34:38</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:episode>8</itunes:episode>
+    </item>
     <item>
       <title><![CDATA[Episode 7: The Week OpenClaw Grew Up]]></title>
       <link>https://tobyonfitnesstech.com/podcasts/episode-7/</link>
