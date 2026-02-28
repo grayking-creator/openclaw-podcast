@@ -230,7 +230,7 @@
 
 [ALLOY]: Exactly. The people winning in this space aren't waiting for perfect conditions. They're building with what's available now, learning as they go, and upgrading their setup as their needs grow and their use cases prove out. That's the right mindset.
 
-[NOVA]: Alright, that's a wrap on today's episode. Before we go — if you want to dig deeper into anything we covered today, the full show notes are available at tobyonfitnesstech.com/podcasts/openclaw/ — and we've also linked them directly in the episode description. Every episode has its own show notes page with sources, links, and key stats.
+[NOVA]: Alright. Now we're really done. Thanks for joining us today on OpenClaw Daily.
 
 [ALLOY]: That's all for today's episode of OpenClaw Daily. Thanks for listening — we'll see you next time.
 
