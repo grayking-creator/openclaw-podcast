@@ -64,3 +64,31 @@
 
 ---
 *Episode 8 | Recorded: February 28, 2026*
+
+### 6. Local Models for Developers
+- No API latency, no rate limits, no cost per prototype call
+- Code privacy: proprietary codebases never leave the machine
+- Model routing: match specialist models to tasks (coding model for code, reasoning model for analysis)
+- Enterprise compliance: local solves cloud AI bans at many companies
+- **Sources:** https://www.sitepoint.com/definitive-guide-local-llms-2026-privacy-tools-hardware/
+
+### 7. What's Coming Next — 2026 Roadmap
+- Multimodal (text+image+audio+video) local models approaching mainstream quality
+- Voice-native agents: low-latency local voice becoming viable
+- Edge deployment: capable models on phones, cameras, sensors, robots
+- Model compression enabling AI on highly constrained hardware
+
+### 8. Cost Economics of Going Local
+- Mid-range setup (~$2,000 Mac Mini 64GB): breaks even vs cloud API costs in under a year
+- Apple Silicon efficiency: low power draw, high memory bandwidth
+- Free cloud tiers (NVIDIA NIM, etc.) for those not ready to buy hardware
+- Research/academic use: free iteration, reproducibility, data privacy
+
+## Updated Key Takeaways
+1. **Local models are exploding** - Qwen3, LFM 2, Gemma 3, Phi-4 all excellent options
+2. **Ollama makes it easy** - recent updates made onboarding seamless
+3. **Practical automation is real** - businesses running autonomously overnight
+4. **Developer shift underway** - local replaces cloud APIs for prototyping and privacy-sensitive work
+5. **SaaS option available** - Clawbot AI for those who don't want to self-host
+6. **Update your OpenClaw** - patch ClawJacked vulnerability (v2026.2.25+)
+7. **The economics work** - hardware pays for itself within a year for active users
