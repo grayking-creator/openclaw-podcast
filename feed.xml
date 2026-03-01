@@ -18,6 +18,20 @@
     
     <!-- Episode 7 -->
 
+    
+    <item>
+      <title>Special: Building a Distributed AI Cluster with exo-labs</title>
+      <description><![CDATA[A deep-dive special episode on building a distributed AI inference cluster using exo-labs and Apple Silicon. Nova and Alloy cover everything from installation and RDMA networking to model selection, daemonization, and an honest verdict on who should actually do this.
+
+Show notes: https://tobyonfitnesstech.com/podcasts/exo-cluster/]]></description>
+      <pubDate>Sun, 01 Mar 2026 14:00:00 +0000</pubDate>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/exo_cluster_podcast.mp3" length="45088768" type="audio/mpeg"/>
+      <itunes:duration>47:14</itunes:duration>
+      <itunes:episodeType>bonus</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+      <guid isPermaLink="false">openclaw-special-exo-cluster</guid>
+    </item>
+
     <item>
       <title>Episode 8: The Open Source AI Revolution</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_008.mp3</guid>
