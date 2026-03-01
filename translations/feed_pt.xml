@@ -17,7 +17,21 @@
     <itunes:explicit>false</itunes:explicit>
     
     <!-- Episode 6 -->
-        <item>
+    
+    <item>
+      <title>Episódio 8: A Revolução da IA de Código Aberto</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_008_pt.mp3</guid>
+      <description>Episódio 8 cobre o ecossistema Ollama, novos lançamentos de modelos (LFM 2, Qwen3, Gemma 3, Phi-4, DeepSeek R1), automação empresarial e a economia da IA local.
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-8/</description>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_008_pt.mp3" length="36700160" type="audio/mpeg"/>
+      <pubDate>Sat, 28 Feb 2026 19:00:00 +0000</pubDate>
+      <itunes:duration>35:00</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:episode>8</itunes:episode>
+    </item>
+    <item>
       <title><![CDATA[Episódio 7: O Momento Agêntico do OpenClaw, Legitimidade na Wikipedia e o Marco de 150K Estrelas]]></title>
       <link>https://tobyonfitnesstech.com/podcasts/episode-7/</link>
       <description><![CDATA[Episode 7 covers OpenClaw's first true agentic incident, how the project earned a legitimate Wikipedia entry, the 150K GitHub star milestone, and what these moments mean for the future of AI agents.]]></description>

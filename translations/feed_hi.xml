@@ -17,7 +17,21 @@
     <itunes:explicit>false</itunes:explicit>
     
     <!-- Episode 6 -->
-        <item>
+    
+    <item>
+      <title>एपिसोड 8: ओपन सोर्स AI क्रांति</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_008_hi.mp3</guid>
+      <description>एपिसोड 8 Ollama इकोसिस्टम, नए मॉडल रिलीज़ (LFM 2, Qwen3, Gemma 3, Phi-4, DeepSeek R1), बिज़नेस ऑटोमेशन और लोकल AI की अर्थव्यवस्था को कवर करता है।
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-8/</description>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_008_hi.mp3" length="47185920" type="audio/mpeg"/>
+      <pubDate>Sat, 28 Feb 2026 19:00:00 +0000</pubDate>
+      <itunes:duration>45:00</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:episode>8</itunes:episode>
+    </item>
+    <item>
       <title><![CDATA[एपिसोड 7: OpenClaw का एजेंटिक पल, Wikipedia पर वैधता और 150K स्टार माइलस्टोन]]></title>
       <link>https://tobyonfitnesstech.com/podcasts/episode-7/</link>
       <description><![CDATA[Episode 7 covers OpenClaw's first true agentic incident, how the project earned a legitimate Wikipedia entry, the 150K GitHub star milestone, and what these moments mean for the future of AI agents.]]></description>
