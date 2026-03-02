@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/podcasts/hi/</link>
     <description>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। सीखें कि अपनी खुद की एआई स्थानीय रूप से कैसे चलाएं, अपने डेटा को निजी रखें, और स्थानीय भाषा मॉडल की तेजी से विकसित होती दुनिया में आगे रहें।</description>
     <language>hi-in</language>
-    <lastBuildDate>Mon, 02 Mar 2026 20:10:00 GMT</lastBuildDate>
+    <lastBuildDate>Mon, 02 Mar 2026 20:30:00 GMT</lastBuildDate>
     <itunes:author>नोवा और अलॉय</itunes:author>
     <itunes:summary>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। हार्डवेयर सेटअप से लेकर सुरक्षा युक्तियों तक, मॉडल रिलीज से लेकर कम्युनिटी हाइलाइट्स तक — व्यक्तिगत एआई के भविष्य के बारे में वह सब कुछ जो आपको जानना आवश्यक है, ठीक यहाँ।</itunes:summary>
     <itunes:owner>
@@ -17,6 +17,22 @@
     <itunes:explicit>false</itunes:explicit>
     
     <!-- Episode 6 -->
+
+    <item>
+      <title><![CDATA[एपिसोड 9: OpenClaw v2026.3.1 — जब आपका असिस्टेंट ‘इन्फ्रास्ट्रक्चर’ जैसा व्यवहार करने लगे]]></title>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-9/</link>
+      <description><![CDATA[एपिसोड 9 में OpenClaw v2026.3.1 कवर है — एक reliability/infra रिलीज़: Discord thread sessions के lifecycles, Telegram DM topics, Android notifications actions + device health, health/readiness probes, WebSocket-first streaming, और ज्यादा शांत cron automation.
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-9/]]></description>
+      <pubDate>Mon, 02 Mar 2026 20:05:00 +0000</pubDate>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_009_hi.mp3" length="6673597" type="audio/mpeg"/>
+      <itunes:duration>6:57</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:episode>9</itunes:episode>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_009_hi.mp3</guid>
+    </item>
+
 <item>
       <title>एपिसोड 8: ओपन सोर्स AI क्रांति</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_008_hi.mp3</guid>
