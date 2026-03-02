@@ -24,11 +24,26 @@ AUDIO_DIR = Path(__file__).parent / "audio"
 
 
 async def generate_audio(text: str, voice: str, output_path: str):
-    """Generate audio for a single text segment using edge-tts."""
+    """Generate audio for a single text segment using edge-tts.
+
+    edge-tts occasionally returns transient 503s; we retry with backoff.
+    """
     from edge_tts import Communicate
-    
-    communicate = Communicate(text, voice)
-    await communicate.save(output_path)
+
+    last_err = None
+    for attempt in range(1, 6):
+        try:
+            communicate = Communicate(text, voice)
+            await communicate.save(output_path)
+            return
+        except Exception as e:
+            last_err = e
+            # backoff: 2, 4, 8, 16, 20 seconds
+            delay = min(20, 2 ** attempt)
+            print(f"edge-tts error (attempt {attempt}/5): {e}. Retrying in {delay}s...")
+            await asyncio.sleep(delay)
+
+    raise last_err
 
 
 def parse_script(script_path: str) -> list:
@@ -43,6 +58,17 @@ def parse_script(script_path: str) -> list:
     for i in range(1, len(parts), 2):
         speaker = parts[i].strip('[]:')
         text = parts[i+1].strip()
+
+        # --- TTS scrub pass (prevents spoken markdown artifacts) ---
+        # Remove markdown headings like "## Segment ..." or "# Title" that may sit between speaker turns.
+        text = re.sub(r'^\s*#{1,6}\s+.*$', '', text, flags=re.MULTILINE)
+        # Remove fenced code blocks entirely
+        text = re.sub(r'```[\s\S]*?```', '', text, flags=re.MULTILINE)
+        # Remove leftover markdown emphasis markers
+        text = text.replace('**', '')
+        # Collapse extra blank lines
+        text = re.sub(r'\n{3,}', '\n\n', text).strip()
+
         if text and speaker in VOICES:
             dialogue.append((speaker, text))
     
@@ -59,6 +85,23 @@ async def generate_podcast_audio(script_path: str, output_name: str = None):
     # Parse script
     dialogue = parse_script(script_path)
     print(f"Found {len(dialogue)} dialogue segments")
+
+    # --- Narrative lint: prevent false-finish phrasing from slipping through ---
+    # These phrases read like an outro, and multiple occurrences create "false finishes".
+    # We warn here so production can fix the script before publishing.
+    script_text = script_path.read_text(encoding='utf-8', errors='ignore').lower()
+    false_finish_markers = [
+        'one more thing',
+        'one last thing',
+        'before we close',
+        'now we can close',
+        'alright. now we can close',
+    ]
+    counts = {m: script_text.count(m) for m in false_finish_markers}
+    if any(v > 0 for v in counts.values()):
+        # Only print markers that occur
+        bad = {k: v for k, v in counts.items() if v}
+        print(f"WARNING: possible false-finish markers found in script: {bad}")
     
     # Create temp directory for segments
     with tempfile.TemporaryDirectory() as temp_dir:
