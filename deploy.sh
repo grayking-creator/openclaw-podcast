@@ -2,7 +2,7 @@
 # Podcast RSS Feed Generator & GitHub Pages Deploy Script
 # Run this to generate RSS feed and deploy to GitHub Pages
 
-PODCAST_DIR="/Users/tobyglennpeters/.openclaw/workspace/podcast"
+PODCAST_DIR="/Users/toby/.openclaw/workspace/openclaw-podcast"
 REPO_URL="https://github.com/grayking-creator/openclaw-podcast.git"
 
 echo "📡 Generating RSS feed..."
@@ -12,8 +12,8 @@ cd "$PODCAST_DIR"
 # Generate timestamp
 LAST_BUILD=$(date -u +"%a, %d %b %Y %H:%M:%S GMT")
 
-# Replace placeholder in feed.xml
-sed -i '' "s/{{LAST_BUILD_DATE}}/$LAST_BUILD/" feed.xml
+# Update lastBuildDate in feed.xml
+LAST_BUILD="$LAST_BUILD" perl -0777 -i -pe 's#<lastBuildDate>.*?</lastBuildDate>#<lastBuildDate>'"$ENV{LAST_BUILD}"'</lastBuildDate>#s' feed.xml
 
 echo "✅ RSS feed generated"
 
