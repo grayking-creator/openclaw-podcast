@@ -17,22 +17,6 @@
     <itunes:explicit>false</itunes:explicit>
     
     <!-- Episode 6 -->
-
-    <item>
-      <title><![CDATA[Episodio 9: OpenClaw v2026.3.1 — Cuando tu asistente empieza a comportarse como infraestructura]]></title>
-      <link>https://tobyonfitnesstech.com/es/podcasts/episode-9/</link>
-      <description><![CDATA[El Episodio 9 cubre OpenClaw v2026.3.1 — una actualización de confiabilidad e infraestructura: ciclos de vida de sesiones en hilos de Discord, temas en DMs de Telegram, acciones en notificaciones + salud del dispositivo en Android, health/readiness probes, streaming WebSocket-first y automatización cron más silenciosa.
-
-Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-9/]]></description>
-      <pubDate>Mon, 02 Mar 2026 20:05:00 +0000</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_009_es.mp3" length="9687501" type="audio/mpeg"/>
-      <itunes:duration>10:05</itunes:duration>
-      <itunes:explicit>false</itunes:explicit>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:episode>9</itunes:episode>
-      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_009_es.mp3</guid>
-    </item>
-
 <item>
       <title>Episodio 8: La Revolución de la IA de Código Abierto</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_008_es.mp3</guid>
