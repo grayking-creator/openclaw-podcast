@@ -1,127 +1,465 @@
-# OpenClaw Daily - एपिसोड 9: OpenClaw v2026.3.1 — जब आपका असिस्टेंट ‘इन्फ्रास्ट्रक्चर’ जैसा व्यवहार करने लगे
+# OpenClaw Daily Podcast - एपिसोड 9: OpenClaw v2026.3.1 — जब आपका असिस्टेंट ‘इन्फ्रास्ट्रक्चर’ जैसा व्यवहार करने लगे
 # तारीख: 2 मार्च 2026
-# होस्ट: Nova (warm British) & Alloy (American)
+# होस्ट: Nova (warm British) और Alloy (American)
 
 [NOVA]: OpenClaw Daily में फिर से स्वागत है। मैं Nova हूँ।
 
 [ALLOY]: और मैं Alloy।
 
-[NOVA]: आज हम OpenClaw v2026.3.1 पर रिलीज़ एपिसोड कर रहे हैं। यह “नया चमकदार मॉडल” वाला एपिसोड नहीं है — यह “कल सुबह आपका सिस्टम कम नाज़ुक लगेगा” वाला एपिसोड है।
+[NOVA]: आज हम OpenClaw v2026.3.1 पर एक रिलीज़ एपिसोड कर रहे हैं। और मैं शुरुआत में ही अपेक्षाएँ सेट करना चाहती हूँ: यह “नया चमकदार मॉडल” वाला एपिसोड नहीं है। यह “कल सुबह आपका सिस्टम कम नाज़ुक लगेगा” वाला एपिसोड है।
 
-[ALLOY]: ऐसे अपडेट में आप एक बड़ी फीचर नहीं देखते। आप देखते हैं कि तीन छोटे-छोटे दर्द, जिन्हें आप सामान्य मान चुके थे… बस बंद हो जाते हैं।
+[ALLOY]: यह उस तरह का अपडेट है जहाँ आपको एक बड़ी फीचर नहीं दिखती। आपको यह दिखता है कि तीन छोटी-छोटी परेशानियाँ, जिन्हें आपने सामान्य मान लिया था… बस बंद हो जाती हैं।
 
 [NOVA]: बिल्कुल। यह एक इंफ्रास्ट्रक्चर रिलीज़ है।
 
-[ALLOY]: जो उबाऊ लगती है… जब तक आप ही उसे ऑपरेट नहीं कर रहे।
+[ALLOY]: जो उबाऊ लगती है… जब तक आप ही उसे चला नहीं रहे होते।
 
-[NOVA]: जब आप OpenClaw को सच में चला रहे हों — Discord, Telegram, शायद कोई फोन-नोड, शायद सर्वर, शायद Docker — तो आपको सरप्राइज़ नहीं चाहिए। आपको predictable lifecycles चाहिए, health signal चाहिए, streaming चाहिए जो टूटे नहीं, और automation चाहिए जो चैनल्स में स्पैम न करे।
+[NOVA]: सही। जब आप OpenClaw को सच में चला रहे हों — Discord, Telegram, शायद फोन-नोड, शायद सर्वर, शायद Docker — तो आप सरप्राइज़ नहीं चाहते। आप predictable lifecycles चाहते हैं। आप health signal चाहते हैं। आप streaming चाहते हैं जो बिखरे नहीं। आप automation चाहते हैं जो आपके channels को spam न करे।
 
-[ALLOY]: और यह रिलीज़ ठीक उसी पर काम करती है।
+[ALLOY]: और यह रिलीज़ उसी पर काम करती है।
 
-[NOVA]: आज हम कवर करेंगे: Discord thread sessions का lifecycle (fixed TTL से inactivity-based), Telegram DMs में topics, Android nodes पर notification actions और device health, containers के लिए health/readiness probes, OpenAI Responses के लिए WebSocket-first streaming, और cron automation के लिए “light context” runs। साथ में कुछ extras जैसे diffs tool और UI improvements।
+[NOVA]: आज हम कवर करेंगे: Discord thread session lifecycles, Telegram DM topics, Android node actions और device health, container probes, OpenAI Responses के लिए WebSocket-first streaming, और cron automation के लिए light-context runs। और साथ में कुछ extras — diffs tool और UI improvements।
 
-[ALLOY]: एक कॉमन थीम के साथ: ये बदलाव रैंडम नहीं हैं। OpenClaw मशीन के बोल्ट टाइट कर रहा है ताकि सिस्टम तेज़ चले और खुद को हिलाकर तोड़े नहीं।
+[ALLOY]: और एक running theme: ये बदलाव random नहीं हैं। OpenClaw बोल्ट टाइट कर रहा है ताकि पूरी मशीन तेज़ चले और खुद को हिलाकर तोड़े नहीं।
 
 [NOVA]: चलिए शुरू करते हैं।
 
-## सेगमेंट 1 — v2026.3.1 का पैटर्न: OpenClaw अब ‘सिस्टम’ बन रहा है
+## सेगमेंट 1 — v2026.3.1 का पैटर्न: OpenClaw एक सिस्टम बन रहा है
 
-[ALLOY]: हर अच्छे open-source प्रोजेक्ट में एक ट्रांज़िशन होता है।
+[ALLOY]: मैं एक पैटर्न से शुरू करना चाहता हूँ जो मैंने हर अच्छे open-source प्रोजेक्ट में देखा है।
 
-[NOVA]: कौन-सा?
+[NOVA]: बोलो।
 
-[ALLOY]: पहले वह clever होने से impressive लगता है। फिर dependable होने से।
+[ALLOY]: एक phase होता है जहाँ प्रोजेक्ट इसलिए impressive लगता है क्योंकि वह clever है। फिर एक phase होता है जहाँ वह इसलिए impressive लगता है क्योंकि वह dependable है।
 
-[NOVA]: और dependability ही असली ताकत है।
+[NOVA]: और dependability ही असली flex है।
 
-[ALLOY]: सही। Cleverness आपको stars और demos देती है। Dependability आपको adoption देती है।
+[ALLOY]: बिल्कुल। Cleverness stars और demos दिलाती है। Dependability adoption दिलाती है।
 
-[NOVA]: रिलीज़ नोट्स ऐसे पढ़ते हैं जैसे किसी ने on-call किया हो: “thread reset क्यों हुआ?”, “cron ने noise क्यों पोस्ट किया?”, “stream बीच में क्यों मर गया?”, “container probe क्यों नहीं चल रहा?”
+[NOVA]: और OpenClaw अभी उसी transition में है। Release notes ऐसे लगते हैं जैसे किसी ने on-call किया हो। किसी ने जवाब दिया हो: thread reset क्यों हुआ? cron job ने noise क्यों पोस्ट किया? stream कभी-कभी क्यों अटकता है? मैं container probe क्यों नहीं कर पा रहा?
 
-[ALLOY]: ये सवाल तभी आते हैं जब आप सच में rely करने लगते हैं।
+[ALLOY]: ये सवाल आप तभी पूछते हैं जब आप सच में care करते हैं।
 
-## सेगमेंट 2 — Discord threads: fixed TTL से inactivity-based workspaces
+[NOVA]: और जब आप OpenClaw को toy की तरह नहीं, system की तरह इस्तेमाल करते हैं।
 
-[NOVA]: Discord threads OpenClaw के लिए बेहतरीन UI हैं — क्योंकि threads naturally projects हैं।
+[ALLOY]: सुनने वालों के लिए एक quick checklist। अगर आपने इनमें से कोई भी किया है, तो आप इस रिलीज़ के target user हैं।
 
-[ALLOY]: लेकिन workspace तभी बनेगा जब lifecycle human workflow जैसा हो।
+[NOVA]: एक: आप Discord thread को workspace मानते हैं और उम्मीद करते हैं कि जब तक वह active है, memory बनी रहे।
 
-[NOVA]: v2026.3.1 में thread-binding lifecycle fixed TTL से inactivity-based हो गया है।
+[ALLOY]: दो: आप Telegram DMs इस्तेमाल करते हैं और चाहते हैं कि कई parallel workstreams हों, अलग नियमों के साथ।
 
-[ALLOY]: Default सही है: जब तक आप इस्तेमाल कर रहे हो, session alive। जब नहीं, expire।
+[NOVA]: तीन: आपने Android node pair किया और चाहते हैं कि वह “exists” से आगे कुछ करे।
 
-[NOVA]: मुख्य knobs: idleHours (default 24) और optional maxAgeHours।
+[ALLOY]: चार: आप OpenClaw को Docker या Kubernetes में चलाते हैं और normal liveness/readiness probes चाहते हैं।
 
-[ALLOY]: idleHours = “X घंटे inactivity के बाद session expire।”
+[NOVA]: पाँच: आप long streaming interactions करते हैं और stream को weird होते देखा है।
 
-[NOVA]: maxAgeHours = “भले activity हो, session X से ज्यादा पुराना न हो।”
+[ALLOY]: छह: आप scheduled automation करते हैं और कभी ऐसा job चला है जिसने channel में noise बनाया हो, जबकि आप signal चाहते थे।
 
-[ALLOY]: इससे context contamination कम होता है और hygiene आती है।
+[NOVA]: आख़िरी वाला खास है। Automation को नापसंद कराने का सबसे तेज़ तरीका है उसे chatty बनाना।
 
-## सेगमेंट 3 — Telegram DM topics: एक व्यक्ति, कई workstreams
+[ALLOY]: या internal details किसी shared channel में dump करना।
 
-[ALLOY]: Telegram DMs अक्सर ‘junk drawer’ बन जाते हैं — एक ही stream में सब कुछ।
+[NOVA]: तो अगर यह सब relatable है, सुनते रहिए।
 
-[NOVA]: v2026.3.1 DM topics लाता है, जिसमें per-topic policy हो सकती है: skills, systemPrompt, allowlists, requireTopic।
+[ALLOY]: क्योंकि v2026.3.1 boundaries के बारे में है: session boundaries, topic boundaries, device capability boundaries, और boundaries कि आपकी automation क्या “देखती” है।
 
-[ALLOY]: Skills per topic बहुत बड़ा है: आप “safe mode” topic बना सकते हैं (brainstorming), और “ops mode” topic (tools) — सही guardrails के साथ।
+[NOVA]: बढ़िया framing। अब हम सबसे common power-user UI से शुरू करते हैं: Discord।
 
-[NOVA]: requireTopic का फायदा: आप शुरुआत में ही lane चुनते हैं, जिससे chaos कम होता है।
+## सेगमेंट 2 — Discord thread sessions: fixed TTL से inactivity-based workspaces
 
-## सेगमेंट 4 — Android nodes: notifications actions + device health
+[NOVA]: Discord threads चुपचाप OpenClaw के लिए सबसे अच्छे front-ends में से एक हैं।
 
-[NOVA]: मोबाइल integration मुश्किल है, इसलिए guardrails ज़रूरी हैं।
+[ALLOY]: क्योंकि threads naturally projects के बराबर हैं।
 
-[ALLOY]: नए actions: camera.list, device.permissions, device.health, और notifications.actions (open/dismiss/reply)।
+[NOVA]: बिल्कुल। इंसान पहले से समझते हैं: thread मतलब एक चीज़ पर focused बातचीत।
 
-[NOVA]: Notifications वही जगह है जहाँ दुनिया आपसे बात करती है। लेकिन बिना नियंत्रण reply करना risky है।
+[ALLOY]: इसलिए वह assistant को focused context देने के लिए perfect है।
 
-[ALLOY]: Safe pattern: (1) summary, (2) suggested reply, (3) स्पष्ट confirmation (“send”), (4) फिर action।
+[NOVA]: लेकिन threads तभी workspaces बनते हैं जब session lifecycle human behavior से match करे।
 
-## सेगमेंट 5 — Health probes: liveness और readiness
+[ALLOY]: और पुराना lifecycle model frustrate कर सकता था। Fixed TTL पेपर पर ठीक लगता है, लेकिन इंसान neat time buckets में काम नहीं करते।
 
-[NOVA]: Serious deployments में दो सवाल: “alive?” और “ready?”
+[NOVA]: हम bursts में काम करते हैं। एक घंटे deep, फिर dinner, फिर वापस।
+
+[ALLOY]: या तीन दिन लगातार, फिर एक हफ्ता कुछ नहीं, फिर वापस।
+
+[NOVA]: v2026.3.1 में thread binding lifecycle fixed TTL से inactivity-based हो गया है।
+
+[ALLOY]: यह सही default है: जब तक मैं इस्तेमाल कर रहा हूँ, alive रखो। जब नहीं, decay होने दो।
+
+[NOVA]: Knobs matter। idleHours default 24 घंटे, और optional maxAgeHours।
+
+[ALLOY]: idleHours: “अगर इतने घंटे कोई बात नहीं करे, session expire।”
+
+[NOVA]: maxAgeHours: “भले बात हो रही हो, session को इतना पुराना मत होने दो।”
+
+[ALLOY]: यह safety valve है।
+
+[NOVA]: क्योंकि indefinite sessions convenient हैं… जब तक नहीं।
+
+[ALLOY]: indefinite sessions का downside है accidental cross-contamination। पिछले महीने का thought आज hidden assumption बन जाता है।
+
+[NOVA]: या thread में stale preferences जम जाती हैं जबकि thread clean workspace होना चाहिए।
+
+[ALLOY]: मुझे commands भी पसंद हैं। अब session idle command और session max-age command हैं।
+
+[NOVA]: ताकि हर use case के लिए config edit न करना पड़े; वहीं पर tweak कर सकें।
+
+[ALLOY]: Real examples।
+
+[NOVA]: चलो।
+
+[ALLOY]: Example 1: “triage” thread। सुबह active, फिर dead। आप नहीं चाहते कि session एक दिन रहे और अगले बार पुराना context दिखाए। idleHours कम कर दें।
+
+[NOVA]: Example 2: multi-day “build” thread। आप चाहते हैं कि assistant कल का काम याद रखे। idleHours 24 या 48 रखें।
+
+[ALLOY]: Example 3: thread जो long-running notebook जैसा है। फिर भी infinite नहीं चाहिए। maxAgeHours एक हफ्ता रखें।
+
+[NOVA]: यह quality-of-life change assistant को ज्यादा “present” बनाता है।
+
+[ALLOY]: क्योंकि active रहते याद, खत्म होने पर भूल।
+
+[NOVA]: और इसमें emotional point भी है।
+
+[ALLOY]: कैसा?
+
+[NOVA]: लोग assistant पर भरोसा वैसे ही बनाते हैं जैसे किसी colleague पर। Consistent behavior चाहिए।
+
+[ALLOY]: अगर कभी याद, कभी भूल, बिना कारण — trust गिरता है।
+
+[NOVA]: यह change randomness कम करता है।
+
+[ALLOY]: और security angle भी है। Thread sessions scope हैं — क्या याद रखना चाहिए। Lifecycle गलत हो तो या तो जरूरत वाला context खोता है, या ऐसा context रह जाता है जो नहीं रहना चाहिए।
+
+[NOVA]: बिल्कुल। अब आप tradeoffs intentionally tune कर सकते हैं।
+
+[ALLOY]: Operator takeaway: upgrade के बाद idleHours देखिए और तय कीजिए कि 24 घंटे आपके server culture के लिए सही है या नहीं।
+
+[NOVA]: High-velocity server हो तो छोटा।
+
+[ALLOY]: Deep-work-by-days हो तो बड़ा।
+
+[NOVA]: Sensitive काम हो तो maxAgeHours सेट करें।
+
+[ALLOY]: Guardrails आपको relax करने देते हैं।
+
+[NOVA]: Discord आपको compartments देता है। Telegram नहीं — तो next segment।
+
+## सेगमेंट 3 — Telegram DM topics: एक व्यक्ति, कई workstreams, real boundaries
+
+[ALLOY]: Telegram DMs वो जगह हैं जहाँ assistants मर जाते हैं।
+
+[NOVA]: Dramatic.
+
+[ALLOY]: लेकिन सच। एक DM एक stream है। इंसान उसे हर चीज़ के लिए इस्तेमाल करता है। Assistant junk drawer बन जाता है।
+
+[NOVA]: आप recipe पूछते हैं, फिर dev fix, फिर reminder, फिर config file paste।
+
+[ALLOY]: और फिर आप surprised होते हैं कि assistant recipe में config का ज़िक्र कर रहा है।
+
+[NOVA]: Exactly.
+
+[ALLOY]: v2026.3.1 DM topics लाता है — conceptually huge।
+
+[NOVA]: क्योंकि यह मानता है: एक व्यक्ति कई contexts है।
+
+[ALLOY]: Work, personal, builder, और कभी “venting”।
+
+[NOVA]: Release notes में per-DM direct और topic config: allowlists, dmPolicy, skills, systemPrompt, requireTopic।
+
+[ALLOY]: Translate करें।
+
+[NOVA]: Skills: किस topic में कौनसे tools allowed हैं।
+
+[ALLOY]: इसका मतलब आप “safe mode” topic बना सकते हैं।
+
+[NOVA]: जहाँ assistant brainstorm करे, लेकिन infra न छुए।
+
+[ALLOY]: और “ops mode” topic, जहाँ tools हों, लेकिन सिर्फ आपके explicit ask पर।
+
+[NOVA]: SystemPrompt per topic भी important है — tone output quality बदलता है।
+
+[ALLOY]: Podcast production topic में conversational dialogue चाहिए। SRE topic में terse और cautious।
+
+[NOVA]: requireTopic का फायदा: शुरू में ही topic चुनना पड़ता है, junk drawer कम होता है।
+
+[ALLOY]: और topic-aware auth + debounce messages/callbacks/commands/reactions पर।
+
+[NOVA]: यह “hard way” वाली सीख है।
+
+[ALLOY]: Multiple topics होने पर हर inbound event को same session जैसा treat नहीं कर सकते।
+
+[NOVA]: वरना cross-topic actions हो जाएंगे।
+
+[ALLOY]: Example: Build topic में local commands allowed, Personal topic में नहीं।
+
+[NOVA]: अगर Build का callback Personal में apply हो गया, safety model टूट गया।
+
+[ALLOY]: Topic-aware auth रोकता है।
+
+[NOVA]: Practical takeaway: अगर आप Telegram DMs को primary interface रखते हैं, DM topics assistant को calmer और consistent बनाते हैं।
+
+[ALLOY]: और आपको बिना app बदले lanes मिलते हैं।
+
+[NOVA]: यही release का theme है: natural boundaries।
+
+[ALLOY]: अब physical: Android nodes।
+
+## सेगमेंट 4 — Android nodes: notification actions, device health, और real work
+
+[NOVA]: Mobile integration में अक्सर झूठ होता है।
+
+[ALLOY]: क्योंकि phone control मुश्किल है।
+
+[NOVA]: permissions complex हैं।
+
+[ALLOY]: और गलत हुआ तो scary।
+
+[NOVA]: इसलिए मैं guardrails देखती हूँ।
+
+[ALLOY]: v2026.3.1 वही करता है।
+
+[NOVA]: नए commands: camera.list, device.permissions, device.health, notifications.actions।
+
+[ALLOY]: notifications.actions: open, dismiss, reply।
+
+[NOVA]: छोटे verbs, बड़े implications।
+
+[ALLOY]: क्योंकि notifications में दुनिया आपसे बात करती है।
+
+[NOVA]: calendar, messages, bank, cameras, deliveries।
+
+[ALLOY]: अगर assistant notifications के साथ interact नहीं कर सकता, वह chat layer में फंसा है।
+
+[NOVA]: लेकिन guardrails के बिना interact कर सकता है तो impersonate कर सकता है।
+
+[ALLOY]: इसलिए permissions और device health जरूरी हैं।
+
+[NOVA]: Workflow.
+
+[ALLOY]: चलो।
+
+[NOVA]: Home security camera notification।
+
+[ALLOY]: Assistant खोलता है, details निकालता है, summarise करता है।
+
+[NOVA]: और आप decide करते हैं: dismiss, ignore, action।
+
+[ALLOY]: इससे notification fatigue manageable।
+
+[NOVA]: दूसरा: message notification।
+
+[ALLOY]: Assistant पढ़ता है, reply suggest करता है, approval पर reply।
+
+[NOVA]: dream.
+
+[ALLOY]: लेकिन reliability everything।
+
+[NOVA]: worst: गलत reply।
+
+[ALLOY]: गलत thread।
+
+[NOVA]: या सोचे reply हो गया जबकि नहीं हुआ।
+
+[ALLOY]: device.health और permissions actions को honest रखते हैं।
+
+[NOVA]: capability check करके ही sensitive action।
+
+[ALLOY]: camera.list foundation है: deterministic camera names/IDs।
+
+[NOVA]: वरना wrong camera photo।
+
+[ALLOY]: और privacy issue।
+
+[NOVA]: Release में Android notification flows के reliability fixes भी हैं।
+
+[ALLOY]: यानी usage real है।
+
+[NOVA]: Practical: safe actions से शुरू करें, confirm-before-reply रखें।
+
+[ALLOY]: power है, trust earn करना होगा।
+
+[NOVA]: और अब “service की तरह चलाओ”: health probes।
+
+## सेगमेंट 5 — Health probes: liveness, readiness
+
+[NOVA]: Serious deployments के दो सवाल।
+
+[ALLOY]: alive? ready?
+
+[NOVA]: Liveness “process exists”, readiness “काम कर सकता है”।
 
 [ALLOY]: v2026.3.1 health/healthz और ready/readyz endpoints जोड़ता है।
 
-[NOVA]: और routing fallback ताकि existing handlers टूटें नहीं।
+[NOVA]: और fallback routing ताकि existing handlers shadow न हों।
 
-## सेगमेंट 6 — Streaming: OpenAI Responses अब WebSocket-first
+[ALLOY]: operator-friendly।
 
-[ALLOY]: Streaming UX है — और proxies/timeouts/mobile networks पर टूटता है।
+[NOVA]: Home setups में भी helpful।
 
-[NOVA]: WebSocket-first default (SSE fallback) से long streams ज़्यादा stable होते हैं, और session cleanup से leaks कम होते हैं।
+[ALLOY]: monitor, restart policy, load balancer।
 
-## सेगमेंट 7 — Cron/Automation: light context और कम spam
+[NOVA]: Kubernetes में तो ज़रूरी।
 
-[NOVA]: Automation का सबसे common fail: काम तो करता है, पर channel में noise डालता है।
+[ALLOY]: और channel debugging आसान।
 
-[ALLOY]: “Light context” runs का मतलब: cron को पूरा bootstrap/world context नहीं चाहिए। छोटा instruction + strict output policy पर्याप्त है।
+[NOVA]: अब streaming।
 
-[NOVA]: Best practice: एक final polished message — no tool logs, no diagnostics।
+## सेगमेंट 6 — OpenAI Responses streaming: WebSocket-first
 
-## सेगमेंट 8 — Extras: diffs tool, i18n, QoL
+[NOVA]: Streaming assistant को alive बनाता है।
+
+[ALLOY]: और long ops tolerable।
+
+[NOVA]: tool-heavy runs responsive।
+
+[ALLOY]: लेकिन streaming edge cases में टूटता है।
+
+[NOVA]: proxies, timeouts, mobile networks।
+
+[ALLOY]: WebSocket-first default, SSE fallback।
+
+[NOVA]: transport change, trust change।
+
+[ALLOY]: stream टूटे तो trust टूटता है।
+
+[NOVA]: resends, duplicates, time waste।
+
+[ALLOY]: WS long-lived streams में stable।
+
+[NOVA]: per-session cleanup, leaks कम।
+
+[ALLOY]: “worked at home” काफी नहीं।
+
+[NOVA]: users बस silence देखते हैं।
+
+[ALLOY]: robust default + fallback सही।
+
+[NOVA]: test long streams।
+
+## सेगमेंट 7 — Cron/automation: light context
+
+[NOVA]: Automation fail हो सकता है: काम करे, लेकिन life खराब।
+
+[ALLOY]: noisy।
+
+[NOVA]: internals पोस्ट।
+
+[ALLOY]: “checking…” spam।
+
+[NOVA]: light context opt-in।
+
+[ALLOY]: cron को दुनिया नहीं चाहिए।
+
+[NOVA]: छोटी instruction + strict output policy।
+
+[ALLOY]: ज्यादा context leak risk।
+
+[NOVA]: और explanatory text।
+
+[ALLOY]: tutorial में अच्छा, production में खराब।
+
+[NOVA]: light context heartbeats में केवल HEARTBEAT instructions रख सकता है।
+
+[ALLOY]: signal-to-noise बढ़ता है।
+
+[NOVA]: jobs पोस्ट करते हैं तो उपयोग करें।
+
+[ALLOY]: final output only, no tool logs।
+
+[NOVA]: quiet until it matters।
+
+## सेगमेंट 8 — Real-world scenarios (और failures)
+
+[NOVA]: Features stack होने पर मज़ा आता है।
+
+[ALLOY]: Scenario 1: threads as workspaces।
+
+[NOVA]: projects per thread।
+
+[ALLOY]: Inactivity lifecycle से re-explain ritual खत्म।
+
+[NOVA]: Failures: idleHours छोटा, या बहुत बड़ा बिना maxAge।
+
+[ALLOY]: maxAge hygiene।
+
+[NOVA]: Scenario 2: DM topics compartments।
+
+[ALLOY]: tone stable, tool bleed कम, safe lanes।
+
+[NOVA]: Failure: topics inconsistent use, या permissive topic।
+
+[ALLOY]: start restrictive।
+
+[NOVA]: Scenario 3: Android nodes।
+
+[ALLOY]: confirm-before-reply।
+
+[NOVA]: permissions/health honest।
+
+[ALLOY]: wrong camera = privacy।
+
+[NOVA]: Scenario 4: containers।
+
+[ALLOY]: health endpoints service चलाने देते हैं।
+
+[NOVA]: healthy != channels ok।
+
+## सेगमेंट 9 — Extras: diffs tool, i18n
 
 [ALLOY]: Quick hits.
 
-[NOVA]: Read-only diffs rendering tool — reviews के लिए बढ़िया। Web UI में German locale। CLI में active config path print।
+[NOVA]: diffs tool read-only diff rendering।
 
-## सेगमेंट 9 — Upgrade checklist
+[ALLOY]: reviews के लिए अच्छा।
 
-[NOVA]: Upgrade करें, clean restart करें।
+[NOVA]: German locale in Web UI।
 
-[ALLOY]: Discord threads: idleHours tune करें, maxAgeHours consider करें।
+[ALLOY]: CLI active config path print।
 
-[NOVA]: Telegram: topics define करें (Build/Admin/Personal जैसा), और ज़रूरत हो तो requireTopic।
+## सेगमेंट 10 — Upgrade checklist
 
-[ALLOY]: Android: permissions/health check से शुरू करें; replies हमेशा confirmation के बाद।
+[NOVA]: Upgrade to v2026.3.1.
 
-[NOVA]: Streaming long runs test करें; cron jobs को light context + strict output पर लाएँ।
+[ALLOY]: clean restart।
+
+[NOVA]: Discord: idleHours/maxAge tune।
+
+[ALLOY]: Telegram: topics define, requireTopic consider।
+
+[NOVA]: Android: safe ops first, no auto-reply।
+
+[ALLOY]: Streaming long tests।
+
+[NOVA]: Cron: light context + strict output।
+
+## सेगमेंट 11 — Hidden benefit: कम “weird output”
+
+[NOVA]: Better defaults reduce weird output।
+
+[ALLOY]: weird output = trust loss।
+
+[NOVA]: leaks symptoms: internals, resets, hangs, silent failures।
+
+[ALLOY]: Trust is engineering।
+
+[NOVA]: boundaries build trust।
+
+## सेगमेंट 12 — दो mini playbooks
+
+[ALLOY]: DM topics: Build/Admin/Personal।
+
+[NOVA]: Notification replies: summary → suggestion → confirm → action → report।
+
+[ALLOY]: No bluffing.
 
 ## Closing
 
-[ALLOY]: Hidden benefit: better defaults = कम “weird output” = ज्यादा trust।
+[NOVA]: v2026.3.1 gimmick नहीं, reliability है।
 
-[NOVA]: Trust model का नहीं, engineering का सवाल है।
+[ALLOY]: OpenClaw platform जैसा mature हो रहा है।
 
-[ALLOY]: OpenClaw अब ऐसा सिस्टम बन रहा है जिस पर आप अपना असिस्टेंट सच में चला सकते हैं।
+[NOVA]: धन्यवाद, कल मिलते हैं।
+
+[ALLOY]: कुछ असली बनाइए।
