@@ -137,5 +137,52 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-4/</description>
       <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_005_hi.mp3</guid>
     </item>
 
+
+
+    <item>
+      <title>एपिसोड 6: v2026.2.24 अपडेट और बॉट सोशल नेटवर्क</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_006_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-6/</link>
+      <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_006_hi.mp3" length="58585799" type="audio/mpeg"/>
+      <itunes:duration>61:01</itunes:duration>
+      <itunes:episode>6</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_006_cover.png"/>
+    </item>
+    <item>
+      <title>एपिसोड 7: वह सप्ताह जब OpenClaw बड़ा हुआ</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_007_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-7/</link>
+      <pubDate>Wed, 26 Feb 2026 20:00:00 EST</pubDate>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_007_hi.mp3" length="38101202" type="audio/mpeg"/>
+      <itunes:duration>39:41</itunes:duration>
+      <itunes:episode>7</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_007_cover.png"/>
+    </item>
+    <item>
+      <title>एपिसोड 8: ओपन सोर्स AI क्रांति</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_008_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-8/</link>
+      <pubDate>Sat, 28 Feb 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_008_hi.mp3" length="47118253" type="audio/mpeg"/>
+      <itunes:duration>49:04</itunes:duration>
+      <itunes:episode>8</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_008_cover.png"/>
+    </item>
+    <item>
+      <title>एपिसोड 9: OpenClaw v2026.3.1 — जब आपका असिस्टेंट इन्फ्रास्ट्रक्चर जैसा व्यवहार करने लगे</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_009_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-9/</link>
+      <pubDate>Mon, 03 Mar 2026 08:00:00 +0000</pubDate>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_009_hi.mp3" length="31718129" type="audio/mpeg"/>
+      <itunes:duration>33:02</itunes:duration>
+      <itunes:episode>9</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/ep009_cover.png"/>
+    </item>
+
   </channel>
 </rss>
