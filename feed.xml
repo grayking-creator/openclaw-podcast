@@ -20,6 +20,21 @@
 
     
     <item>
+      <title>Episode 10: The Document &amp; Memory Revolution</title>
+      <guid isPermaLink="false">https://grayking-creator.github.io/openclaw-podcast/audio/episode_010_full.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-10/</link>
+      <description>OpenClaw March 3, 2026 release: PDF analysis tool with native model support, Ollama memory embeddings for full local memory stacks, SecretRef expansion to 64 targets, sessions attachments for inter-agent file passing, Telegram streaming defaults, MiniMax-M2.5-highspeed, CLI config validation, rebuilt Zalo plugin, multi-media outbound, and Plugin SDK STT.
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-10/</description>
+      <pubDate>Wed, 04 Mar 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://grayking-creator.github.io/openclaw-podcast/audio/episode_010_full.mp3" length="30754315" type="audio/mpeg"/>
+      <itunes:duration>32:02</itunes:duration>
+      <itunes:episode>10</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_010_cover.png"/>
+    </item>
+
+    <item>
       <title>Special: Building a Distributed AI Cluster with exo-labs</title>
       <description><![CDATA[A deep-dive special episode on building a distributed AI inference cluster using exo-labs and Apple Silicon. Nova and Alloy cover everything from installation and RDMA networking to model selection, daemonization, and an honest verdict on who should actually do this.
 
