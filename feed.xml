@@ -20,6 +20,22 @@
 
     
     <item>
+      <title>Episode 11: OpenClaw Goes Hardware — The Agent Layer Gets Real</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_011.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-11/</link>
+      <description>OpenClaw v2026.3.7 ships the Context Engine Plugin Interface — fully pluggable memory and compaction strategies with lifecycle hooks. Plus: hardware is back in the picture with NVIDIA's Project DIGITS and the Apple M4 Ultra, a deep dive into agentic identity and trust frameworks, and community builds showing agents managing real infrastructure. 33 minutes.
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-11/</description>
+      <pubDate>Tue, 10 Mar 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_011.mp3" length="31902449" type="audio/mpeg"/>
+      <itunes:duration>33:13</itunes:duration>
+      <itunes:episode>11</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_011_cover.png"/>
+    </item>
+
+    <item>
       <title>Episode 10: The Document &amp; Memory Revolution</title>
       <guid isPermaLink="false">https://grayking-creator.github.io/openclaw-podcast/audio/episode_010_full.mp3</guid>
       <link>https://tobyonfitnesstech.com/podcasts/episode-10/</link>
