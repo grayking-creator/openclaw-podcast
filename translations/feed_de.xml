@@ -16,6 +16,40 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
+    <!-- Episode 11 -->
+    <item>
+      <title>Episode 11: OpenClaw Goes Hardware: The Agent Layer Gets Real</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_011_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-11/</link>
+      <description>OpenClaw v2026.3.7 liefert die Context Engine Plugin Interface — vollständig einsteckbare Speicher- und Kompaktierungsstrategien mit Lifecycle-Hooks. Außerdem: Hardware ist zurück im Bild mit NVIDIAs Project DIGITS und dem Apple M4 Ultra, eine Tiefenanalyse zu agentischer Identität und Vertrauensrahmen, und Community-Builds die echte Infrastruktur verwalten.
+
+Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-11/</description>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_011_de.mp3" length="25008493" type="audio/mpeg"/>
+      <pubDate>Tue, 10 Mar 2026 06:00:00 EST</pubDate>
+      <itunes:duration>39:54</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:episode>11</itunes:episode>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_011_cover.png"/>
+    </item>
+
+    <!-- Episode 10 -->
+    <item>
+      <title>Episode 10: Die Dokument- und Speicher-Revolution</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_010_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-10/</link>
+      <description>OpenClaw Release vom 3. März 2026: PDF-Analysetool mit nativem Modellsupport, Ollama-Speicher-Embeddings für vollständig lokale Memory-Stacks, SecretRef-Erweiterung auf 64 Targets, Session-Anhänge für agentenübergreifende Dateiübertragung, Telegram-Streaming-Defaults, MiniMax-M2.5-highspeed, CLI-Config-Validierung, neu aufgebautes Zalo-Plugin und Plugin SDK STT.
+
+Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-10/</description>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_010_de.mp3" length="13069532" type="audio/mpeg"/>
+      <pubDate>Wed, 04 Mar 2026 06:00:00 EST</pubDate>
+      <itunes:duration>36:18</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:episode>10</itunes:episode>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_010_cover.png"/>
+    </item>
+
     <!-- Episode 9 -->
     <item>
       <title>Episode 9: OpenClaw v2026.3.1 — Threads, Topics, Android Actions und Health Checks</title>

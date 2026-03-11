@@ -16,6 +16,40 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
+    <!-- Episode 11 -->
+    <item>
+      <title>एपिसोड 11: OpenClaw Goes Hardware: The Agent Layer Gets Real</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_011_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-11/</link>
+      <description>OpenClaw v2026.3.7 Context Engine Plugin Interface लॉन्च करता है — lifecycle hooks के साथ पूरी तरह pluggable memory और compaction strategies। साथ ही: NVIDIA Project DIGITS और Apple M4 Ultra के साथ hardware वापस तस्वीर में, agentic identity और trust frameworks पर गहरी analysis, और community builds जो real infrastructure manage कर रहे हैं।
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-11/</description>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_011_hi.mp3" length="28266103" type="audio/mpeg"/>
+      <pubDate>Tue, 10 Mar 2026 06:00:00 EST</pubDate>
+      <itunes:duration>46:35</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:episode>11</itunes:episode>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_011_cover.png"/>
+    </item>
+
+    <!-- Episode 10 -->
+    <item>
+      <title>एपिसोड 10: दस्तावेज़ और स्मृति क्रांति</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_010_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-10/</link>
+      <description>OpenClaw 3 मार्च 2026 release: native model support के साथ PDF analysis tool, पूरी तरह local memory stacks के लिए Ollama memory embeddings, SecretRef का 64 targets तक विस्तार, agents के बीच file passing के लिए session attachments, Telegram streaming defaults, MiniMax-M2.5-highspeed, CLI config validation, rebuilt Zalo plugin और Plugin SDK STT।
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-10/</description>
+      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_010_hi.mp3" length="15326300" type="audio/mpeg"/>
+      <pubDate>Wed, 04 Mar 2026 06:00:00 EST</pubDate>
+      <itunes:duration>42:34</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:episode>10</itunes:episode>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_010_cover.png"/>
+    </item>
+
     <!-- Episode 9 -->
     <item>
       <title>एपिसोड 9: OpenClaw v2026.3.1 — Threads, Topics, Android Actions और Health Checks</title>
