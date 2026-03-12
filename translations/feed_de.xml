@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/podcasts/de/</link>
     <description>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Lernen Sie, wie Sie Ihre eigene KI lokal betreiben, Ihre Daten privat halten und in der sich schnell entwickelnden Welt der lokalen Sprachmodelle die Nase vorn haben.</description>
     <language>de-de</language>
-    <lastBuildDate>Wed, 11 Mar 2026 09:35:00 EST</lastBuildDate>
+    <lastBuildDate>Thu, 12 Mar 2026 21:28:54 GMT</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Von Hardware-Setups bis zu Sicherheitstipps, Modell-Releases bis zu Community-Highlights — alles, was Sie über die Zukunft der persönlichen KI wissen müssen, direkt hier.</itunes:summary>
     <itunes:owner>
@@ -17,6 +17,16 @@
     <itunes:explicit>false</itunes:explicit>
     
     <!-- Episode 11 -->
+
+    <item>
+      <title>Episode 12: Kostenlose Frontier-Modelle, Multimodale Memory und Community-Automatisierungen</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_de.mp3</guid>
+      <description>v2026.3.11 bringt zwei kostenlose Frontier-Modelle — Hunter Alpha (1 Billion Parameter, 1M Kontext) und Healer Alpha (omni-modal, 262K). Multimodale Memory mit Gemini Embedding 2, Ollama-Wizard, ACP Session Resume und die Top 5 Community-Automatisierungen. 41 Minuten.</description>
+      <pubDate>Wed, 12 Mar 2026 16:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_de.mp3" length="40287128" type="audio/mpeg"/>
+      <itunes:duration>41:57</itunes:duration>
+      <itunes:episode>12</itunes:episode>
+    </item>
     <item>
       <title>Episode 11: OpenClaw Goes Hardware: The Agent Layer Gets Real</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_011_de.mp3</guid>
@@ -24,7 +34,7 @@
       <description>OpenClaw v2026.3.7 liefert die Context Engine Plugin Interface — vollständig einsteckbare Speicher- und Kompaktierungsstrategien mit Lifecycle-Hooks. Außerdem: Hardware ist zurück im Bild mit NVIDIAs Project DIGITS und dem Apple M4 Ultra, eine Tiefenanalyse zu agentischer Identität und Vertrauensrahmen, und Community-Builds die echte Infrastruktur verwalten.
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-11/</description>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_011_de.mp3" length="25008493" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_011_de.mp3" length="25008493" type="audio/mpeg"/>
       <pubDate>Tue, 10 Mar 2026 06:00:00 EST</pubDate>
       <itunes:duration>39:54</itunes:duration>
       <itunes:explicit>false</itunes:explicit>
@@ -41,7 +51,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-11/</description>
       <description>OpenClaw Release vom 3. März 2026: PDF-Analysetool mit nativem Modellsupport, Ollama-Speicher-Embeddings für vollständig lokale Memory-Stacks, SecretRef-Erweiterung auf 64 Targets, Session-Anhänge für agentenübergreifende Dateiübertragung, Telegram-Streaming-Defaults, MiniMax-M2.5-highspeed, CLI-Config-Validierung, neu aufgebautes Zalo-Plugin und Plugin SDK STT.
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-10/</description>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_010_de.mp3" length="13069532" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_010_de.mp3" length="13069532" type="audio/mpeg"/>
       <pubDate>Wed, 04 Mar 2026 06:00:00 EST</pubDate>
       <itunes:duration>36:18</itunes:duration>
       <itunes:explicit>false</itunes:explicit>
@@ -58,7 +68,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-10/</description>
       <description>Episode 9 behandelt OpenClaw v2026.3.1 — Discord Thread-Session-Lebenszyklen, Telegram DM-Topics, Android-Benachrichtigungsaktionen und Gerätezustand, Health/Readiness-Probes, WebSocket-Streaming und ruhigere Cron-Automatisierung.
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-9/</description>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_009_de.mp3" length="39729989" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_009_de.mp3" length="39729989" type="audio/mpeg"/>
       <pubDate>Mon, 02 Mar 2026 20:05:00 +0000</pubDate>
       <itunes:duration>41:23</itunes:duration>
       <itunes:explicit>false</itunes:explicit>
@@ -82,7 +92,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-2/
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-3/
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-4/</description>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_008_de.mp3" length="39845888" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_008_de.mp3" length="39845888" type="audio/mpeg"/>
       <pubDate>Sat, 28 Feb 2026 19:00:00 +0000</pubDate>
       <itunes:duration>38:00</itunes:duration>
       <itunes:explicit>false</itunes:explicit>
@@ -96,7 +106,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-4/</description>
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-7/]]></description>
       <pubDate>Fri, 27 Feb 2026 08:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_007_de.mp3" length="36292692" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_007_de.mp3" length="36292692" type="audio/mpeg"/>
       <itunes:duration>48:20</itunes:duration>
       <itunes:episode>7</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -108,7 +118,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-7/]]></description
       <link>https://tobyonfitnesstech.com/de/podcasts/episode-6/</link>
       <description>Folge 6 behandelt das v2026.2.24 Update mit der neuen 5-Tab Android Shell, SSRF-Richtlinienänderung, die Ursprünge des Molty-Maskottchens, Moltbook — das exklusive Bot-Sozialnetzwerk, agentische Koordinationsrisiken, Nanbeige 4.1-3B und Claude 4.6 Support.</description>
       <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_006_de.mp3" length="53697349" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_006_de.mp3" length="53697349" type="audio/mpeg"/>
       <itunes:duration>55:55</itunes:duration>
       <itunes:episode>6</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -123,7 +133,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-7/]]></description
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-1/</description>
       <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_001_de.mp3" length="14159468" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_001_de.mp3" length="14159468" type="audio/mpeg"/>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>1</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -138,7 +148,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-1/</description>
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-2/</description>
       <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_002_de.mp3" length="28765247" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_002_de.mp3" length="28765247" type="audio/mpeg"/>
       <itunes:duration>29:52</itunes:duration>
       <itunes:episode>2</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -153,7 +163,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-2/</description>
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-3/</description>
       <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_003_de.mp3" length="29243811" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_003_de.mp3" length="29243811" type="audio/mpeg"/>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>3</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -168,7 +178,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-3/</description>
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-4/</description>
       <pubDate>Sun, 22 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_004_de.mp3" length="23316000" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_004_de.mp3" length="23316000" type="audio/mpeg"/>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>4</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -180,7 +190,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-4/</description>
       <link>https://tobyonfitnesstech.com/de/podcasts/episode-5/</link>
       <description>Episode 5 behandelt IBMs Unternehmensanalyse von OpenClaw, Raspberry Pi KI-Anleitungen und neue AI HAT+ 2-Hardware, eine eingehende Untersuchung von Ollama lokal, die Claude Code + Ollama-Integration, Sicherheitsforschung und was die lokale KI-Revolution für Einzelpersonen und Unternehmen bedeutet.</description>
       <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_005_de.mp3" length="16913808" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_005_de.mp3" length="16913808" type="audio/mpeg"/>
       <itunes:duration>47:00</itunes:duration>
       <itunes:episode>5</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -193,7 +203,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-4/</description>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_006_de.mp3</guid>
       <link>https://tobyonfitnesstech.com/de/podcasts/episode-6/</link>
       <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_006_de.mp3" length="53697349" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_006_de.mp3" length="53697349" type="audio/mpeg"/>
       <itunes:duration>55:55</itunes:duration>
       <itunes:episode>6</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -205,7 +215,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-4/</description>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_007_de.mp3</guid>
       <link>https://tobyonfitnesstech.com/de/podcasts/episode-7/</link>
       <pubDate>Wed, 26 Feb 2026 20:00:00 EST</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_007_de.mp3" length="36292692" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_007_de.mp3" length="36292692" type="audio/mpeg"/>
       <itunes:duration>37:48</itunes:duration>
       <itunes:episode>7</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -217,7 +227,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-4/</description>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_008_de.mp3</guid>
       <link>https://tobyonfitnesstech.com/de/podcasts/episode-8/</link>
       <pubDate>Sat, 28 Feb 2026 18:00:00 +0000</pubDate>
-      <enclosure url="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_008_de.mp3" length="39668967" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_008_de.mp3" length="39668967" type="audio/mpeg"/>
       <itunes:duration>41:19</itunes:duration>
       <itunes:episode>8</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
