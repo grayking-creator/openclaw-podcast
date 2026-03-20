@@ -20,6 +20,21 @@
 
     
 
+    <!-- Episode 13 -->
+    <item>
+      <title>Episode 13: NVIDIA Picked OpenClaw — Here's What That Actually Means</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-13/</link>
+      <description>NVIDIA GTC 2026 dropped a bombshell: NemoClaw, an open-source stack built directly on top of OpenClaw for DGX Spark and RTX PRO hardware. Nova and Alloy break down what enterprise validation means for everyday users, whether you can run Nemotron 3 Super 120B locally (and on which hardware), Qwen 3.5's new NVIDIA RTX optimizations, what the DGX Spark price hike signals, and the v2026.3.13 stability release. 35 minutes.
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-13/</description>
+      <pubDate>Thu, 19 Mar 2026 12:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013.mp3" length="33425492" type="audio/mpeg"/>
+      <itunes:duration>34:49</itunes:duration>
+      <itunes:episode>13</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_cover.png"/>
+    </item>
+
     <item>
       <title>Episode 12: Free Frontier Models, Multimodal Memory &amp; Community Automations</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012.mp3</guid>
