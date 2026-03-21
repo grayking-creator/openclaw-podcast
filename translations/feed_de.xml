@@ -211,41 +211,11 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-4/</description>
       <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_005_de.mp3</guid>
     </item>
 
-    <item>
-      <title>Episode 6: Das v2026.2.24 Update &amp; Bot-Soziale Netzwerke</title>
-      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_006_de.mp3</guid>
-      <link>https://tobyonfitnesstech.com/de/podcasts/episode-6/</link>
-      <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_006_de.mp3" length="53697349" type="audio/mpeg"/>
-      <itunes:duration>55:55</itunes:duration>
-      <itunes:episode>6</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_006_cover.png"/>
-    </item>
+    
 
-    <item>
-      <title>Episode 7: Die Woche, in der OpenClaw erwachsen wurde</title>
-      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_007_de.mp3</guid>
-      <link>https://tobyonfitnesstech.com/de/podcasts/episode-7/</link>
-      <pubDate>Wed, 26 Feb 2026 20:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_007_de.mp3" length="36292692" type="audio/mpeg"/>
-      <itunes:duration>37:48</itunes:duration>
-      <itunes:episode>7</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_007_cover.png"/>
-    </item>
+    
 
-    <item>
-      <title>Episode 8: Die Open-Source-KI-Revolution</title>
-      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_008_de.mp3</guid>
-      <link>https://tobyonfitnesstech.com/de/podcasts/episode-8/</link>
-      <pubDate>Sat, 28 Feb 2026 18:00:00 +0000</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_008_de.mp3" length="39668967" type="audio/mpeg"/>
-      <itunes:duration>41:19</itunes:duration>
-      <itunes:episode>8</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_008_cover.png"/>
-    </item>
+    
 
 
   </channel>

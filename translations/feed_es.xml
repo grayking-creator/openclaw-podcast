@@ -213,39 +213,9 @@ Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-4/</description>
 
 
 
-    <item>
-      <title>Episodio 6: La actualización v2026.2.24 y las redes sociales de bots</title>
-      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_006_es.mp3</guid>
-      <link>https://tobyonfitnesstech.com/es/podcasts/episode-6/</link>
-      <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_006_es.mp3" length="48312363" type="audio/mpeg"/>
-      <itunes:duration>50:19</itunes:duration>
-      <itunes:episode>6</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_006_cover.png"/>
-    </item>
-    <item>
-      <title>Episodio 7: La semana en que OpenClaw maduró</title>
-      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_007_es.mp3</guid>
-      <link>https://tobyonfitnesstech.com/es/podcasts/episode-7/</link>
-      <pubDate>Wed, 26 Feb 2026 20:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_007_es.mp3" length="37918136" type="audio/mpeg"/>
-      <itunes:duration>39:29</itunes:duration>
-      <itunes:episode>7</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_007_cover.png"/>
-    </item>
-    <item>
-      <title>Episodio 8: La revolución del AI de código abierto</title>
-      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_008_es.mp3</guid>
-      <link>https://tobyonfitnesstech.com/es/podcasts/episode-8/</link>
-      <pubDate>Sat, 28 Feb 2026 18:00:00 +0000</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_008_es.mp3" length="37534867" type="audio/mpeg"/>
-      <itunes:duration>39:05</itunes:duration>
-      <itunes:episode>8</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_008_cover.png"/>
-    </item>
+    
+    
+    
 
   </channel>
 </rss>
