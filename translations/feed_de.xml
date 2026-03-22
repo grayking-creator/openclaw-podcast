@@ -20,6 +20,18 @@
 
     <!-- Episode 13 -->
     <item>
+      <title>Folge 14: Die Übernahme von Allem</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-14/</link>
+      <description>OpenAI kauft Astral — das Team hinter uv, ruff und dem modernen Python-Toolchain. OpenCode tritt als Open-Source-Gegenpol an. WordPress fügt MCP-Unterstützung hinzu und verwandelt das Web in eine beschreibbare Oberfläche für Agenten. Cursor führt Multi-Modell-Inferenz-Routing ein und Kimi K2.5 etabliert sich als ernstzunehmende Open-Weights-Alternative. Meta skaliert die Inhaltsmoderation automatisch mit KI-Urteilen im planetaren Maßstab. Nova und Alloy verfolgen eine Geschichte in fünf Versionen: Der Kampf verlagert sich von auffälligen Demos zur Kontrolle über die darunterliegende Infrastruktur. 41 Minuten.</description>
+      <pubDate>Sat, 21 Mar 2026 17:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_de.mp3" length="39140666" type="audio/mpeg"/>
+      <itunes:duration>40:46</itunes:duration>
+      <itunes:episode>14</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_cover.png"/>
+    </item>
+
+    <item>
       <title>Folge 13: NVIDIA hat OpenClaw gewählt — Was das wirklich bedeutet</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_de.mp3</guid>
       <link>https://tobyonfitnesstech.com/de/podcasts/episode-13/</link>
