@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>OpenClaw Daily (Deutsch)</title>
-    <link>https://tobyonfitnesstech.com/podcasts/de/</link>
+    <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/</link>
     <description>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Lernen Sie, wie Sie Ihre eigene KI lokal betreiben, Ihre Daten privat halten und in der sich schnell entwickelnden Welt der lokalen Sprachmodelle die Nase vorn haben.</description>
     <language>de-de</language>
     <lastBuildDate>Thu, 12 Mar 2026 21:28:54 GMT</lastBuildDate>
@@ -154,7 +154,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-7/]]></description
         <item>
       <title>Episode 1: Die ganze Geschichte</title>
     <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_001_de.mp3</guid>
-      <link>https://tobyonfitnesstech.com/podcasts/de/episode-1/</link>
+      <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/episode-1/</link>
       <description>Die Eröffnungsepisode von OpenClaw Daily über den Stiftungsübergang, Sicherheitsdebatten, Hardwareoptionen, Modell-Releases und das Community-Ökosystem.
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-1/</description>
@@ -169,7 +169,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-1/</description>
     <item>
       <title>Episode 2: Die lokale KI-Revolution</title>
     <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_002_de.mp3</guid>
-      <link>https://tobyonfitnesstech.com/podcasts/de/episode-2/</link>
+      <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/episode-2/</link>
       <description>Episode 2 behandelt die offizielle Unterstützung für Raspberry Pi, den Mac-Mini-Mangel, Bitsight-Sicherheitsforschung und die Zukunft lokaler KI-Agenten.
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-2/</description>
@@ -184,7 +184,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-2/</description>
     <item>
       <title>Episode 3: Die Kontroverse</title>
     <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_003_de.mp3</guid>
-      <link>https://tobyonfitnesstech.com/podcasts/de/episode-3/</link>
+      <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/episode-3/</link>
       <description>Episode 3 untersucht die Kontroversen um OpenClaw – Experten-Skepsis, Unternehmensverbote und die Geschichte des durchgedrehten Agenten.
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-3/</description>
@@ -199,7 +199,7 @@ Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-3/</description>
     <item>
       <title>Episode 4: Das IndieHacker-Ökosystem</title>
     <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_004_de.mp3</guid>
-      <link>https://tobyonfitnesstech.com/podcasts/de/episode-4/</link>
+      <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/episode-4/</link>
       <description>Episode 4 analysiert das Ökosystem der IndieHacker, die echte Unternehmen auf OpenClaw aufbauen, und die Wirtschaft der virtuellen Mitarbeiter.
 
 Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-4/</description>
