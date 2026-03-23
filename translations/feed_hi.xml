@@ -51,6 +51,7 @@
       <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_hi.mp3" length="48270567" type="audio/mpeg"/>
       <itunes:duration>50:16</itunes:duration>
       <itunes:episode>12</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_cover.png"/>
     </item>
     <item>
       <title>एपिसोड 11: OpenClaw Goes Hardware: The Agent Layer Gets Real</title>
@@ -65,7 +66,7 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-11/</description>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>11</itunes:episode>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_011_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_011_cover.png"/>
     </item>
 
     <!-- Episode 10 -->
@@ -82,7 +83,7 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-10/</description>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>10</itunes:episode>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_010_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_010_cover.png"/>
     </item>
 
     <!-- Episode 9 -->
@@ -99,7 +100,7 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-9/</description>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>9</itunes:episode>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/ep009_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_009_cover.png"/>
     </item>
 
     <!-- Episode 8 -->
@@ -135,7 +136,7 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-7/]]></description
       <itunes:duration>48:20</itunes:duration>
       <itunes:episode>7</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_007_cover.png"/>
+      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
       <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_007_hi.mp3</guid>
     </item>
     <item>
@@ -162,7 +163,7 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-1/</description>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>1</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_001_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_001_cover.png"/>
     </item>
 
     <item>
@@ -177,7 +178,7 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-2/</description>
       <itunes:duration>29:52</itunes:duration>
       <itunes:episode>2</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_002_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_002_cover.png"/>
     </item>
 
     <item>
@@ -192,7 +193,7 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-3/</description>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>3</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_003_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_003_cover.png"/>
     </item>
 
     <item>
@@ -207,7 +208,7 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-4/</description>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>4</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_004_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_004_cover.png"/>
     </item>
 
     <item>
@@ -219,7 +220,7 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-4/</description>
       <itunes:duration>54:00</itunes:duration>
       <itunes:episode>5</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/images/episode_005_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_005_cover.png"/>
       <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_005_hi.mp3</guid>
     </item>
 
