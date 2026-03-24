@@ -20,7 +20,20 @@
 
     
 
-    <!-- Episode 13 -->
+    <!-- Episode 15 -->
+    <item>
+      <title>Episode 15: Remember Me: How We Built a Real Memory System for an AI Assistant</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_015.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-15/</link>
+      <description>Most AI assistants forget everything the moment a session resets. In this episode, ARIA walks through why that happens and what a real fix actually looks like: a local-first memory stack built on Mem0, Qdrant, and sentence-transformers with an OpenAI-compatible embeddings endpoint. Topics include why cloud memory fails, how hybrid semantic and lexical retrieval works, and the operational decisions that made the system reliable enough to run daily. 50 minutes.</description>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_015.mp3" length="48355412" type="audio/mpeg"/>
+      <itunes:duration>50:22</itunes:duration>
+      <itunes:episode>15</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover.png"/>
+      <pubDate>Tue, 24 Mar 2026 13:11:00 -0400</pubDate>
+    </item>
+
+<!-- Episode 13 -->
     <item>
       <title>Episode 14: The Acquisition of Everything</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014.mp3</guid>
