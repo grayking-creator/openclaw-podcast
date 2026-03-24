@@ -94,3 +94,24 @@ The script automatically resamples to 22kHz. If you need higher quality, modify 
 
 - **2026-02-20**: Voices locked to Sonia (Nova) + Jenny (Alloy)
 - **2026-02-18**: Initial setup using edge-tts for Episode 1
+
+---
+
+## HARD RULES FOR EPISODE TRANSCRIPTS (locked 2026-03-12)
+
+### Minimum Length: 30 MINUTES — NON-NEGOTIABLE
+- Every episode transcript MUST be 4,500–5,500 words minimum
+- At normal reading pace (~150 wpm), 4,500 words = 30 minutes
+- **DO NOT present a draft to Toby unless it passes this word count**
+- Sub-30-minute drafts should never be surfaced — regenerate automatically
+
+### Quality checklist before surfacing any draft:
+1. Word count ≥ 4,500 words
+2. No security-only episode angle unless Toby specifically requests it
+3. Community use cases / free models / real-world implications included
+4. Each feature section has: what it is, why it matters, who benefits, broader implications
+5. Pure spoken prose — no markdown headers, bullets, or stage directions
+
+### Brief template for subagents:
+"Write a 30-minute spoken-word podcast transcript (4,500–5,500 words minimum).
+Episodes that are shorter than this are UNACCEPTABLE and must not be surfaced."

@@ -1,0 +1,9 @@
+Create a square podcast cover image with a dark navy-to-black background and a bold, high-contrast, tech-forward composition. Center the visual around a giant mechanical claw or industrial crane arm descending from the top of the frame, dramatically reaching down to grab an open metal toolbox filled with glowing developer tools. The toolbox should feel symbolic rather than literal: sleek wrenches, screwdrivers, chips, cables, command-line icons, package symbols, and abstract software-tool shapes emitting orange and electric blue light. The image should communicate the idea of powerful companies acquiring the infrastructure developers depend on.
+
+Style should be cinematic, clean, and graphic rather than cluttered. Use one strong visual metaphor only: the claw grabbing the toolbox. Make the claw feel imposing, polished, and slightly menacing, with metallic reflections and subtle futuristic detailing. The toolbox should be partially lifted or just about to be lifted, suggesting capture, takeover, or acquisition. Let some glowing tools spill light upward to create dramatic rim lighting on the claw.
+
+Color palette: predominantly black, deep navy, and charcoal, with OpenClaw-style accent colors in vivid orange and electric blue. Strong contrast, sharp edges, subtle atmospheric haze, and a premium editorial-tech aesthetic. No photorealistic humans. No extra scenes. No busy background elements. Keep the composition readable at podcast thumbnail size.
+
+Mood: tense, modern, intelligent, dramatic. The image should feel like infrastructure, power, and ownership — not generic AI art. Emphasize scale, negative space, and a bold silhouette. Suitable for a premium daily tech news podcast cover.
+
+Optional text-safe layout: leave clean negative space in the upper or lower third for podcast title overlay if needed, but the artwork should also work without text.
