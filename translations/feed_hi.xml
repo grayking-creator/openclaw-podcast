@@ -18,6 +18,19 @@
     
     <!-- Episode 11 -->
 
+    <!-- Episode 15 -->
+    <item>
+      <title>एपिसोड 15: मुझे याद करो: हमने एक AI असिस्टेंट के लिए असली मेमोरी सिस्टम कैसे बनाया</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_015_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-15/</link>
+      <description>अधिकांश AI असिस्टेंट सेशन रीसेट होते ही सब कुछ भूल जाते हैं। इस एपिसोड में, ARIA बताती है कि ऐसा क्यों होता है और असली समाधान कैसा दिखता है: Mem0, Qdrant और sentence-transformers से बना एक लोकल मेमोरी स्टैक। 69 मिनट।</description>
+      <pubDate>Tue, 24 Mar 2026 13:57:00 -0400</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_015_hi.mp3" length="66499438" type="audio/mpeg"/>
+      <itunes:duration>69:16</itunes:duration>
+      <itunes:episode>15</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover.png"/>
+    </item>
+
     <!-- Episode 13 -->
     <item>
       <title>एपिसोड 14: सब कुछ का अधिग्रहण</title>

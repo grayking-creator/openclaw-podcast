@@ -18,7 +18,20 @@
     
     <!-- Episode 11 -->
 
-    <!-- Episode 13 -->
+    <!-- Episode 15 -->
+    <item>
+      <title>Episodio 15: Recuérdame: Cómo construimos un sistema de memoria real para un asistente de IA</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_015_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-15/</link>
+      <description>La mayoría de los asistentes de IA olvidan todo en el momento en que se reinicia una sesión. En este episodio, ARIA explica por qué ocurre eso y cómo se ve una solución real: una pila de memoria local construida con Mem0, Qdrant y sentence-transformers. 57 minutos.</description>
+      <pubDate>Tue, 24 Mar 2026 13:57:00 -0400</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_015_es.mp3" length="54784878" type="audio/mpeg"/>
+      <itunes:duration>57:03</itunes:duration>
+      <itunes:episode>15</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover.png"/>
+    </item>
+
+<!-- Episode 13 -->
     <item>
       <title>Episodio 14: La Adquisición de Todo</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_es.mp3</guid>

@@ -18,7 +18,20 @@
     
     <!-- Episode 11 -->
 
-    <!-- Episode 13 -->
+    <!-- Episode 15 -->
+    <item>
+      <title>Folge 15: Erinner mich: Wie wir ein echtes Memory-System für einen KI-Assistenten gebaut haben</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_015_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-15/</link>
+      <description>Die meisten KI-Assistenten vergessen alles, sobald eine Sitzung zurückgesetzt wird. In dieser Folge erklärt ARIA, warum das passiert und wie eine echte Lösung aussieht: ein lokaler Memory-Stack mit Mem0, Qdrant und sentence-transformers. 63 Minuten.</description>
+      <pubDate>Tue, 24 Mar 2026 13:57:00 -0400</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_015_de.mp3" length="61404934" type="audio/mpeg"/>
+      <itunes:duration>63:57</itunes:duration>
+      <itunes:episode>15</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover.png"/>
+    </item>
+
+<!-- Episode 13 -->
     <item>
       <title>Folge 14: Die Übernahme von Allem</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_de.mp3</guid>
