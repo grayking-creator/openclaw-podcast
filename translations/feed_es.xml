@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/es/podcasts/openclaw/</link>
     <description>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Aprende a ejecutar tu propia IA localmente, mantén tus datos privados y mantente a la vanguardia en el mundo de los modelos de lenguaje locales.</description>
     <language>es-es</language>
-    <lastBuildDate>Thu, 12 Mar 2026 21:28:54 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 25 Mar 2026 16:00:00 GMT</lastBuildDate>
     <itunes:author>Nova y Alloy</itunes:author>
     <itunes:summary>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Desde configuraciones de hardware hasta consejos de seguridad, lanzamientos de modelos y aspectos destacados de la comunidad — todo lo que necesitas saber sobre el futuro de la IA personal, aquí mismo.</itunes:summary>
     <itunes:owner>
@@ -16,7 +16,20 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
-    <!-- Episode 11 -->
+
+
+    <!-- Episode 16 -->
+    <item>
+      <title>Episodio 16: OpenClaw muda de piel</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_016_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-16/</link>
+      <description>Nova y Alloy analizan los lanzamientos consecutivos de OpenClaw v2026.3.22 y v2026.3.23. Puntos de presión de migración para Plugin SDK, browser tooling y ecosistemas Matrix, por qué openclaw doctor --fix se convirtió en el comando ancla de actualización, instalación ClawHub-first de plugins, actualizaciones de accesibilidad y UI, cambios en el proveedor Qwen/DashScope y una checklist práctica de actualización. 35 minutos.</description>
+      <pubDate>Tue, 25 Mar 2026 12:00:00 -0400</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_016_es.mp3" length="34006874" type="audio/mpeg"/>
+      <itunes:duration>35:25</itunes:duration>
+      <itunes:episode>16</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover.png"/>
+    </item>
 
     <!-- Episode 15 -->
     <item>
@@ -31,7 +44,7 @@
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover_es.png"/>
     </item>
 
-<!-- Episode 13 -->
+<!-- Episode 14 -->
     <item>
       <title>Episodio 14: La Adquisición de Todo</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_es.mp3</guid>

@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/</link>
     <description>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Lernen Sie, wie Sie Ihre eigene KI lokal betreiben, Ihre Daten privat halten und in der sich schnell entwickelnden Welt der lokalen Sprachmodelle die Nase vorn haben.</description>
     <language>de-de</language>
-    <lastBuildDate>Thu, 12 Mar 2026 21:28:54 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 25 Mar 2026 16:00:00 GMT</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Von Hardware-Setups bis zu Sicherheitstipps, Modell-Releases bis zu Community-Highlights — alles, was Sie über die Zukunft der persönlichen KI wissen müssen, direkt hier.</itunes:summary>
     <itunes:owner>
@@ -16,7 +16,20 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
-    <!-- Episode 11 -->
+
+
+    <!-- Episode 16 -->
+    <item>
+      <title>Folge 16: OpenClaw häutet sich</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_016_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-16/</link>
+      <description>Nova und Alloy analysieren die aufeinanderfolgenden OpenClaw-Releases v2026.3.22 und v2026.3.23. Themen: Migration-Druckpunkte für Plugin SDK, Browser-Tooling und Matrix-Ökosysteme, warum openclaw doctor --fix zum Upgrade-Anker wurde, ClawHub-first Plugin-Installation, Accessibility- und UI-Updates, Qwen/DashScope-Provider-Änderungen und eine praktische Upgrade-Checkliste. 35 Minuten.</description>
+      <pubDate>Tue, 25 Mar 2026 12:00:00 -0400</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_016_de.mp3" length="34006874" type="audio/mpeg"/>
+      <itunes:duration>35:25</itunes:duration>
+      <itunes:episode>16</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover.png"/>
+    </item>
 
     <!-- Episode 15 -->
     <item>
@@ -31,7 +44,7 @@
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover_de.png"/>
     </item>
 
-<!-- Episode 13 -->
+<!-- Episode 14 -->
     <item>
       <title>Folge 14: Die Übernahme von Allem</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_de.mp3</guid>

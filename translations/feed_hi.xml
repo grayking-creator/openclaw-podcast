@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/hi/podcasts/openclaw/</link>
     <description>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। सीखें कि अपनी खुद की एआई स्थानीय रूप से कैसे चलाएं, अपने डेटा को निजी रखें, और स्थानीय भाषा मॉडल की तेजी से विकसित होती दुनिया में आगे रहें।</description>
     <language>hi-in</language>
-    <lastBuildDate>Thu, 12 Mar 2026 20:52:30 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 25 Mar 2026 16:00:00 GMT</lastBuildDate>
     <itunes:author>नोवा और अलॉय</itunes:author>
     <itunes:summary>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। हार्डवेयर सेटअप से लेकर सुरक्षा युक्तियों तक, मॉडल रिलीज से लेकर कम्युनिटी हाइलाइट्स तक — व्यक्तिगत एआई के भविष्य के बारे में वह सब कुछ जो आपको जानना आवश्यक है, ठीक यहाँ।</itunes:summary>
     <itunes:owner>
@@ -16,7 +16,18 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
-    <!-- Episode 11 -->
+    <!-- Episode 16 -->
+    <item>
+      <title>एपिसोड 16: OpenClaw अपनी पुरानी खाल उतारता है</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_016_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-16/</link>
+      <description>Nova और Alloy OpenClaw के v2026.3.22 और v2026.3.23 रिलीज़ की विस्तार से चर्चा करते हैं। plugin SDK, browser tooling और Matrix ecosystems के लिए migration के दबाव बिंदु, openclaw doctor --fix क्यों upgrade का anchor command बन गया, ClawHub-first plugin installation, accessibility और UI polish updates, Qwen/DashScope provider changes, और एक practical upgrade checklist। 35 मिनट।</description>
+      <pubDate>Tue, 25 Mar 2026 12:00:00 -0400</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_016_hi.mp3" length="34006874" type="audio/mpeg"/>
+      <itunes:duration>35:25</itunes:duration>
+      <itunes:episode>16</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover.png"/>
+    </item>
 
     <!-- Episode 15 -->
     <item>
@@ -31,7 +42,7 @@
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover_hi.png"/>
     </item>
 
-    <!-- Episode 13 -->
+    <!-- Episode 14 -->
     <item>
       <title>एपिसोड 14: सब कुछ का अधिग्रहण</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_hi.mp3</guid>
