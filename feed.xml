@@ -20,6 +20,19 @@
 
     
 
+    <!-- Episode 16 -->
+    <item>
+      <title>Episode 16: OpenClaw Sheds Its Skin</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_016.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-16/</link>
+      <description>Nova and Alloy unpack OpenClaw's back-to-back v2026.3.22 and v2026.3.23 releases. The episode covers migration pressure points for plugin SDK, browser tooling, and Matrix ecosystems, why openclaw doctor --fix became the upgrade anchor command, ClawHub-first plugin installation, accessibility and UI polish updates, Qwen/DashScope provider changes, and a practical upgrade sequencing checklist. 35 minutes.</description>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_016.mp3" length="34006874" type="audio/mpeg"/>
+      <itunes:duration>35:25</itunes:duration>
+      <itunes:episode>16</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover.png"/>
+      <pubDate>Tue, 25 Mar 2026 12:00:00 -0400</pubDate>
+    </item>
+
     <!-- Episode 15 -->
     <item>
       <title>Episode 15: Remember Me: How We Built a Real Memory System for an AI Assistant</title>
