@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/podcasts/</link>
     <description>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. Hosted by Nova and Alloy.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 25 Mar 2026 16:00:00 GMT</lastBuildDate>
+    <lastBuildDate>Wed, 25 Mar 2026 17:54:00 GMT</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. From hardware setups to security tips, model releases to community highlights — everything you need to know about the future of personal AI, right here.</itunes:summary>
     <itunes:owner>
@@ -26,8 +26,8 @@
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_016.mp3</guid>
       <link>https://tobyonfitnesstech.com/podcasts/episode-16/</link>
       <description>Nova and Alloy unpack OpenClaw's back-to-back v2026.3.22 and v2026.3.23 releases. The episode covers migration pressure points for plugin SDK, browser tooling, and Matrix ecosystems, why openclaw doctor --fix became the upgrade anchor command, ClawHub-first plugin installation, accessibility and UI polish updates, Qwen/DashScope provider changes, and a practical upgrade sequencing checklist. 35 minutes.</description>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_016.mp3" length="34006874" type="audio/mpeg"/>
-      <itunes:duration>35:25</itunes:duration>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_016.mp3" length="33534580" type="audio/mpeg"/>
+      <itunes:duration>34:56</itunes:duration>
       <itunes:episode>16</itunes:episode>
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover.png"/>
       <pubDate>Tue, 25 Mar 2026 12:00:00 -0400</pubDate>
