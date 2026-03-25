@@ -18,18 +18,6 @@
     
 
 
-    <!-- Episode 16 -->
-    <item>
-      <title>Folge 16: OpenClaw häutet sich</title>
-      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_016_de.mp3</guid>
-      <link>https://tobyonfitnesstech.com/de/podcasts/episode-16/</link>
-      <description>Nova und Alloy analysieren die aufeinanderfolgenden OpenClaw-Releases v2026.3.22 und v2026.3.23. Themen: Migration-Druckpunkte für Plugin SDK, Browser-Tooling und Matrix-Ökosysteme, warum openclaw doctor --fix zum Upgrade-Anker wurde, ClawHub-first Plugin-Installation, Accessibility- und UI-Updates, Qwen/DashScope-Provider-Änderungen und eine praktische Upgrade-Checkliste. 35 Minuten.</description>
-      <pubDate>Tue, 25 Mar 2026 12:00:00 -0400</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_016_de.mp3" length="34006874" type="audio/mpeg"/>
-      <itunes:duration>35:25</itunes:duration>
-      <itunes:episode>16</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover.png"/>
-    </item>
 
     <!-- Episode 15 -->
     <item>
