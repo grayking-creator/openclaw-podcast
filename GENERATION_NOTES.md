@@ -8,7 +8,7 @@ This document describes how to generate high-quality podcast audio from the mark
 | Host | Voice | Description |
 |------|-------|-------------|
 | Nova | `en-GB-SoniaNeural` | Warm British female voice |
-| Alloy | `en-US-JennyNeural` | American female voice |
+| Alloy | `en-US-GuyNeural` | American male voice |
 
 ⚠️ **DO NOT CHANGE VOICES WITHOUT EXPLICIT PERMISSION**
 
@@ -92,6 +92,7 @@ The script automatically resamples to 22kHz. If you need higher quality, modify 
 
 ## History
 
+- **2026-03-25**: Alloy changed to Guy after QA feedback that Nova/Alloy were too hard to distinguish in EP016
 - **2026-02-20**: Voices locked to Sonia (Nova) + Jenny (Alloy)
 - **2026-02-18**: Initial setup using edge-tts for Episode 1
 

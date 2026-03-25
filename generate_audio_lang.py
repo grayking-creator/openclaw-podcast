@@ -14,7 +14,7 @@ LANG_VOICES = {
     "de": {"NOVA": "de-DE-KatjaNeural",    "ALLOY": "de-DE-ConradNeural"},
     "pt": {"NOVA": "pt-BR-FranciscaNeural","ALLOY": "pt-BR-AntonioNeural"},
     "hi": {"NOVA": "hi-IN-SwaraNeural",    "ALLOY": "hi-IN-MadhurNeural"},
-    "en": {"NOVA": "en-GB-SoniaNeural",    "ALLOY": "en-US-JennyNeural"},
+    "en": {"NOVA": "en-GB-SoniaNeural",    "ALLOY": "en-US-GuyNeural"},
 }
 
 def main():

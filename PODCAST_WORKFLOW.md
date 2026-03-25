@@ -68,11 +68,16 @@ If ANY of these is missing, the review post is incomplete. Do not tell Toby "rea
   bash openclaw-podcast/publish_episode.sh <episode_number>
   ```
   This script:
-  1. Copies cover art to `websiteBuilder/frontend/public/images/podcast/` ← the step that kept getting missed
-  2. Verifies feed.xml has the episode
-  3. Pushes podcast repo
-  4. Refreshes training data + builds website
-  5. Pushes website
+  1. Replaces the canonical CDN audio at `openclaw-podcast-audio/audio/episode_0XX.mp3`
+  2. Updates `openclaw-podcast-audio/audio/latest.mp3` so old build-log links can always hit the newest approved audio
+  3. Copies cover art to both `openclaw-podcast-audio/` and `websiteBuilder/frontend/public/images/podcast/`
+  4. Verifies `feed.xml` has the episode
+  5. Pushes podcast repo + CDN repo
+  6. Refreshes training data, builds website, and pushes website
+- [ ] **Build-log / Discord message must include exact links**
+  - Episode audio URL
+  - Stable `latest.mp3` URL
+  - Show-notes / website URL
 - [ ] Notify Toby
 
 ---
@@ -107,4 +112,3 @@ All episodes must target 30 minutes or longer. This applies to transcript length
 - ALWAYS include a CTA to tobyonfitnesstech.com for show notes and episode archives
 - NEVER say "we'll be back next week" — this is OpenClaw *Daily*, say "we'll be back soon"
 - NEVER include fake UI references or MCP toggle buttons that don't exist
-
