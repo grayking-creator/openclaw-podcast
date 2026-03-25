@@ -19,6 +19,19 @@
 
 
 
+    <!-- Episode 16 -->
+    <item>
+      <title>Folge 16: OpenClaw häutet sich</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_016_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-16/</link>
+      <description>Nova und Alloy analysieren die aufeinanderfolgenden OpenClaw-Releases v2026.3.22 und v2026.3.23. Migration-Druckpunkte für Plugin SDK, Browser-Tooling und Matrix-Ökosysteme, openclaw doctor --fix als Upgrade-Anker, ClawHub-first Plugin-Installation, Accessibility-Updates, Qwen/DashScope-Änderungen und eine praktische Upgrade-Checkliste. 41 Minuten.</description>
+      <pubDate>Tue, 25 Mar 2026 12:00:00 -0400</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/de/episode_016_de.mp3" length="40010857" type="audio/mpeg"/>
+      <itunes:duration>41:40</itunes:duration>
+      <itunes:episode>16</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover.png"/>
+    </item>
+
     <!-- Episode 15 -->
     <item>
       <title>Folge 15: Erinner mich: Wie wir ein echtes Memory-System für einen KI-Assistenten gebaut haben</title>

@@ -17,6 +17,19 @@
     <itunes:explicit>false</itunes:explicit>
     
 
+    <!-- Episode 16 -->
+    <item>
+      <title>एपिसोड 16: OpenClaw अपनी पुरानी खाल उतारता है</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_016_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-16/</link>
+      <description>Nova और Alloy OpenClaw के v2026.3.22 और v2026.3.23 रिलीज़ की चर्चा करते हैं। Plugin SDK, browser tooling और Matrix ecosystems के लिए migration, openclaw doctor --fix upgrade anchor, ClawHub-first plugin installation, accessibility updates, Qwen/DashScope changes, और एक practical upgrade checklist। 47 मिनट।</description>
+      <pubDate>Tue, 25 Mar 2026 12:00:00 -0400</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_016_hi.mp3" length="45924562" type="audio/mpeg"/>
+      <itunes:duration>47:50</itunes:duration>
+      <itunes:episode>16</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover.png"/>
+    </item>
+
     <!-- Episode 15 -->
     <item>
       <title>एपिसोड 15: मुझे याद करो: हमने एक AI असिस्टेंट के लिए असली मेमोरी सिस्टम कैसे बनाया</title>

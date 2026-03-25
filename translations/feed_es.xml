@@ -19,6 +19,19 @@
 
 
 
+    <!-- Episode 16 -->
+    <item>
+      <title>Episodio 16: OpenClaw muda de piel</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_016_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-16/</link>
+      <description>Nova y Alloy analizan los lanzamientos consecutivos de OpenClaw v2026.3.22 y v2026.3.23. Puntos de migración para Plugin SDK, browser tooling y ecosistemas Matrix, openclaw doctor --fix como comando ancla, instalación ClawHub-first, actualizaciones de accesibilidad, cambios en Qwen/DashScope y una checklist práctica. 39 minutos.</description>
+      <pubDate>Tue, 25 Mar 2026 12:00:00 -0400</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_016_es.mp3" length="37569976" type="audio/mpeg"/>
+      <itunes:duration>39:08</itunes:duration>
+      <itunes:episode>16</itunes:episode>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover.png"/>
+    </item>
+
     <!-- Episode 15 -->
     <item>
       <title>Episodio 15: Recuérdame: Cómo construimos un sistema de memoria real para un asistente de IA</title>
