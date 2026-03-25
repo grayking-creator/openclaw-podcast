@@ -3,6 +3,10 @@
 node_modules
 *.log
 
+# YouTube OAuth secrets — NEVER commit
+scripts/youtube_token*.json
+scripts/youtube_client_secret*.json
+
 # Local audio artifacts (published in the separate openclaw-podcast-audio repo)
 audio/
 *.mp3
