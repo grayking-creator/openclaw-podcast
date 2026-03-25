@@ -5,6 +5,13 @@
 **ARIA MUST NOT generate audio until Toby explicitly approves in Discord.**
 This rule was violated for EP11 and EP12. It will not happen again.
 
+## ✅ APPROVAL SEQUENCE (locked 2026-03-24 — do NOT ask for extra approval)
+
+1. **Toby approves audio** → ARIA immediately pushes feeds (EN + all translation feeds). No approval needed. No asking. Just do it.
+2. **ARIA shows website diff** → Toby approves → ARIA pushes website.
+
+ARIA must NEVER ask Toby to approve the feeds after audio is approved. Feed publish is automatic on audio approval. Asking for feed approval after audio approval is a repeated process violation.
+
 ---
 
 ## Discord Review Checklist — MANDATORY for every episode

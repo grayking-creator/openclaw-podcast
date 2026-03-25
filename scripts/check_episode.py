@@ -7,6 +7,7 @@ Checks for required structural elements and flags issues.
 import sys
 import re
 import argparse
+from pathlib import Path
 
 CHECKS = []
 WARNINGS = []
@@ -94,6 +95,28 @@ def run_checks(path):
     broken_emphasis = content.count('[EMPHASIS]') != content.count('[/EMPHASIS]')
     check("Matched [EMPHASIS] tags", not broken_emphasis,
           hint="Mismatched [EMPHASIS] / [/EMPHASIS] tags")
+
+    # ── TTS render check ──────────────────────────────────────────────────────
+    # Check whether the _nova.md render exists and is free of spoken speaker labels.
+    # If it exists, verify no line passes "NOVA:" or "ALLOY:" through to the TTS engine.
+    nova_path = Path(path).parent / (Path(path).stem + '_nova.md')
+    if nova_path.exists():
+        nova_content = nova_path.read_text(encoding='utf-8', errors='ignore')
+        # Each line should be: [NOVA]: <text> or [ALLOY]: <text>
+        # The <text> must NOT start with "NOVA:" or "ALLOY:" (would be spoken aloud)
+        spoken_label_lines = []
+        for line in nova_content.splitlines():
+            m = re.match(r'^\[(NOVA|ALLOY)\]:\s*(NOVA|ALLOY):', line)
+            if m:
+                spoken_label_lines.append(line[:80])
+        check("TTS render has no spoken speaker labels",
+              len(spoken_label_lines) == 0,
+              hint=f"nova.md has {len(spoken_label_lines)} line(s) where 'NOVA:' or 'ALLOY:' would be spoken aloud. Re-run render_nova.py after fixing generate_audio.py scrub.")
+    else:
+        check("TTS render file exists (_nova.md)",
+              False,
+              severity="WARNING",
+              hint=f"Run render_nova.py to create {nova_path.name} before generating audio")
 
     # ── Summary ───────────────────────────────────────────────────────────────
     print("Results:")

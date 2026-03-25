@@ -21,7 +21,19 @@ def render(transcript_path: str) -> str:
     content = content.strip()
 
     paragraphs = [p.strip() for p in content.split('\n\n') if p.strip() and len(p.strip()) > 20]
-    nova_script = '\n\n'.join(f'[NOVA]: {p}' for p in paragraphs)
+
+    def tag_paragraph(p):
+        # Detect speaker from leading "ALLOY:" or "NOVA:" prefix, then strip it from spoken text
+        if re.match(r'^ALLOY:', p):
+            spoken = re.sub(r'^ALLOY:\s*', '', p)
+            return f'[ALLOY]: {spoken}'
+        elif re.match(r'^NOVA:', p):
+            spoken = re.sub(r'^NOVA:\s*', '', p)
+            return f'[NOVA]: {spoken}'
+        else:
+            return f'[NOVA]: {p}'
+
+    nova_script = '\n\n'.join(tag_paragraph(p) for p in paragraphs)
 
     output_path = Path(transcript_path).parent / (Path(transcript_path).stem + '_nova.md')
     with open(output_path, 'w') as f:

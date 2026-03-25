@@ -60,6 +60,8 @@ def parse_script(script_path: str) -> list:
         text = parts[i+1].strip()
 
         # --- TTS scrub pass (prevents spoken markdown artifacts) ---
+        # Strip leading speaker label (e.g. "NOVA: " or "ALLOY: ") from spoken text
+        text = re.sub(r'^(NOVA|ALLOY):\s*', '', text)
         # Remove markdown headings like "## Segment ..." or "# Title" that may sit between speaker turns.
         text = re.sub(r'^\s*#{1,6}\s+.*$', '', text, flags=re.MULTILINE)
         # Remove fenced code blocks entirely
