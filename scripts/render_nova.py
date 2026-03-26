@@ -13,10 +13,16 @@ def render(transcript_path: str) -> str:
         content = f.read()
 
     content = re.sub(r'^#{1,3} .*$', '', content, flags=re.MULTILINE)
+    content = re.sub(r'^---+\s*$', '', content, flags=re.MULTILINE)
     content = re.sub(r'\[EMPHASIS\](.*?)\[/EMPHASIS\]', r'\1', content)
     content = re.sub(r'\[PAUSE\]', '...', content)
     content = re.sub(r'```.*?```', '', content, flags=re.DOTALL)
     content = re.sub(r'`[^`]+`', lambda m: m.group(0).strip('`'), content)
+    # Strip bold markdown speaker labels: **NOVA:** or **ALLOY:** → NOVA: or ALLOY:
+    content = re.sub(r'^\*\*(NOVA|ALLOY):\*\*', r'\1:', content, flags=re.MULTILINE)
+    # Also strip any remaining bold markdown
+    content = re.sub(r'\*\*([^*]+)\*\*', r'\1', content)
+    content = re.sub(r'\*([^*]+)\*', r'\1', content)
     content = re.sub(r'\n{3,}', '\n\n', content)
     content = content.strip()
 

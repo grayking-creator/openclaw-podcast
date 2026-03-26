@@ -38,10 +38,21 @@ def run_checks(path):
     print(f"   Word count: {word_count:,}")
     print()
 
-    # ── Intro checks ──────────────────────────────────────────────────────────
-    has_host_intro = bool(re.search(r"I'm NOVA|I am NOVA|Welcome to OpenClaw|This is OpenClaw Daily", first_500_words, re.IGNORECASE))
-    check("Host introduced within first 500 words", has_host_intro,
-          hint="Must include 'I'm NOVA' or 'Welcome to OpenClaw Daily' early in the episode")
+    # ── Cold open + intro checks ───────────────────────────────────────────────
+    # Cold open: unlabelled dramatic prose before first speaker label, within first ~112 words (45 sec @ 150wpm)
+    first_112_words = ' '.join(content.split()[:112])
+    first_speaker_match = re.search(r'\*?\*?(NOVA|ALLOY)\*?\*?:', content)
+    words_before_first_speaker = len(content[:first_speaker_match.start()].split()) if first_speaker_match else 0
+    has_cold_open = words_before_first_speaker >= 10
+    check("Cold open present before first speaker label", has_cold_open,
+          hint=f"Episode must open with unlabelled dramatic prose (cold open) before NOVA/ALLOY speak. "
+               f"Currently {words_before_first_speaker} words before first speaker label — need at least 10.")
+
+    # Host intro with show name within first 112 words after cold open (≈45 sec)
+    first_300_words = ' '.join(content.split()[:300])
+    has_host_intro = bool(re.search(r"I'm NOVA|I am NOVA|Welcome to OpenClaw|This is OpenClaw Daily", first_300_words, re.IGNORECASE))
+    check("Host intro ('I'm NOVA / This is OpenClaw Daily') within first 300 words", has_host_intro,
+          hint="Must include 'I'm NOVA' or 'This is OpenClaw Daily' shortly after the cold open")
 
     has_show_name = bool(re.search(r"OpenClaw Daily", first_500_words, re.IGNORECASE))
     check("Show name mentioned in intro", has_show_name,
@@ -65,14 +76,18 @@ def run_checks(path):
 
     # ── Content checks ────────────────────────────────────────────────────────
     check("Minimum length (5,000 words)", word_count >= 5000,
-          hint=f"Got {word_count:,} words — target is 6,500–7,500 for a 40–45 min episode")
+          hint=f"Got {word_count:,} words — minimum is 5,000 to guarantee 30+ min audio")
 
-    check("Target length (6,500+ words)", word_count >= 6500, severity="WARNING",
-          hint=f"Got {word_count:,} words — ideally 6,500–7,500")
+    check("Target length (5,500+ words)", word_count >= 5500, severity="WARNING",
+          hint=f"Got {word_count:,} words — 5,500+ gives comfortable 30-35 min episodes")
 
-    has_actionable = bool(re.search(r"(```|install |pip install|brew install|npm install|run:|command:|bash |python |step \d)", content, re.IGNORECASE))
-    check("Contains actionable commands or code", has_actionable,
-          hint="Technical episodes should include concrete commands/steps")
+    # Local paths / IPs must never appear in a public transcript
+    local_path_matches = re.findall(r'/Users/[^\s\]\"\']+|/home/[^\s\]\"\']+', content)
+    local_ip_matches = re.findall(r'192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|localhost:\d+', content)
+    check("No local file paths in transcript", len(local_path_matches) == 0,
+          hint=f"Found local paths: {local_path_matches[:3]}")
+    check("No local IP addresses or localhost ports in transcript", len(local_ip_matches) == 0,
+          hint=f"Found local addresses: {local_ip_matches[:3]}")
 
     # ── Duplicate detection ───────────────────────────────────────────────────
     paragraphs = [p.strip() for p in content.split('\n\n') if len(p.strip()) > 100]
@@ -95,6 +110,81 @@ def run_checks(path):
     broken_emphasis = content.count('[EMPHASIS]') != content.count('[/EMPHASIS]')
     check("Matched [EMPHASIS] tags", not broken_emphasis,
           hint="Mismatched [EMPHASIS] / [/EMPHASIS] tags")
+
+    # ── Voice / conversational flow checks ──────────────────────────────────
+    nova_lines = len(re.findall(r'^\*?\*?NOVA\*?\*?:', content, re.MULTILINE))
+    alloy_lines = len(re.findall(r'^\*?\*?ALLOY\*?\*?:', content, re.MULTILINE))
+    check(f"Both hosts present (NOVA={nova_lines}, ALLOY={alloy_lines})",
+          nova_lines >= 5 and alloy_lines >= 5,
+          hint=f"NOVA has {nova_lines} lines, ALLOY has {alloy_lines} lines. Both must have 5+.")
+
+    if nova_lines + alloy_lines > 0:
+        ratio = min(nova_lines, alloy_lines) / max(nova_lines, alloy_lines)
+        check(f"Host balance ratio ({ratio:.0%} — want >25%)", ratio >= 0.25,
+              hint=f"NOVA={nova_lines}, ALLOY={alloy_lines}. One host is dominating — add more back-and-forth.")
+
+    # Check for conversational back-and-forth (no monologues >5 consecutive same-speaker blocks)
+    speaker_sequence = re.findall(r'^\*?\*?(NOVA|ALLOY)\*?\*?:', content, re.MULTILINE)
+    max_consecutive = 1
+    current_run = 1
+    for i in range(1, len(speaker_sequence)):
+        if speaker_sequence[i] == speaker_sequence[i-1]:
+            current_run += 1
+            max_consecutive = max(max_consecutive, current_run)
+        else:
+            current_run = 1
+    check(f"No monologue runs >5 (longest run: {max_consecutive})",
+          max_consecutive <= 5, severity="WARNING",
+          hint="A host speaks more than 5 consecutive blocks — add interleaved responses.")
+
+    # ── Segment structure checks ─────────────────────────────────────────────
+    segment_headers = re.findall(r'^#{1,3} \[[\d:–-]+\]', content, re.MULTILINE)
+    check(f"Has timestamped segments ({len(segment_headers)} found)", len(segment_headers) >= 3,
+          hint="Episode must have at least 3 timestamped segment headers: ## [HH:MM–HH:MM] Title")
+
+    # ── Outro quality checks ─────────────────────────────────────────────────
+    has_website_cta = bool(re.search(r'tobyonfitnesstech\.com', last_500_words, re.IGNORECASE))
+    check("CTA to tobyonfitnesstech.com in outro", has_website_cta,
+          hint="Outro must direct listeners to tobyonfitnesstech.com for show notes")
+
+    has_correct_closing = bool(re.search(r"we'll be back soon", last_500_words, re.IGNORECASE))
+    has_wrong_closing = bool(re.search(r"we'll be back next week", last_500_words, re.IGNORECASE))
+    check("Correct closing phrase ('we'll be back soon')", has_correct_closing and not has_wrong_closing,
+          hint="Must say 'we'll be back soon' NOT 'we'll be back next week' — this is OpenClaw Daily")
+
+    last_150_words = ' '.join(content.split()[-150:])
+    has_no_discord_in_outro = not bool(re.search(r'discord', last_150_words, re.IGNORECASE))
+    check("No Discord mention in outro (no listener Discord exists)", has_no_discord_in_outro,
+          hint="Never mention Discord in the outro — there is no listener Discord. (Mentioning Discord in body content about platform features is fine.)")
+
+    # ── Forbidden content checks ─────────────────────────────────────────────
+    has_word_count_meta = bool(re.search(r'word count|Word Count|<!-- Word', content))
+    check("No word count metadata in transcript body", not has_word_count_meta,
+          hint="Remove any word count comments or metadata from the transcript")
+
+    has_episode_footer = bool(re.search(r'^\*OpenClaw Daily — Episode', content, re.MULTILINE))
+    check("No episode metadata footer", not has_episode_footer,
+          hint="Remove the '*OpenClaw Daily — Episode XX, Date*' footer line")
+
+    # ── Voice configuration check ────────────────────────────────────────────
+    try:
+        ga_path = Path(path).parent.parent / 'generate_audio.py'
+        if ga_path.exists():
+            ga_content = ga_path.read_text()
+            import re as _re
+            nova_voice = _re.search(r'"NOVA":\s*"([^"]+)"', ga_content)
+            alloy_voice = _re.search(r'"ALLOY":\s*"([^"]+)"', ga_content)
+            if nova_voice and alloy_voice:
+                nv = nova_voice.group(1)
+                av = alloy_voice.group(1)
+                check(f"NOVA voice is en-GB-SoniaNeural (got: {nv})",
+                      nv == "en-GB-SoniaNeural",
+                      hint="NOVA must be en-GB-SoniaNeural (British female)")
+                check(f"ALLOY voice is en-US-JennyNeural (got: {av})",
+                      av == "en-US-JennyNeural",
+                      hint="ALLOY must be en-US-JennyNeural (American female). NOT GuyNeural.")
+    except Exception:
+        pass
 
     # ── TTS render check ──────────────────────────────────────────────────────
     # Check whether the _nova.md render exists and is free of spoken speaker labels.

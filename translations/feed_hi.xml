@@ -18,6 +18,10 @@
     
 
     <!-- Episode 16 -->
+    
+    
+
+    <!-- Episode 16 -->
     <item>
       <title>एपिसोड 16: OpenClaw अपनी पुरानी खाल उतारता है</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_016_hi.mp3</guid>
@@ -29,6 +33,7 @@
       <itunes:episode>16</itunes:episode>
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover_hi.png"/>
     </item>
+
 
     <!-- Episode 15 -->
     <item>
@@ -43,6 +48,7 @@
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover_hi.png"/>
     </item>
 
+
     <!-- Episode 14 -->
     <item>
       <title>एपिसोड 14: सब कुछ का अधिग्रहण</title>
@@ -56,6 +62,7 @@
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_cover_hi.png"/>
     </item>
 
+
     <item>
       <title>Episode 13: NVIDIA ने OpenClaw को चुना — इसका वास्तव में क्या मतलब है</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_hi.mp3</guid>
@@ -65,8 +72,9 @@
       <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_hi.mp3" length="0" type="audio/mpeg"/>
       <itunes:duration>34:49</itunes:duration>
       <itunes:episode>13</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_cover_hi.png"/>
     </item>
+
 
     <item>
       <title>एपिसोड 12: मुफ्त फ्रंटियर मॉडल, मल्टीमोडल मेमोरी और कम्युनिटी ऑटोमेशन</title>
@@ -76,8 +84,9 @@
       <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_hi.mp3" length="48270567" type="audio/mpeg"/>
       <itunes:duration>50:16</itunes:duration>
       <itunes:episode>12</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_cover_hi.png"/>
     </item>
+
     <item>
       <title>एपिसोड 11: OpenClaw Goes Hardware: The Agent Layer Gets Real</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_011_hi.mp3</guid>
@@ -94,6 +103,7 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-11/</description>
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_011_cover_hi.png"/>
     </item>
 
+
     <!-- Episode 10 -->
     <item>
       <title>एपिसोड 10: दस्तावेज़ और स्मृति क्रांति</title>
@@ -108,8 +118,9 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-10/</description>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>10</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_010_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_010_cover_hi.png"/>
     </item>
+
 
     <!-- Episode 9 -->
     <item>
@@ -125,8 +136,9 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-9/</description>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>9</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_009_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_009_cover_hi.png"/>
     </item>
+
 
     <!-- Episode 8 -->
 <item>
@@ -149,8 +161,9 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-4/</description>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>8</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_008_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_008_cover_hi.png"/>
     </item>
+
     <item>
       <title><![CDATA[एपिसोड 7: OpenClaw का एजेंटिक पल, Wikipedia पर वैधता और 150K स्टार माइलस्टोन]]></title>
       <link>https://tobyonfitnesstech.com/podcasts/episode-7/</link>
@@ -162,9 +175,10 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-7/]]></description
       <itunes:duration>48:20</itunes:duration>
       <itunes:episode>7</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_007_cover_hi.png"/>
       <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_007_hi.mp3</guid>
     </item>
+
     <item>
       <title>एपिसोड 6: v2026.2.24 अपडेट और बॉट सोशल नेटवर्क</title>
       <link>https://tobyonfitnesstech.com/hi/podcasts/episode-6/</link>
@@ -177,50 +191,20 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-7/]]></description
       <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_006_hi.mp3</guid>
     </item>
 
-        <item>
-      <title>एपिसोड 1: पूरी कहानी</title>
-    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_001_hi.mp3</guid>
-      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-1/</link>
-      <description>ओपनक्लॉ डेली का उद्घाटन एपिसोड जिसमें फाउंडेशन संक्रमण, सुरक्षा बहस, हार्डवेयर विकल्प, मॉडल रिलीज और कम्युनिटी पारिस्थितिकी तंत्र को शामिल किया गया है।
-
-Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-1/</description>
-      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_001_hi.mp3" length="14159468" type="audio/mpeg"/>
-      <itunes:duration>30:00</itunes:duration>
-      <itunes:episode>1</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_001_cover.png"/>
-    </item>
 
     <item>
-      <title>एपिसोड 2: स्थानीय एआई क्रांति</title>
-    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_002_hi.mp3</guid>
-      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-2/</link>
-      <description>एपिसोड 2 रास्पबेरी पाई आधिकारिक समर्थन, मैक मिनी की कमी, बिटसाइट सुरक्षा अनुसंधान और स्थानीय एआई एजेंटों के भविष्य को कवर करता है।
-
-Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-2/</description>
-      <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_002_hi.mp3" length="28765247" type="audio/mpeg"/>
-      <itunes:duration>29:52</itunes:duration>
-      <itunes:episode>2</itunes:episode>
+      <title>Episode 5: स्थानीय AI क्रांति</title>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-5/</link>
+      <description>Episode 5 में IBM का OpenClaw पर एंटरप्राइज विश्लेषण, Raspberry Pi AI गाइड और नया AI HAT+ 2 हार्डवेयर, Ollama को locally चलाने की जानकारी, Claude Code + Ollama इंटीग्रेशन, सुरक्षा शोध, और स्थानीय AI क्रांति का व्यक्तियों और उद्यमों के लिए क्या अर्थ है, शामिल है।</description>
+      <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_005_hi.mp3" length="19389888" type="audio/mpeg"/>
+      <itunes:duration>54:00</itunes:duration>
+      <itunes:episode>5</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_002_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_005_cover_hi.png"/>
+      <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_005_hi.mp3</guid>
     </item>
 
-    <item>
-      <title>एपिसोड 3: विवाद</title>
-    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_003_hi.mp3</guid>
-      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-3/</link>
-      <description>एपिसोड 3 ओपनक्लॉ के इर्द-गिर्द के विवादों - विशेषज्ञों के संदेह, कॉर्पोरेट प्रतिबंध और बेकाबू एजेंट की घटना की पड़ताल करता है।
-
-Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-3/</description>
-      <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_003_hi.mp3" length="29243811" type="audio/mpeg"/>
-      <itunes:duration>30:00</itunes:duration>
-      <itunes:episode>3</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_003_cover.png"/>
-    </item>
 
     <item>
       <title>एपिसोड 4: इंडी-हैकर पारिस्थितिकी तंत्र</title>
@@ -234,27 +218,71 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-4/</description>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>4</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_004_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_004_cover_hi.png"/>
     </item>
+
 
     <item>
-      <title>Episode 5: स्थानीय AI क्रांति</title>
-      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-5/</link>
-      <description>Episode 5 में IBM का OpenClaw पर एंटरप्राइज विश्लेषण, Raspberry Pi AI गाइड और नया AI HAT+ 2 हार्डवेयर, Ollama को locally चलाने की जानकारी, Claude Code + Ollama इंटीग्रेशन, सुरक्षा शोध, और स्थानीय AI क्रांति का व्यक्तियों और उद्यमों के लिए क्या अर्थ है, शामिल है।</description>
-      <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_005_hi.mp3" length="19389888" type="audio/mpeg"/>
-      <itunes:duration>54:00</itunes:duration>
-      <itunes:episode>5</itunes:episode>
+      <title>एपिसोड 3: विवाद</title>
+    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_003_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-3/</link>
+      <description>एपिसोड 3 ओपनक्लॉ के इर्द-गिर्द के विवादों - विशेषज्ञों के संदेह, कॉर्पोरेट प्रतिबंध और बेकाबू एजेंट की घटना की पड़ताल करता है।
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-3/</description>
+      <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_003_hi.mp3" length="29243811" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>3</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_005_cover.png"/>
-      <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_005_hi.mp3</guid>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_003_cover_hi.png"/>
     </item>
 
 
+    <item>
+      <title>एपिसोड 2: स्थानीय एआई क्रांति</title>
+    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_002_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-2/</link>
+      <description>एपिसोड 2 रास्पबेरी पाई आधिकारिक समर्थन, मैक मिनी की कमी, बिटसाइट सुरक्षा अनुसंधान और स्थानीय एआई एजेंटों के भविष्य को कवर करता है।
 
-    
-    
-    
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-2/</description>
+      <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_002_hi.mp3" length="28765247" type="audio/mpeg"/>
+      <itunes:duration>29:52</itunes:duration>
+      <itunes:episode>2</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_002_cover_hi.png"/>
+    </item>
+
+
+        <item>
+      <title>एपिसोड 1: पूरी कहानी</title>
+    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_001_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-1/</link>
+      <description>ओपनक्लॉ डेली का उद्घाटन एपिसोड जिसमें फाउंडेशन संक्रमण, सुरक्षा बहस, हार्डवेयर विकल्प, मॉडल रिलीज और कम्युनिटी पारिस्थितिकी तंत्र को शामिल किया गया है।
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-1/</description>
+      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_001_hi.mp3" length="14159468" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>1</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_001_cover_hi.png"/>
+    </item>
+    <!-- Episode 0 -->
+    <item>
+      <title>एपिसोड 0: हार्डवेयर डीप डाइव — स्थानीय मॉडल विफलताओं को ठीक करना</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_000_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-0/</link>
+      <description>एपिसोड 0 में Clarity (Qwen3-Coder 30B) के कॉन्टेक्स्ट ओवरफ्लो बग, एक पूर्ण हार्डवेयर तुलना (NVIDIA DGX Spark, Mac Studio M3 Ultra, AMD Ryzen AI Max+ 395, AMD MI300X) और कॉन्फ़िगरेशन फिक्स शामिल है।
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-0/</description>
+      <pubDate>Tue, 18 Feb 2026 06:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/hi/episode_000_hi.mp3" length="15122642" type="audio/mpeg"/>
+      <itunes:duration>15:45</itunes:duration>
+      <itunes:episode>0</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audiohttps://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_000_cover_hi.png"/>
+    </item>
 
   </channel>
 </rss>

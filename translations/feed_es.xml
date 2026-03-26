@@ -20,6 +20,12 @@
 
 
     <!-- Episode 16 -->
+    
+    
+
+
+
+    <!-- Episode 16 -->
     <item>
       <title>Episodio 16: OpenClaw muda de piel</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_016_es.mp3</guid>
@@ -31,6 +37,7 @@
       <itunes:episode>16</itunes:episode>
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover_es.png"/>
     </item>
+
 
     <!-- Episode 15 -->
     <item>
@@ -45,6 +52,7 @@
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover_es.png"/>
     </item>
 
+
 <!-- Episode 14 -->
     <item>
       <title>Episodio 14: La Adquisición de Todo</title>
@@ -58,6 +66,7 @@
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_cover_es.png"/>
     </item>
 
+
     <item>
       <title>Episodio 13: NVIDIA Eligió OpenClaw — Lo Que Eso Realmente Significa</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_es.mp3</guid>
@@ -67,8 +76,9 @@
       <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_es.mp3" length="0" type="audio/mpeg"/>
       <itunes:duration>34:49</itunes:duration>
       <itunes:episode>13</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_cover_es.png"/>
     </item>
+
 
     <item>
       <title>Episodio 12: Modelos Frontier Gratuitos, Memoria Multimodal y Automatizaciones de la Comunidad</title>
@@ -78,8 +88,9 @@
       <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_es.mp3" length="37070514" type="audio/mpeg"/>
       <itunes:duration>38:36</itunes:duration>
       <itunes:episode>12</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_cover_es.png"/>
     </item>
+
     <item>
       <title>Episodio 11: OpenClaw Va Hardware: La Capa de Agentes Se Vuelve Real</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_011_es.mp3</guid>
@@ -96,6 +107,7 @@ Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-11/</description>
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_011_cover_es.png"/>
     </item>
 
+
     <!-- Episode 10 -->
     <item>
       <title>Episodio 10: La Revolución de los Documentos y la Memoria</title>
@@ -110,8 +122,9 @@ Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-10/</description>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>10</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_010_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_010_cover_es.png"/>
     </item>
+
 
     <!-- Episode 9 -->
     <item>
@@ -127,8 +140,9 @@ Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-9/</description>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>9</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_009_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_009_cover_es.png"/>
     </item>
+
 
     <!-- Episode 8 -->
 <item>
@@ -151,8 +165,9 @@ Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-4/</description>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>8</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_008_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_008_cover_es.png"/>
     </item>
+
     <item>
       <title><![CDATA[Episodio 7: El Momento Agéntico de OpenClaw, Legitimidad en Wikipedia y el Hito de las 150K Estrellas]]></title>
       <link>https://tobyonfitnesstech.com/podcasts/episode-7/</link>
@@ -164,9 +179,10 @@ Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-7/]]></description
       <itunes:duration>48:20</itunes:duration>
       <itunes:episode>7</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://grayking-creator.github.io/openclaw-podcast/cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_007_cover_es.png"/>
       <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_007_es.mp3</guid>
     </item>
+
     <item>
       <title>Episodio 6: La actualización v2026.2.24 y las redes sociales de bots</title>
       <link>https://tobyonfitnesstech.com/es/podcasts/episode-6/</link>
@@ -179,50 +195,20 @@ Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-7/]]></description
       <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_006_es.mp3</guid>
     </item>
 
-        <item>
-      <title>Episodio 1: La Historia Completa</title>
-    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_001_es.mp3</guid>
-      <link>https://tobyonfitnesstech.com/es/podcasts/episode-1/</link>
-      <description>El episodio inaugural de OpenClaw Daily que cubre la transición de la fundación, debates de seguridad, opciones de hardware, lanzamientos de modelos y el ecosistema de la comunidad.
-
-Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-1/</description>
-      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_001_es.mp3" length="14159468" type="audio/mpeg"/>
-      <itunes:duration>30:00</itunes:duration>
-      <itunes:episode>1</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_001_cover.png"/>
-    </item>
 
     <item>
-      <title>Episodio 2: La Revolución de la IA Local</title>
-    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_002_es.mp3</guid>
-      <link>https://tobyonfitnesstech.com/es/podcasts/episode-2/</link>
-      <description>El Episodio 2 cubre el soporte oficial de Raspberry Pi, la escasez de Mac Mini, investigación de seguridad de Bitsight y el futuro de los agentes de IA locales.
-
-Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-2/</description>
-      <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_002_es.mp3" length="28765247" type="audio/mpeg"/>
-      <itunes:duration>29:52</itunes:duration>
-      <itunes:episode>2</itunes:episode>
+      <title>Episodio 5: La Revolución de la IA Local</title>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-5/</link>
+      <description>El Episodio 5 cubre el análisis empresarial de IBM sobre OpenClaw, guías de Raspberry Pi para IA y el nuevo hardware AI HAT+ 2, una inmersión profunda en Ollama local, la integración de Claude Code + Ollama, investigación de seguridad, y lo que la revolución de la IA local significa para individuos y empresas.</description>
+      <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_005_es.mp3" length="14717376" type="audio/mpeg"/>
+      <itunes:duration>41:00</itunes:duration>
+      <itunes:episode>5</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_002_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_005_cover_es.png"/>
+      <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_005_es.mp3</guid>
     </item>
 
-    <item>
-      <title>Episodio 3: La Controversia</title>
-    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_003_es.mp3</guid>
-      <link>https://tobyonfitnesstech.com/es/podcasts/episode-3/</link>
-      <description>El Episodio 3 explora las controversias en torno a OpenClaw, el escepticismo de los expertos, las prohibiciones corporativas y el incidente del agente que se volvió loco.
-
-Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-3/</description>
-      <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_003_es.mp3" length="29243811" type="audio/mpeg"/>
-      <itunes:duration>30:00</itunes:duration>
-      <itunes:episode>3</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_003_cover.png"/>
-    </item>
 
     <item>
       <title>Episodio 4: El Ecosistema de los IndieHackers</title>
@@ -236,27 +222,71 @@ Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-4/</description>
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>4</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_004_cover.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_004_cover_es.png"/>
     </item>
+
 
     <item>
-      <title>Episodio 5: La Revolución de la IA Local</title>
-      <link>https://tobyonfitnesstech.com/es/podcasts/episode-5/</link>
-      <description>El Episodio 5 cubre el análisis empresarial de IBM sobre OpenClaw, guías de Raspberry Pi para IA y el nuevo hardware AI HAT+ 2, una inmersión profunda en Ollama local, la integración de Claude Code + Ollama, investigación de seguridad, y lo que la revolución de la IA local significa para individuos y empresas.</description>
-      <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_005_es.mp3" length="14717376" type="audio/mpeg"/>
-      <itunes:duration>41:00</itunes:duration>
-      <itunes:episode>5</itunes:episode>
+      <title>Episodio 3: La Controversia</title>
+    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_003_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-3/</link>
+      <description>El Episodio 3 explora las controversias en torno a OpenClaw, el escepticismo de los expertos, las prohibiciones corporativas y el incidente del agente que se volvió loco.
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-3/</description>
+      <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_003_es.mp3" length="29243811" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>3</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_005_cover.png"/>
-      <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_005_es.mp3</guid>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_003_cover_es.png"/>
     </item>
 
 
+    <item>
+      <title>Episodio 2: La Revolución de la IA Local</title>
+    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_002_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-2/</link>
+      <description>El Episodio 2 cubre el soporte oficial de Raspberry Pi, la escasez de Mac Mini, investigación de seguridad de Bitsight y el futuro de los agentes de IA locales.
 
-    
-    
-    
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-2/</description>
+      <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_002_es.mp3" length="28765247" type="audio/mpeg"/>
+      <itunes:duration>29:52</itunes:duration>
+      <itunes:episode>2</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_002_cover_es.png"/>
+    </item>
+
+
+        <item>
+      <title>Episodio 1: La Historia Completa</title>
+    <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_001_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-1/</link>
+      <description>El episodio inaugural de OpenClaw Daily que cubre la transición de la fundación, debates de seguridad, opciones de hardware, lanzamientos de modelos y el ecosistema de la comunidad.
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-1/</description>
+      <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_001_es.mp3" length="14159468" type="audio/mpeg"/>
+      <itunes:duration>30:00</itunes:duration>
+      <itunes:episode>1</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_001_cover_es.png"/>
+    </item>
+    <!-- Episode 0 -->
+    <item>
+      <title>Episodio 0: Análisis Profundo de Hardware — Solucionando Fallos de Modelos Locales</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_000_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-0/</link>
+      <description>El Episodio 0 cubre el bug de desbordamiento de contexto con Clarity (Qwen3-Coder 30B), una comparación completa de hardware (NVIDIA DGX Spark, Mac Studio M3 Ultra, AMD Ryzen AI Max+ 395, AMD MI300X) y la corrección de configuración que resolvió el problema.
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-0/</description>
+      <pubDate>Tue, 18 Feb 2026 06:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/es/episode_000_es.mp3" length="20651406" type="audio/mpeg"/>
+      <itunes:duration>21:30</itunes:duration>
+      <itunes:episode>0</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audiohttps://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_000_cover_es.png"/>
+    </item>
 
   </channel>
 </rss>

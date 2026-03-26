@@ -1,0 +1,21 @@
+{
+  "schedule": [
+    {"episode": 1, "datetime": "2026-03-26T18:00:00-04:00"},
+    {"episode": 2, "datetime": "2026-03-27T05:00:00-04:00"},
+    {"episode": 3, "datetime": "2026-03-27T18:00:00-04:00"},
+    {"episode": 4, "datetime": "2026-03-28T05:00:00-04:00"},
+    {"episode": 5, "datetime": "2026-03-28T18:00:00-04:00"},
+    {"episode": 6, "datetime": "2026-03-29T05:00:00-04:00"},
+    {"episode": 7, "datetime": "2026-03-29T18:00:00-04:00"},
+    {"episode": 8, "datetime": "2026-03-30T05:00:00-04:00"},
+    {"episode": 9, "datetime": "2026-03-30T18:00:00-04:00"},
+    {"episode": 10, "datetime": "2026-03-31T05:00:00-04:00"},
+    {"episode": 11, "datetime": "2026-03-31T18:00:00-04:00"},
+    {"episode": 12, "datetime": "2026-04-01T05:00:00-04:00"},
+    {"episode": 13, "datetime": "2026-04-01T18:00:00-04:00"},
+    {"episode": 14, "datetime": "2026-04-02T05:00:00-04:00"},
+    {"episode": 15, "datetime": "2026-04-02T18:00:00-04:00"},
+    {"episode": 16, "datetime": "2026-04-03T05:00:00-04:00"}
+  ],
+  "note": "EP17 goes after EP16 completes, as the fresh episode"
+}

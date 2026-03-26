@@ -14,10 +14,10 @@ from pathlib import Path
 
 # Voice mappings for podcast hosts
 # Nova: warm British female voice
-# Alloy: neutral male voice
+# Alloy: American female voice
 VOICES = {
     "NOVA": "en-GB-SoniaNeural",
-    "ALLOY": "en-US-GuyNeural"
+    "ALLOY": "en-US-JennyNeural"
 }
 
 AUDIO_DIR = Path(__file__).parent / "audio"
