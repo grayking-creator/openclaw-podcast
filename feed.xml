@@ -16,6 +16,22 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
+    <!-- Episode 17 -->
+    <item>
+      <title>Episode 17: Agents All the Way Down</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_017.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-17/</link>
+      <description><![CDATA[The March 24 OpenClaw release changes what you can actually do on a Tuesday afternoon. NOVA and ALLOY walk through nested sub-agents with configurable depth, the hybrid BM25 + vector memory overhaul, the OpenAI compatibility layer that makes self-hosting real, and platform maturity across Teams and Discord.
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-17/]]></description>
+      <pubDate>Wed, 26 Mar 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_017.mp3" length="34915935" type="audio/mpeg"/>
+      <itunes:duration>36:22</itunes:duration>
+      <itunes:episode>17</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_cover.png"/>
+    </item>
+
     <!-- Episode 16 -->
     <item>
       <title>Episode 16: OpenClaw Sheds Its Skin</title>
