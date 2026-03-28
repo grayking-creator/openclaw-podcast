@@ -73,7 +73,7 @@
       <link>https://tobyonfitnesstech.com/pt/podcasts/episode-13/</link>
       <description>A GTC 2026 da NVIDIA trouxe uma surpresa: NemoClaw, uma stack open-source construída diretamente sobre o OpenClaw para hardware DGX Spark e RTX PRO. Nova e Alloy analisam o que a validação empresarial significa para usuários do dia a dia, se você pode rodar o Nemotron 3 Super 120B localmente e em qual hardware, otimizações do Qwen 3.5 para RTX da NVIDIA, e o lançamento de estabilidade v2026.3.13. 35 minutos.</description>
       <pubDate>Thu, 19 Mar 2026 12:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_pt.mp3" length="0" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_pt.mp3" length="41845280" type="audio/mpeg"/>
       <itunes:duration>34:49</itunes:duration>
       <itunes:episode>13</itunes:episode>
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_cover_pt.png"/>

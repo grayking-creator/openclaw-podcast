@@ -73,7 +73,7 @@
       <link>https://tobyonfitnesstech.com/de/podcasts/episode-13/</link>
       <description>NVIDIAs GTC 2026 brachte eine Überraschung: NemoClaw, ein Open-Source-Stack, der direkt auf OpenClaw für DGX Spark und RTX PRO Hardware aufbaut. Nova und Alloy analysieren, was die Unternehmensvalidierung für alltägliche Nutzer bedeutet, ob du Nemotron 3 Super 120B lokal ausführen kannst und auf welcher Hardware, Qwen 3.5 RTX-Optimierungen und das Stabilitäts-Release v2026.3.13. 35 Minuten.</description>
       <pubDate>Thu, 19 Mar 2026 12:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_de.mp3" length="0" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_de.mp3" length="39050805" type="audio/mpeg"/>
       <itunes:duration>34:49</itunes:duration>
       <itunes:episode>13</itunes:episode>
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_cover_de.png"/>
