@@ -1,5 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
   <channel>
     <title>OpenClaw Daily (Português)</title>
     <link>https://tobyonfitnesstech.com/pt/podcasts/openclaw/</link>
@@ -12,58 +12,60 @@
       <itunes:name>OpenClaw Daily Português</itunes:name>
       <itunes:email>admin@tobyonfitnesstech.com</itunes:email>
     </itunes:owner>
-    <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_pt.png"/>
-    <itunes:category text="Technology"/>
+    <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_pt.png" />
+    <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
     
 
 
 
-    <!-- Episode 16 -->
     
     
+    
 
 
 
-    <!-- Episode 16 -->
-    <item>
+    
+    <item><title>Episódio 17: Agentes Todo o Caminho Abaixo</title><guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_pt.mp3</guid><link>https://tobyonfitnesstech.com/pt/podcasts/episode-17/</link><description>O lançamento do OpenClaw de 24 de março muda o que você pode realmente fazer em uma tarde de terça-feira. NOVA e ALLOY detalham sub-agentes aninhados com profundidade configurável, a revisão de memória híbrida BM25 + vetorial, a camada de compatibilidade com OpenAI e a maturidade da plataforma no Teams e Discord.
+
+Notas do programa: https://tobyonfitnesstech.com/pt/podcasts/episode-17/</description><pubDate>Wed, 26 Mar 2026 12:00:00 +0000</pubDate><enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_pt.mp3" length="38218648" type="audio/mpeg" /><itunes:duration>39:48</itunes:duration><itunes:episode>17</itunes:episode><itunes:episodeType>full</itunes:episodeType><itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_cover.png" /></item><item>
       <title>Episódio 16: OpenClaw troca de pele</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_016_pt.mp3</guid>
       <link>https://tobyonfitnesstech.com/pt/podcasts/episode-16/</link>
       <description>Nova e Alloy analisam os lançamentos consecutivos do OpenClaw v2026.3.22 e v2026.3.23. Pontos de migração para Plugin SDK, browser tooling e ecossistemas Matrix, openclaw doctor --fix como comando âncora, instalação ClawHub-first, atualizações de acessibilidade, mudanças no Qwen/DashScope e um checklist prático. 38 minutos.</description>
       <pubDate>Tue, 25 Mar 2026 12:00:00 -0400</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_016_pt.mp3" length="37210531" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_016_pt.mp3" length="37210531" type="audio/mpeg" />
       <itunes:duration>38:45</itunes:duration>
       <itunes:episode>16</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_016_cover_pt.png" />
     </item>
 
 
-    <!-- Episode 15 -->
+    
     <item>
       <title>Episódio 15: Lembre-se de Mim: Como construímos um sistema de memória real para um assistente de IA</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_015_pt.mp3</guid>
       <link>https://tobyonfitnesstech.com/pt/podcasts/episode-15/</link>
       <description>A maioria dos assistentes de IA esquece tudo no momento em que uma sessão é reiniciada. Neste episódio, ARIA explica por que isso acontece e como é uma solução real: uma pilha de memória local construída com Mem0, Qdrant e sentence-transformers. 55 minutos.</description>
       <pubDate>Tue, 24 Mar 2026 13:57:00 -0400</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_015_pt.mp3" length="53615847" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_015_pt.mp3" length="53615847" type="audio/mpeg" />
       <itunes:duration>55:50</itunes:duration>
       <itunes:episode>15</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_015_cover_pt.png" />
     </item>
 
 
-    <!-- Episode 14 -->
+    
     <item>
       <title>Episódio 14: A Aquisição de Tudo</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_pt.mp3</guid>
       <link>https://tobyonfitnesstech.com/pt/podcasts/episode-14/</link>
       <description>A OpenAI compra a Astral — a equipa por detrás do uv, ruff e da cadeia de ferramentas moderna do Python. O OpenCode surge como a alternativa de código aberto. O WordPress adiciona suporte a MCP, transformando a web numa superfície gravável para agentes. O Cursor lança o roteamento de inferência multi-modelo e o Kimi K2.5 surge como uma alternativa séria de pesos abertos. A Meta escala automaticamente a moderação com julgamento de IA em escala planetária. Nova e Alloy acompanham uma história contada de cinco formas: a luta está a mover-se das demos chamativas para o controlo da infraestrutura subjacente. 34 minutos.</description>
       <pubDate>Sat, 21 Mar 2026 17:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_pt.mp3" length="32755086" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_pt.mp3" length="32755086" type="audio/mpeg" />
       <itunes:duration>34:07</itunes:duration>
       <itunes:episode>14</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_014_cover_pt.png" />
     </item>
 
 
@@ -73,10 +75,10 @@
       <link>https://tobyonfitnesstech.com/pt/podcasts/episode-13/</link>
       <description>A GTC 2026 da NVIDIA trouxe uma surpresa: NemoClaw, uma stack open-source construída diretamente sobre o OpenClaw para hardware DGX Spark e RTX PRO. Nova e Alloy analisam o que a validação empresarial significa para usuários do dia a dia, se você pode rodar o Nemotron 3 Super 120B localmente e em qual hardware, otimizações do Qwen 3.5 para RTX da NVIDIA, e o lançamento de estabilidade v2026.3.13. 35 minutos.</description>
       <pubDate>Thu, 19 Mar 2026 12:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_pt.mp3" length="41845280" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_pt.mp3" length="41845280" type="audio/mpeg" />
       <itunes:duration>34:49</itunes:duration>
       <itunes:episode>13</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_013_cover_pt.png" />
     </item>
 
 
@@ -85,10 +87,10 @@
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_pt.mp3</guid>
       <description>v2026.3.11 traz dois modelos frontier gratuitos — Hunter Alpha (1 trilhão de parâmetros, 1M de contexto) e Healer Alpha (omni-modal, 262K). Memória multimodal com Gemini Embedding 2, wizard Ollama, ACP session resume, e um mergulho nas 5 melhores automações da comunidade. 40 minutos.</description>
       <pubDate>Wed, 12 Mar 2026 16:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_pt.mp3" length="38980588" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_pt.mp3" length="38980588" type="audio/mpeg" />
       <itunes:duration>40:36</itunes:duration>
       <itunes:episode>12</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_012_cover_pt.png" />
     </item>
 
     <item>
@@ -98,17 +100,17 @@
       <description>O OpenClaw v2026.3.7 lança a Context Engine Plugin Interface — estratégias de memória e compactação totalmente plugáveis com lifecycle hooks. Além disso: o hardware volta ao cenário com o NVIDIA Project DIGITS e o Apple M4 Ultra, uma análise profunda sobre identidade e confiança agentiva, e builds da comunidade gerenciando infraestrutura real.
 
 Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-11/</description>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_011_pt.mp3" length="23322764" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_011_pt.mp3" length="23322764" type="audio/mpeg" />
       <pubDate>Tue, 10 Mar 2026 06:00:00 EST</pubDate>
       <itunes:duration>37:03</itunes:duration>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>11</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_011_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_011_cover_pt.png" />
     </item>
 
 
-    <!-- Episode 10 -->
+    
     <item>
       <title>Episódio 10: A Revolução dos Documentos e da Memória</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_010_pt.mp3</guid>
@@ -116,17 +118,17 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-11/</description>
       <description>O release OpenClaw de 3 de março de 2026: ferramenta de análise de PDF com suporte nativo a modelos, embeddings de memória Ollama para stacks de memória totalmente locais, expansão de SecretRef para 64 targets, anexos de sessões para passagem de arquivos entre agentes, streaming padrão no Telegram, MiniMax-M2.5-highspeed, validação de config CLI, plugin Zalo reconstruído e Plugin SDK STT.
 
 Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-10/</description>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_010_pt.mp3" length="33931641" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_010_pt.mp3" length="33931641" type="audio/mpeg" />
       <pubDate>Wed, 04 Mar 2026 06:00:00 EST</pubDate>
       <itunes:duration>35:20</itunes:duration>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>10</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_010_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_010_cover_pt.png" />
     </item>
 
 
-    <!-- Episode 9 -->
+    
     <item>
       <title>Episódio 9: OpenClaw v2026.3.1 — Threads, Tópicos, Ações no Android e Health Checks</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_009_pt.mp3</guid>
@@ -134,17 +136,17 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-10/</description>
       <description>O Episódio 9 aborda o OpenClaw v2026.3.1 — ciclos de vida de sessões em threads do Discord, tópicos de DM do Telegram, ações de notificação Android e saúde do dispositivo, probes de saúde/readiness, streaming WebSocket e automação cron mais silenciosa.
 
 Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-9/</description>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_009_pt.mp3" length="32474635" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_009_pt.mp3" length="32474635" type="audio/mpeg" />
       <pubDate>Mon, 02 Mar 2026 20:05:00 +0000</pubDate>
       <itunes:duration>33:49</itunes:duration>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>9</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_009_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_009_cover_pt.png" />
     </item>
 
 
-    <!-- Episode 8 -->
+    
 <item>
       <title>Episódio 8: A Revolução da IA de Código Aberto</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_008_pt.mp3</guid>
@@ -159,27 +161,27 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-2/
 Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-3/
 
 Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-4/</description>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_008_pt.mp3" length="36700160" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_008_pt.mp3" length="36700160" type="audio/mpeg" />
       <pubDate>Sat, 28 Feb 2026 19:00:00 +0000</pubDate>
       <itunes:duration>35:00</itunes:duration>
       <itunes:explicit>false</itunes:explicit>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:episode>8</itunes:episode>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_008_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_008_cover_pt.png" />
     </item>
 
     <item>
-      <title><![CDATA[Episódio 7: O Momento Agêntico do OpenClaw, Legitimidade na Wikipedia e o Marco de 150K Estrelas]]></title>
+      <title>Episódio 7: O Momento Agêntico do OpenClaw, Legitimidade na Wikipedia e o Marco de 150K Estrelas</title>
       <link>https://tobyonfitnesstech.com/podcasts/episode-7/</link>
-      <description><![CDATA[Episode 7 covers OpenClaw's first true agentic incident, how the project earned a legitimate Wikipedia entry, the 150K GitHub star milestone, and what these moments mean for the future of AI agents.
+      <description>Episode 7 covers OpenClaw's first true agentic incident, how the project earned a legitimate Wikipedia entry, the 150K GitHub star milestone, and what these moments mean for the future of AI agents.
 
-Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-7/]]></description>
+Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-7/</description>
       <pubDate>Fri, 27 Feb 2026 08:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_007_pt.mp3" length="36788392" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_007_pt.mp3" length="36788392" type="audio/mpeg" />
       <itunes:duration>48:20</itunes:duration>
       <itunes:episode>7</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_007_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_007_cover_pt.png" />
       <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_007_pt.mp3</guid>
     </item>
 
@@ -188,7 +190,7 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-7/]]></description
       <link>https://tobyonfitnesstech.com/pt/podcasts/episode-6/</link>
       <description>O episódio 6 cobre a atualização v2026.2.24, a mudança de política SSRF, as origens do mascote Molty, Moltbook — rede social exclusiva de bots, riscos de coordenação agentiva, Nanbeige 4.1-3B e suporte ao Claude 4.6.</description>
       <pubDate>Wed, 25 Feb 2026 13:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_006_pt.mp3" length="47828784" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_006_pt.mp3" length="47828784" type="audio/mpeg" />
       <itunes:duration>49:50</itunes:duration>
       <itunes:episode>6</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
@@ -201,11 +203,11 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-7/]]></description
       <link>https://tobyonfitnesstech.com/pt/podcasts/episode-5/</link>
       <description>O Episódio 5 aborda a análise empresarial da IBM sobre o OpenClaw, guias de Raspberry Pi para IA e o novo hardware AI HAT+ 2, uma análise aprofundada sobre Ollama local, integração Claude Code + Ollama, pesquisas de segurança, e o que a revolução da IA local significa para indivíduos e empresas.</description>
       <pubDate>Mon, 24 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_005_pt.mp3" length="14735808" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_005_pt.mp3" length="14735808" type="audio/mpeg" />
       <itunes:duration>41:00</itunes:duration>
       <itunes:episode>5</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_005_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_005_cover_pt.png" />
       <guid>https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_005_pt.mp3</guid>
     </item>
 
@@ -218,11 +220,11 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-7/]]></description
 
 Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-4/</description>
       <pubDate>Sun, 22 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_004_pt.mp3" length="22762000" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_004_pt.mp3" length="22762000" type="audio/mpeg" />
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>4</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_004_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_004_cover_pt.png" />
     </item>
 
 
@@ -234,11 +236,11 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-4/</description>
 
 Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-3/</description>
       <pubDate>Sat, 21 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_003_pt.mp3" length="29243811" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_003_pt.mp3" length="29243811" type="audio/mpeg" />
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>3</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_003_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_003_cover_pt.png" />
     </item>
 
 
@@ -250,11 +252,11 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-3/</description>
 
 Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-2/</description>
       <pubDate>Fri, 20 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_002_pt.mp3" length="28765247" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_002_pt.mp3" length="28765247" type="audio/mpeg" />
       <itunes:duration>29:52</itunes:duration>
       <itunes:episode>2</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_002_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_002_cover_pt.png" />
     </item>
 
 
@@ -266,13 +268,13 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-2/</description>
 
 Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-1/</description>
       <pubDate>Thu, 19 Feb 2026 06:00:00 EST</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_001_pt.mp3" length="14159468" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_001_pt.mp3" length="14159468" type="audio/mpeg" />
       <itunes:duration>30:00</itunes:duration>
       <itunes:episode>1</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_001_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_001_cover_pt.png" />
     </item>
-    <!-- Episode 0 -->
+    
     <item>
       <title>Episódio 0: Hardware Deep Dive — Corrigindo Falhas de Modelos Locais</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_000_pt.mp3</guid>
@@ -281,11 +283,11 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-1/</description>
 
 Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-0/</description>
       <pubDate>Tue, 18 Feb 2026 06:00:00 +0000</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_000_pt.mp3" length="12718541" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/translations/pt/episode_000_pt.mp3" length="12718541" type="audio/mpeg" />
       <itunes:duration>13:14</itunes:duration>
       <itunes:episode>0</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audiohttps://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_000_cover_pt.png"/>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audiohttps://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_000_cover_pt.png" />
     </item>
 
   </channel>
