@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/podcasts/</link>
     <description>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. Hosted by Nova and Alloy.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 25 Mar 2026 17:54:00 GMT</lastBuildDate>
+    <lastBuildDate>Sun, 29 Mar 2026 20:00:00 GMT</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. From hardware setups to security tips, model releases to community highlights — everything you need to know about the future of personal AI, right here.</itunes:summary>
     <itunes:owner>
@@ -16,6 +16,22 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
+    <!-- Episode 18 -->
+    <item>
+      <title>Episode 18: The Model Reckoning</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_018.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-18/</link>
+      <description><![CDATA[You do not notice the dependency forming all at once. NOVA and ALLOY examine four stories from the same week: Anthropic quietly throttling paid Claude users during peak hours, the leaked Claude Mythos tier Anthropic is afraid to ship, OpenAI's Spud hype cycle, and Apple's M5 MacBook Pro as a practical hedge toward local compute. The throughline: who controls the AI you built your work around, and what do they do with that control?
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-18/]]></description>
+      <pubDate>Sun, 29 Mar 2026 20:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_018.mp3" length="39761337" type="audio/mpeg"/>
+      <itunes:duration>41:24</itunes:duration>
+      <itunes:episode>18</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_018_cover.png"/>
+    </item>
+
     <!-- Episode 17 -->
     <item>
       <title>Episode 17: Agents All the Way Down</title>
