@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/</link>
     <description>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Lernen Sie, wie Sie Ihre eigene KI lokal betreiben, Ihre Daten privat halten und in der sich schnell entwickelnden Welt der lokalen Sprachmodelle die Nase vorn haben.</description>
     <language>de-de</language>
-    <lastBuildDate>Tue, 25 Mar 2026 16:00:00 GMT</lastBuildDate>
+    <lastBuildDate>Sun, 29 Mar 2026 20:00:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Von Hardware-Setups bis zu Sicherheitstipps, Modell-Releases bis zu Community-Highlights — alles, was Sie über die Zukunft der persönlichen KI wissen müssen, direkt hier.</itunes:summary>
     <itunes:owner>
@@ -26,7 +26,9 @@
 
 
     
-    <item><title>Folge 17: Agenten den ganzen Weg nach unten</title><guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_de.mp3</guid><link>https://tobyonfitnesstech.com/de/podcasts/episode-17/</link><description>Das OpenClaw-Release vom 24. März verändert, was man an einem Dienstagabend wirklich tun kann. NOVA und ALLOY gehen durch verschachtelte Sub-Agenten mit konfigurierbarer Tiefe, die hybride BM25 + Vektor-Speicher-Überarbeitung, die OpenAI-Kompatibilitätsschicht und die Plattformreife in Teams und Discord.
+    <item><title>Folge 18: Die Modell-Abrechnung</title><guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_018_de.mp3</guid><link>https://tobyonfitnesstech.com/de/podcasts/episode-18/</link><description>NOVA und ALLOY verbinden vier Entwicklungen aus einer Woche: Anthropic drosselt zahlende Nutzer stillschweigend, der Mythos-Leak zeigt ein zurückgehaltenes Modell, OpenAI verspricht mit Spud wirtschaftliche Beschleunigung, und Apple M5 stärkt den Local-First-Hedge.
+
+Shownotes: https://tobyonfitnesstech.com/de/podcasts/episode-18/</description><pubDate>Sun, 29 Mar 2026 20:00:00 +0000</pubDate><enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_018_de.mp3" length="49893503" type="audio/mpeg" /><itunes:duration>51:58</itunes:duration><itunes:episode>18</itunes:episode><itunes:episodeType>full</itunes:episodeType><itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_018_cover.png" /></item>    <item><title>Folge 17: Agenten den ganzen Weg nach unten</title><guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_de.mp3</guid><link>https://tobyonfitnesstech.com/de/podcasts/episode-17/</link><description>Das OpenClaw-Release vom 24. März verändert, was man an einem Dienstagabend wirklich tun kann. NOVA und ALLOY gehen durch verschachtelte Sub-Agenten mit konfigurierbarer Tiefe, die hybride BM25 + Vektor-Speicher-Überarbeitung, die OpenAI-Kompatibilitätsschicht und die Plattformreife in Teams und Discord.
 
 Shownotes: https://tobyonfitnesstech.com/de/podcasts/episode-17/</description><pubDate>Wed, 26 Mar 2026 12:00:00 +0000</pubDate><enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_de.mp3" length="42716725" type="audio/mpeg" /><itunes:duration>44:29</itunes:duration><itunes:episode>17</itunes:episode><itunes:episodeType>full</itunes:episodeType><itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_cover.png" /></item><item>
       <title>Folge 16: OpenClaw häutet sich</title>

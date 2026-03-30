@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/hi/podcasts/openclaw/</link>
     <description>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। सीखें कि अपनी खुद की एआई स्थानीय रूप से कैसे चलाएं, अपने डेटा को निजी रखें, और स्थानीय भाषा मॉडल की तेजी से विकसित होती दुनिया में आगे रहें।</description>
     <language>hi-in</language>
-    <lastBuildDate>Tue, 25 Mar 2026 16:00:00 GMT</lastBuildDate>
+    <lastBuildDate>Sun, 29 Mar 2026 20:00:00 +0000</lastBuildDate>
     <itunes:author>नोवा और अलॉय</itunes:author>
     <itunes:summary>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। हार्डवेयर सेटअप से लेकर सुरक्षा युक्तियों तक, मॉडल रिलीज से लेकर कम्युनिटी हाइलाइट्स तक — व्यक्तिगत एआई के भविष्य के बारे में वह सब कुछ जो आपको जानना आवश्यक है, ठीक यहाँ।</itunes:summary>
     <itunes:owner>
@@ -22,7 +22,9 @@
     
 
     
-    <item><title>एपिसोड 17: एजेंट्स ऑल द वे डाउन</title><guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_hi.mp3</guid><link>https://tobyonfitnesstech.com/hi/podcasts/episode-17/</link><description>24 मार्च का OpenClaw रिलीज़ बदल देता है कि आप मंगलवार की दोपहर में वास्तव में क्या कर सकते हैं। NOVA और ALLOY कॉन्फ़िगर करने योग्य गहराई के साथ नेस्टेड सब-एजेंट्स, हाइब्रिड BM25 + वेक्टर मेमोरी ओवरहॉल, OpenAI कम्पैटिबिलिटी लेयर और Teams और Discord पर प्लेटफ़ॉर्म परिपक्वता के बारे में बात करते हैं।
+    <item><title>एपिसोड 18: मॉडल रेकनिंग</title><guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_018_hi.mp3</guid><link>https://tobyonfitnesstech.com/hi/podcasts/episode-18/</link><description>NOVA और ALLOY इस हफ्ते की चार बड़ी कहानियों को जोड़ते हैं: Anthropic का शांत throttle, Mythos लीक और withheld model debate, OpenAI के Spud acceleration claims, और Apple M5 MacBook Pro के साथ local-first hedge.
+
+शो नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-18/</description><pubDate>Sun, 29 Mar 2026 20:00:00 +0000</pubDate><enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_018_hi.mp3" length="58617983" type="audio/mpeg" /><itunes:duration>61:03</itunes:duration><itunes:episode>18</itunes:episode><itunes:episodeType>full</itunes:episodeType><itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_018_cover.png" /></item>    <item><title>एपिसोड 17: एजेंट्स ऑल द वे डाउन</title><guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_hi.mp3</guid><link>https://tobyonfitnesstech.com/hi/podcasts/episode-17/</link><description>24 मार्च का OpenClaw रिलीज़ बदल देता है कि आप मंगलवार की दोपहर में वास्तव में क्या कर सकते हैं। NOVA और ALLOY कॉन्फ़िगर करने योग्य गहराई के साथ नेस्टेड सब-एजेंट्स, हाइब्रिड BM25 + वेक्टर मेमोरी ओवरहॉल, OpenAI कम्पैटिबिलिटी लेयर और Teams और Discord पर प्लेटफ़ॉर्म परिपक्वता के बारे में बात करते हैं।
 
 शो नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-17/</description><pubDate>Wed, 26 Mar 2026 12:00:00 +0000</pubDate><enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_hi.mp3" length="48099621" type="audio/mpeg" /><itunes:duration>50:06</itunes:duration><itunes:episode>17</itunes:episode><itunes:episodeType>full</itunes:episodeType><itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_017_cover.png" /></item><item>
       <title>एपिसोड 16: OpenClaw अपनी पुरानी खाल उतारता है</title>
