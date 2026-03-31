@@ -62,6 +62,13 @@ If ANY of these is missing, the review post is incomplete. Do not tell Toby "rea
 ### Step 4 — Publish
 - [ ] Update `feed.xml` with EN episode entry
 - [ ] Update translation feeds (feed_de, feed_es, feed_pt, feed_hi) with translated entries
+- [ ] **Create translated show notes** for ALL 4 languages — `translations/<lang>/show_notes_episode_<NNN>_<lang>.md` — MANDATORY, not optional
+- [ ] **Create translated cover art thumbnails** — `episode_<NNN>_cover_<lang>.png` for de/es/pt/hi — MANDATORY, do not push translation feeds without them
+  - Copy the EN cover script: `scripts/generate_episode_0XX_cover.py`
+  - For each language, update `LINE1` / `LINE2` with the translated episode title and set `OUT` to `images/episode_<NNN>_cover_<lang>.png`
+  - **Hindi (HI):** Arial Bold does NOT support Devanagari. Load `ITFDevanagari.ttc` (or `DevanagariMT.ttc`) as `font_title_hi` and use it for the title lines only — see EP019 cover script for the patch pattern
+  - Run all 4 scripts with `python3`
+  - Copy outputs to: `images/` (podcast repo), `openclaw-podcast-audio/` (CDN repo), and `websiteBuilder/frontend/public/images/podcast/` (website)
 - [ ] Push audio + cover to CDN repo (`openclaw-podcast-audio`)
 - [ ] **Run publish script** (handles cover art copy + website build + push automatically):
   ```bash
@@ -112,3 +119,33 @@ All episodes must target 30 minutes or longer. This applies to transcript length
 - ALWAYS include a CTA to tobyonfitnesstech.com for show notes and episode archives
 - NEVER say "we'll be back next week" — this is OpenClaw *Daily*, say "we'll be back soon"
 - NEVER include fake UI references or MCP toggle buttons that don't exist
+
+---
+
+## Cold Open Format — LOCKED 2026-03-29
+
+When using a cold open, the intro sequence MUST be:
+
+1. **Cold open** — NOVA narrates dramatic untagged prose (2-4 sentences, no speaker label)
+2. **`**NOVA:** I'm NOVA.`** — short, standalone line
+3. **`**ALLOY:** And I'm ALLOY, and this is OpenClaw Daily.`** — ALLOY introduces herself AND names the show, then continues with 1-3 sentences previewing the episode before handing back
+4. **NOVA** then continues with the episode content
+
+Example:
+```
+[cold open prose]
+
+**NOVA:** I'm NOVA.
+
+**ALLOY:** And I'm ALLOY, and this is OpenClaw Daily. [PAUSE] Today we have four stories... [brief preview] ...
+
+**NOVA:** Today we're talking about...
+```
+
+Rules:
+- ALLOY must do more than just say her name — she must say "this is OpenClaw Daily" AND add substance
+- NOVA's intro line must be short — not the full topic setup
+- ALLOY's intro block must stand on its own before NOVA continues
+- Use cold opens sparingly — not every episode
+
+The QC script (`check_episode.py`) enforces: ALLOY intro within 400 words, back-to-back with NOVA within 4 lines.
