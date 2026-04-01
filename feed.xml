@@ -16,6 +16,22 @@
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
     
+    <!-- Episode 20 -->
+    <item>
+      <title>Episode 20: The Infrastructure Release</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_020.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-20/</link>
+      <description><![CDATA[OpenClaw stopped being a clever tool this week and started being infrastructure. NOVA and ALLOY cover five stories: the v2026.3.31 release that unified background tasks, tightened plugin security, and hardened gateway auth; OpenClaw's viral moment in China — GitHub stars past React, lobster victims, and a state crackdown; Microsoft integrating OpenClaw into Microsoft 365 for 400M enterprise users; Perplexity's always-on local Personal Computer agent; and a $297 billion Q1 2026 VC quarter where 81% went to AI. The throughline: capability without governance is a demo. Capability with governance is a product.
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-20/]]></description>
+      <pubDate>Tue, 01 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_020.mp3" length="32403583" type="audio/mpeg"/>
+      <itunes:duration>33:45</itunes:duration>
+      <itunes:episode>20</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_020_cover.png"/>
+    </item>
+
     <!-- Episode 19 -->
     <item>
       <title>Episode 19: The Company Layer</title>
@@ -333,3 +349,4 @@ Show notes: https://tobyonfitnesstech.com/podcasts/episode-0/</description>
   </channel>
 </rss>
 
+test
