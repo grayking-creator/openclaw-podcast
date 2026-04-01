@@ -69,6 +69,7 @@ If ANY of these is missing, the review post is incomplete. Do not tell Toby "rea
   - **Hindi (HI):** Arial Bold does NOT support Devanagari. Load `ITFDevanagari.ttc` (or `DevanagariMT.ttc`) as `font_title_hi` and use it for the title lines only — see EP019 cover script for the patch pattern
   - Run all 4 scripts with `python3`
   - Copy outputs to: `images/` (podcast repo), `openclaw-podcast-audio/` (CDN repo), and `websiteBuilder/frontend/public/images/podcast/` (website)
+- [ ] **Copy EN cover to website** — `cp images/episode_0XX_cover.png ../../websiteBuilder/frontend/public/images/podcast/` — MANDATORY, the website auto-generates the cover path from the episode number and will show a broken image if this file is missing
 - [ ] Push audio + cover to CDN repo (`openclaw-podcast-audio`)
 - [ ] **Run publish script** (handles cover art copy + website build + push automatically):
   ```bash
