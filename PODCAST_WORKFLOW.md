@@ -62,6 +62,7 @@ If ANY of these is missing, the review post is incomplete. Do not tell Toby "rea
 ### Step 4 — Publish
 - [ ] Update `feed.xml` with EN episode entry
 - [ ] Update translation feeds (feed_de, feed_es, feed_pt, feed_hi) with translated entries
+- [ ] **Verify translated transcript filenames** — website looks for `translations/<lang>/episode_<NNN>_<lang>.md` first, then `episode_<NNN>_<lang>_nova.md`. The `_nova` suffix variant is supported but prefer the clean name when possible.
 - [ ] **Create translated show notes** for ALL 4 languages — `translations/<lang>/show_notes_episode_<NNN>_<lang>.md` — MANDATORY, not optional
   - Use **MiniMax** (`minimax` agentId) for all show notes translations — one agent per language, task: translate `show_notes_episode_0XX.md` → output to `translations/<lang>/show_notes_episode_0XX_<lang>.md`
   - ES title format: `Episodio NNN: <translated title>` | DE: `Folge NNN:` | PT: `Episódio NNN:` | HI: `एपिसोड NNN:`
