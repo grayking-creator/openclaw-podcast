@@ -32,38 +32,6 @@ Show notes: https://tobyonfitnesstech.com/podcasts/episode-19/]]></description>
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_019_cover.png"/>
     </item>
 
-    <!-- Episode 20 -->
-    <item>
-      <title>Episode 20: The Infrastructure Release</title>
-      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_020.mp3</guid>
-      <link>https://tobyonfitnesstech.com/podcasts/episode-20/</link>
-      <description><![CDATA[OpenClaw stopped being a clever tool this week and started being infrastructure. NOVA and ALLOY cover five stories: the v2026.3.31 release that unified background tasks, tightened plugin security, and hardened gateway auth; OpenClaw's viral moment in China — GitHub stars past React, lobster victims, and a state crackdown; Microsoft integrating OpenClaw into Microsoft 365 for 400M enterprise users; Perplexity's always-on local Personal Computer agent; and a $297 billion Q1 2026 VC quarter where 81% went to AI. The throughline: capability without governance is a demo. Capability with governance is a product.
-
-Show notes: https://tobyonfitnesstech.com/podcasts/episode-20/]]></description>
-      <pubDate>Tue, 01 Apr 2026 18:00:00 +0000</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_020.mp3" length="32403583" type="audio/mpeg"/>
-      <itunes:duration>33:45</itunes:duration>
-      <itunes:episode>20</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_020_cover.png"/>
-    </item>
-
-    <!-- Episode 19 -->
-    <item>
-      <title>Episode 19: The Company Layer</title>
-      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_019.mp3</guid>
-      <link>https://tobyonfitnesstech.com/podcasts/episode-19/</link>
-      <description><![CDATA[Six stories about who gets to control AI: the org chart, the toolchain, the Pentagon, the chip king, the power grid, and the product nobody actually wanted. NOVA and ALLOY dig into Paperclip's vision for AI companies that run themselves, OpenClaw's maturing safety and security model, a federal judge blocking the Pentagon's attempt to blacklist Anthropic, Jensen Huang's AGI declaration, a congressional bill targeting AI data centers, and OpenAI quietly killing the Sora consumer app. The throughline: AI is no longer just a technology story. It's an institutions story.
-
-Show notes: https://tobyonfitnesstech.com/podcasts/episode-19/]]></description>
-      <pubDate>Tue, 31 Mar 2026 18:00:00 +0000</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_019.mp3" length="41978610" type="audio/mpeg"/>
-      <itunes:duration>43:43</itunes:duration>
-      <itunes:episode>19</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
-      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_019_cover.png"/>
-    </item>
-
     <!-- Episode 18 -->
     <item>
       <title>Episode 18: The Model Reckoning</title>
