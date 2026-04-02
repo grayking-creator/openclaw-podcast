@@ -30,7 +30,16 @@ def make_cover(lang, line1, line2, tagline, out_path, use_devanagari=False):
     try:
         font_show  = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 46)
         font_ep    = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 68)
-        font_sub   = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 30)
+        if use_devanagari:
+            try:
+                font_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/ITFDevanagari.ttc", 30)
+            except:
+                try:
+                    font_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/DevanagariMT.ttc", 30)
+                except:
+                    font_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 30)
+        else:
+            font_sub   = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 30)
         if use_devanagari:
             try:
                 font_title = ImageFont.truetype("/System/Library/Fonts/Supplemental/ITFDevanagari.ttc", 98)
@@ -48,15 +57,18 @@ def make_cover(lang, line1, line2, tagline, out_path, use_devanagari=False):
     except:
         font_show = font_ep = font_title = font_title2 = font_sub = ImageFont.load_default()
 
-    # Paint over the existing title area with a dark plate
-    plate = blur_overlay(img,
-        lambda ld: ld.polygon(
-            [(30, 990), (1370, 990), (1400, 1400), (0, 1400)],
-            fill=(0, 0, 0, 210)
-        ),
-        blur=25
+    # Paint over the existing title area with a solid black plate (fully opaque)
+    # Must cover y=990 down through tagline at y=1288+
+    plate_solid = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    psd = ImageDraw.Draw(plate_solid)
+    psd.rectangle([(0, 960), (W, H)], fill=(0, 0, 0, 255))
+    img = Image.alpha_composite(img, plate_solid)
+    # Soft feathered edge at the top of the plate for a clean blend
+    feather = blur_overlay(img,
+        lambda ld: ld.rectangle([(0, 950), (W, 1010)], fill=(0, 0, 0, 180)),
+        blur=20
     )
-    img = Image.alpha_composite(img, plate)
+    img = Image.alpha_composite(img, feather)
 
     md = ImageDraw.Draw(img)
 
@@ -152,7 +164,7 @@ make_cover("pt",
 make_cover("hi",
     line1="रिलीज़",
     line2="ट्रेन",
-    tagline="FIVE STORIES. ONE TRACK.",
+    tagline="पाँच कहानियाँ। एक पटरी।",
     out_path=f"{BASE}/episode_022_cover_hi.png",
     use_devanagari=True
 )
