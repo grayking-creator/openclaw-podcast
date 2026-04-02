@@ -113,9 +113,9 @@ def make_cover(lang, line1, line2, tagline, out_path, use_devanagari=False):
     md = ImageDraw.Draw(img)
     md.text(((W - l2w) / 2, 1140), line2, font=f2, fill=AMBER_BRIGHT + (255,))
 
-    # Tagline
+    # Tagline below title block — avoid collision with the main title
     tw2 = md.textlength(tagline, font=font_sub)
-    md.text(((W - tw2) / 2, 1136), tagline, font=font_sub, fill=CYAN_BRIGHT + (170,))
+    md.text(((W - tw2) / 2, 1288), tagline, font=font_sub, fill=CYAN_BRIGHT + (120,))
 
     img = img.filter(ImageFilter.UnsharpMask(radius=2, percent=145, threshold=2))
     img.convert("RGB").save(out_path, "PNG")

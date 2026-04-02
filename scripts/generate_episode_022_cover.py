@@ -239,8 +239,8 @@ img = Image.alpha_composite(img, tg2)
 md = ImageDraw.Draw(img)
 md.text(((W - l2w) / 2, 1140), LINE2, font=font_title, fill=AMBER_BRIGHT + (255,))
 
-# Tagline between EP and title
-md.text(((W - tw2) / 2, 1136), TAG_LINE, font=font_sub, fill=CYAN_BRIGHT + (170,))
+# Tagline below title block — keep it away from the main amber title
+md.text(((W - tw2) / 2, 1288), TAG_LINE, font=font_sub, fill=CYAN_BRIGHT + (120,))
 
 # Vignette
 vig = Image.new("L", (W, H), 0)
