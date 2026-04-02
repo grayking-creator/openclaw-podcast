@@ -1,21 +1,73 @@
 {
   "schedule": [
-    {"episode": 1, "datetime": "2026-03-26T18:00:00-04:00"},
-    {"episode": 2, "datetime": "2026-03-27T05:00:00-04:00"},
-    {"episode": 3, "datetime": "2026-03-27T18:00:00-04:00"},
-    {"episode": 4, "datetime": "2026-03-28T05:00:00-04:00"},
-    {"episode": 5, "datetime": "2026-03-28T18:00:00-04:00"},
-    {"episode": 6, "datetime": "2026-03-29T05:00:00-04:00"},
-    {"episode": 7, "datetime": "2026-03-29T18:00:00-04:00"},
-    {"episode": 8, "datetime": "2026-03-30T05:00:00-04:00"},
-    {"episode": 9, "datetime": "2026-03-30T18:00:00-04:00"},
-    {"episode": 10, "datetime": "2026-03-31T05:00:00-04:00"},
-    {"episode": 11, "datetime": "2026-03-31T18:00:00-04:00"},
-    {"episode": 12, "datetime": "2026-04-01T05:00:00-04:00"},
-    {"episode": 13, "datetime": "2026-04-01T18:00:00-04:00"},
-    {"episode": 14, "datetime": "2026-04-02T05:00:00-04:00"},
-    {"episode": 15, "datetime": "2026-04-02T18:00:00-04:00"},
-    {"episode": 16, "datetime": "2026-04-03T05:00:00-04:00"}
+    {
+      "episode": 6,
+      "datetime": "2026-03-28T08:00:00-04:00"
+    },
+    {
+      "episode": 7,
+      "datetime": "2026-03-28T12:00:00-04:00"
+    },
+    {
+      "episode": 8,
+      "datetime": "2026-03-28T16:00:00-04:00"
+    },
+    {
+      "episode": 9,
+      "datetime": "2026-03-28T20:00:00-04:00"
+    },
+    {
+      "episode": 10,
+      "datetime": "2026-03-29T08:00:00-04:00"
+    },
+    {
+      "episode": 11,
+      "datetime": "2026-03-29T12:00:00-04:00"
+    },
+    {
+      "episode": 12,
+      "datetime": "2026-03-29T16:00:00-04:00"
+    },
+    {
+      "episode": 13,
+      "datetime": "2026-03-29T20:00:00-04:00"
+    },
+    {
+      "episode": 14,
+      "datetime": "2026-03-30T16:00:00-04:00"
+    },
+    {
+      "episode": 15,
+      "datetime": "2026-03-31T08:00:00-04:00"
+    },
+    {
+      "episode": 16,
+      "datetime": "2026-03-31T16:00:00-04:00"
+    },
+    {
+      "episode": 17,
+      "datetime": "2026-04-01T08:00:00-04:00"
+    },
+    {
+      "episode": 18,
+      "datetime": "2026-04-01T20:00:00-04:00"
+    },
+    {
+      "episode": 19,
+      "datetime": "2026-04-02T08:00:00-04:00"
+    },
+    {
+      "episode": 20,
+      "datetime": "2026-04-02T16:00:00-04:00"
+    },
+    {
+      "episode": 21,
+      "datetime": "2026-04-03T08:00:00-04:00"
+    },
+    {
+      "episode": 22,
+      "datetime": "2026-04-04T08:00:00-04:00"
+    }
   ],
-  "note": "EP17 goes after EP16 completes, as the fresh episode"
+  "note": "2x/day long-form cadence (08:00, 16:00 ET). Reduced from 4x/day to avoid YouTube uploadLimitExceeded (4eps x 5 channels = 20 uploads/day was too aggressive). EP0-5 already uploaded. Shorts slot targets are 10:00 and 18:00 ET."
 }

@@ -32,6 +32,22 @@ Show notes: https://tobyonfitnesstech.com/podcasts/episode-20/]]></description>
       <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_020_cover.png"/>
     </item>
 
+    <!-- Episode 22 -->
+    <item>
+      <title>Episode 22: The Release Train</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_022.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-22/</link>
+      <description><![CDATA[The software shipped before breakfast. OpenClaw v2026.4.1 turns background agent work into a first-class chat surface with /tasks, bundles SearXNG for private web search, and lands Voice Wake on macOS — the agent OS shift in one release. Microsoft drops three in-house foundational models on the same day and declares itself a top-three AI lab. Okta launches enterprise AI agent governance, treating every agent as a non-human identity with a kill switch. Oracle cuts thousands of jobs to fund the Stargate infrastructure bet. And the White House advocates for federal AI preemption while 45 states have already introduced 1,500+ bills — with the EU AI Act's high-risk enforcement clock ticking to August.
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-22/]]></description>
+      <pubDate>Thu, 02 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_022.mp3" length="30933621" type="audio/mpeg"/>
+      <itunes:duration>32:13</itunes:duration>
+      <itunes:episode>22</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_022_cover.png"/>
+    </item>
+
     <!-- Episode 21 -->
     <item>
       <title>Episode 21: Inside the Loop</title>
