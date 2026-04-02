@@ -41,7 +41,7 @@ def run_checks(path):
     # ── Cold open + intro checks ───────────────────────────────────────────────
     # Cold open: unlabelled dramatic prose before first speaker label, within first ~112 words (45 sec @ 150wpm)
     first_112_words = ' '.join(content.split()[:112])
-    first_speaker_match = re.search(r'\*?\*?(NOVA|ALLOY)\*?\*?:', content)
+    first_speaker_match = re.search(r'(\[NOVA\]|\[ALLOY\]|\*?\*?NOVA\*?\*?|\*?\*?ALLOY\*?\*?):', content)
     words_before_first_speaker = len(content[:first_speaker_match.start()].split()) if first_speaker_match else 0
     has_cold_open = words_before_first_speaker >= 10
     check("Cold open present before first speaker label", has_cold_open,
@@ -57,6 +57,24 @@ def run_checks(path):
     has_show_name = bool(re.search(r"OpenClaw Daily", first_500_words, re.IGNORECASE))
     check("Show name mentioned in intro", has_show_name,
           hint="Must mention 'OpenClaw Daily' near the start")
+
+    # ALLOY must introduce herself within the first 400 words
+    first_400_words = ' '.join(content.split()[:400])
+    has_alloy_intro = bool(re.search(r"I'?m ALLOY|I am ALLOY", first_400_words, re.IGNORECASE))
+    check("ALLOY self-introduction within first 400 words", has_alloy_intro,
+          hint="ALLOY must say 'I'm ALLOY' (or 'I am ALLOY') shortly after NOVA's intro. Both hosts must introduce themselves.")
+
+    # NOVA and ALLOY introductions must be back-to-back (no more than 3 lines apart)
+    lines = content.splitlines()
+    nova_intro_line = next((i for i, l in enumerate(lines) if re.search(r"I'?m NOVA", l, re.IGNORECASE)), None)
+    alloy_intro_line = next((i for i, l in enumerate(lines) if re.search(r"I'?m ALLOY|I am ALLOY", l, re.IGNORECASE) and i < 30), None)
+    if nova_intro_line is not None and alloy_intro_line is not None:
+        gap = alloy_intro_line - nova_intro_line
+        intros_adjacent = 1 <= gap <= 4
+    else:
+        intros_adjacent = False
+    check("NOVA and ALLOY introductions are back-to-back (within 4 lines)", intros_adjacent,
+          hint="After 'I'm NOVA', ALLOY must say 'I'm ALLOY' within the next 1-4 lines. They must form a single intro unit.")
 
     has_episode_description = bool(re.search(r"(today|this episode|special|deep.dive|breakdown|we're going to|you'll (learn|know|hear))", first_500_words, re.IGNORECASE))
     check("Episode topic introduced early", has_episode_description,
@@ -112,8 +130,8 @@ def run_checks(path):
           hint="Mismatched [EMPHASIS] / [/EMPHASIS] tags")
 
     # ── Voice / conversational flow checks ──────────────────────────────────
-    nova_lines = len(re.findall(r'^\*?\*?NOVA\*?\*?:', content, re.MULTILINE))
-    alloy_lines = len(re.findall(r'^\*?\*?ALLOY\*?\*?:', content, re.MULTILINE))
+    nova_lines = len(re.findall(r'^(\[NOVA\]|\*?\*?NOVA\*?\*?):\s', content, re.MULTILINE))
+    alloy_lines = len(re.findall(r'^(\[ALLOY\]|\*?\*?ALLOY\*?\*?):\s', content, re.MULTILINE))
     check(f"Both hosts present (NOVA={nova_lines}, ALLOY={alloy_lines})",
           nova_lines >= 5 and alloy_lines >= 5,
           hint=f"NOVA has {nova_lines} lines, ALLOY has {alloy_lines} lines. Both must have 5+.")
@@ -165,6 +183,15 @@ def run_checks(path):
     has_episode_footer = bool(re.search(r'^\*OpenClaw Daily — Episode', content, re.MULTILINE))
     check("No episode metadata footer", not has_episode_footer,
           hint="Remove the '*OpenClaw Daily — Episode XX, Date*' footer line")
+
+    # ── Runtime/metadata leak checks ────────────────────────────────────────
+    has_transcript_end_leak = bool(re.search(r'end of transcript|approximately \d+ minutes|\d,\d{3} words', content, re.IGNORECASE))
+    check("No 'End of transcript' metadata leak", not has_transcript_end_leak,
+          hint="Remove any 'End of transcript / approximately X minutes / N,NNN words' lines — these get read by TTS verbatim")
+
+    has_inline_asterisks = bool(re.search(r'(?<!\[)(\*{1,2})[^*\n]+\*{1,2}(?!\])', content))
+    check("No inline markdown asterisks in body text", not has_inline_asterisks,
+          hint="Strip all **bold** and *italic* markdown from the transcript body — TTS reads asterisks as literal characters or skips them incorrectly")
 
     # ── Voice configuration check ────────────────────────────────────────────
     try:
