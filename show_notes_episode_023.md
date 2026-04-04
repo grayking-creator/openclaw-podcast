@@ -47,4 +47,17 @@ The five largest US cloud providers — Microsoft, Alphabet, Amazon, Meta, and O
 
 ---
 
+## Chapters
+
+`[00:00]` Hook — The Infrastructure Week
+`[01:40]` OpenClaw v2026.4.2 — Task Flows, YOLO Mode, Android
+`[09:20]` Google Gemma 4 — Open-Source Reasoning at Scale
+`[15:00]` Anthropic Acquires Coefficient Bio for $400M
+`[20:00]` Q1 2026 Venture Funding — $300B and 80% to AI
+`[26:00]` The $690B Infrastructure Sprint and WEF Critical Infrastructure
+`[31:00]` Bonus — Anthropic API Billing Changes
+`[37:30]` Outro
+
+---
+
 *OpenClaw Daily is produced with OpenClaw. New episodes drop regularly at [Toby On Fitness Tech dot com](https://tobyonfitnesstech.com/podcasts/openclaw/).*
