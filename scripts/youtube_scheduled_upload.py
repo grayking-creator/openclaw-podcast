@@ -484,7 +484,15 @@ def main():
                 pass
         except Exception as e:
             print(f"  ❌ Upload failed: {e}")
-        
+        finally:
+            # Clean up rendered MP4 — no reason to keep it after upload
+            try:
+                if mp4_path.exists():
+                    mp4_path.unlink()
+                    print(f"  🧹 Cleaned up {mp4_path.name}")
+            except Exception:
+                pass
+
         time.sleep(2)
     
     # Summary
