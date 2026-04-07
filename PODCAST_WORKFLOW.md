@@ -142,10 +142,23 @@ The script:
   ```
   This renders MP4s from cover+audio and uploads to all 5 channels (EN/ES/DE/PT/HI). Skips channels that are already uploaded. Requires `ffmpeg` and Google API Python deps.
 
+- [ ] **Verify episode appears on website** (MANDATORY — do not skip):
+  Open `https://tobyonfitnesstech.com/podcasts/openclaw/` and confirm the new episode is listed.
+  If it's missing, the website was not rebuilt. Fix:
+  ```bash
+  cd $HOME/.openclaw/workspace/websiteBuilder/frontend && npm run build
+  cd .. && git add -A && git commit -m "EP<N>: website rebuild" && git push
+  ```
+  The `publish_episode.sh` script does this automatically — if you ran publish, the site should be updated.
+  If you did NOT run `publish_episode.sh` (e.g. manual feed edits), you MUST rebuild the website manually.
+
+  **⛔ THE EPISODE IS NOT PUBLISHED UNTIL IT APPEARS ON THE WEBSITE.**
+
 - [ ] **Build-log / Discord message must include exact links**
   - Episode audio URL
   - Stable `latest.mp3` URL
   - Show-notes / website URL
+  - Website episode page URL (verify it loads)
 - [ ] Notify Toby
 
 ---
@@ -185,6 +198,13 @@ The script:
 **Root cause:** String replacement on XML without understanding the document structure.
 
 **Fix:** Use `scripts/add_feed_entry.py` for ALL feed insertions. It validates XML before and after, prevents duplicates, and inserts at the correct position. NEVER hand-edit feed XML files.
+
+### EP024 Website Not Updated (2026-04-07)
+**What happened:** Feed was pushed to podcast repo and YouTube uploads completed, but the episode did not appear on the website because `publish_episode.sh` was not run and the website was never rebuilt.
+
+**Root cause:** Manual feed edits bypassed the publish script, which is the only step that triggers a website rebuild.
+
+**Fix:** Always either run `publish_episode.sh` OR manually rebuild the website after pushing feed changes. Added a mandatory verification step: "Verify episode appears on website" — the episode is not published until it shows on the site.
 
 ---
 
