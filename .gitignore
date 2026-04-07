@@ -3,11 +3,23 @@
 node_modules
 *.log
 
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
 # YouTube OAuth secrets — NEVER commit
 scripts/youtube_token*.json
 scripts/youtube_client_secret*.json
+
+# YouTube upload state (ephemeral, rebuilt on each run)
+scripts/youtube_channel_state.json
+scripts/youtube_shorts_state.json
+scripts/youtube_uploaded.txt
 
 # Local audio artifacts (published in the separate openclaw-podcast-audio repo)
 audio/
 *.mp3
 
+# Temp / scratch directories
+tmp_short_test/

@@ -22,6 +22,22 @@
     
 
     
+    <!-- Episode 24 -->
+    <item>
+      <title>एपिसोड 24: नैरेटिव लेयर</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_024_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-24/</link>
+      <description><![CDATA[OpenAI एक मीडिया प्लेटफॉर्म खरीदता है। Microsoft एजेंट गवर्नेंस के लिए ओपन-सोर्स टूलकिट लॉन्च करता है। Meta AI को इन्फरेंस के नीचे मशीन लेयर ऑप्टिमाइज करते हुए दिखाता है। Microsoft जापान में AI इन्फ्रास्ट्रक्चर में दस अरब डॉलर का निवेश करता है। और अमेरिका में डेटा सेंटर बूम एक पुरानी बाधा से टकराता है: बिजली। छह कहानियाँ इस बारे में कि AI स्टैक को कौन नियंत्रित करता है।
+
+एपिसोड नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-24/]]></description>
+      <pubDate>Sun, 05 Apr 2026 14:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_024_hi.mp3" length="40000000" type="audio/mpeg"/>
+      <itunes:duration>38:00</itunes:duration>
+      <itunes:episode>24</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_024_cover_hi.png"/>
+    </item>
+
     <item><title>एपिसोड 23: इन्फ्रास्ट्रक्चर का हफ्ता</title><guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_023_hi.mp3</guid><link>https://tobyonfitnesstech.com/hi/podcasts/episode-23/</link><description><![CDATA[48 घंटों में दो OpenClaw रिलीज़। Google ने अपना सबसे अच्छा रीज़निंग मॉडल ओपन-सोर्स किया। Anthropic ने नौ लोगों की टीम के लिए 400 मिलियन डॉलर दिए। और वर्ल्ड इकोनॉमिक फोरम कहता है कि AI कंप्यूट इन्फ्रास्ट्रक्चर को पावर ग्रिड और वॉटर सिस्टम की तरह ट्रीट करने का समय आ गया है।
 
 एपिसोड नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-23/]]></description><pubDate>Fri, 04 Apr 2026 18:00:00 +0000</pubDate><enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_023_hi.mp3" length="49834989" type="audio/mpeg"/><itunes:duration>51:54</itunes:duration><itunes:episode>23</itunes:episode><itunes:episodeType>full</itunes:episodeType><itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_023_cover_hi.png"/></item>

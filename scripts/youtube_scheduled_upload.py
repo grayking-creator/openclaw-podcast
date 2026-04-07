@@ -6,12 +6,22 @@ Called by cron twice daily: 5AM and 6PM ET.
 
 Usage: python3 youtube_scheduled_upload.py <episode_number>
 """
-import os, sys, json, time, subprocess
+import os, sys, json, time, subprocess, re, requests as _requests
 from pathlib import Path
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+
+def _load_readonly_api_key():
+    env_file = os.path.expanduser("~/.openclaw/.env")
+    if os.path.exists(env_file):
+        for line in open(env_file):
+            if "YOUTUBE_READONLY_API_KEY" in line:
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return os.environ.get("YOUTUBE_READONLY_API_KEY", "")
+
+READONLY_API_KEY = _load_readonly_api_key()
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
@@ -27,26 +37,51 @@ CHANNEL_CONFIG = {
         "token": SCRIPTS_DIR / "youtube_token_en.json",
         "channel_name": "OpenClaw Daily",
         "suffix": "",
+        "expected_channel": {
+            "id": "UCTNxp_EbKdO3f2uengvBC4g",
+            "title": "OpenClaw Daily",
+            "handle": "@openclawdaily",
+        },
     },
     "es": {
         "token": SCRIPTS_DIR / "youtube_token_es.json",
         "channel_name": "OpenClaw Daily Español",
         "suffix": " Español",
+        "expected_channel": {
+            "id": "UCIOxiwRkDPZr5MkCuc3NNhA",
+            "title": "OpenClaw Daily Español",
+            "handle": "@openclawdailyes",
+        },
     },
     "de": {
         "token": SCRIPTS_DIR / "youtube_token_de.json",
         "channel_name": "OpenClaw Daily Deutsch",
         "suffix": " Deutsch",
+        "expected_channel": {
+            "id": "UC9OQsUqMSdY723JSa50pp5Q",
+            "title": "OpenClaw Daily Deutsch",
+            "handle": "@openclawdailyde",
+        },
     },
     "pt": {
         "token": SCRIPTS_DIR / "youtube_token_pt.json",
         "channel_name": "OpenClaw Daily Português",
         "suffix": " Português",
+        "expected_channel": {
+            "id": "UCtgocn6qv3GXMeX4FJtFgQQ",
+            "title": "OpenClaw Daily Português",
+            "handle": "@openclawdailypt",
+        },
     },
     "hi": {
         "token": SCRIPTS_DIR / "youtube_token_hi.json",
         "channel_name": "OpenClaw Daily Hindi",
         "suffix": " हिंदी",
+        "expected_channel": {
+            "id": "UC0a37vGRA0ZTJKBxFNrU2dA",
+            "title": "OpenClaw Daily Hindi",
+            "handle": "@openclawdailyhindi",
+        },
     },
 }
 
@@ -67,6 +102,7 @@ def get_audio_path(ep_num, lang):
         ]
     else:
         candidates = [
+            CDN_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3",
             CDN_DIR / "translations" / lang / f"episode_{ep_str}_{lang}.mp3",
             CDN_DIR / f"episode_{ep_str}_{lang}.mp3",
             PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3",
@@ -142,6 +178,51 @@ def get_episode_description(ep_num, lang):
     
     return ""
 
+
+def get_episode_chapters(ep_num):
+    """Parse YouTube chapter markers from EN show notes.
+    Returns a formatted string like:
+      00:00 Hook — The Company Layer
+      02:10 Story 1 — Paperclip ...
+    Returns empty string if no chapters found.
+    """
+    show_notes_path = PODCAST_DIR / f"show_notes_episode_{ep_num:03d}.md"
+    if not show_notes_path.exists():
+        return ""
+
+    content = show_notes_path.read_text()
+
+    # Find ## Chapters section
+    chapters_match = re.search(r'## Chapters\s*\n(.*?)(?=\n## |\Z)', content, re.DOTALL)
+    if not chapters_match:
+        return ""
+
+    chapters_block = chapters_match.group(1)
+
+    # Match lines like: - **[MM:SS] Title text**
+    chapter_lines = []
+    for m in re.finditer(r'\[\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*\]\s*(.*?)(?:\*\*)?(?:\s*\\?\s*\n|$)', chapters_block):
+        timestamp = m.group(1).strip()
+        # Ensure HH:MM:SS format for YouTube (it accepts MM:SS too)
+        title_text = m.group(2).strip().rstrip('*').strip()
+        if title_text:
+            chapter_lines.append(f"{timestamp} {title_text}")
+
+    return "\n".join(chapter_lines)
+
+
+def get_show_notes_url(ep_num, lang):
+    """Return the deep-link URL to the episode's show notes page."""
+    lang_prefix = {
+        "en": "",
+        "es": "/es",
+        "de": "/de",
+        "pt": "/pt",
+        "hi": "/hi",
+    }
+    prefix = lang_prefix.get(lang, "")
+    return f"https://tobyonfitnesstech.com{prefix}/podcasts/episode-{ep_num}/"
+
 def render_mp4(cover_path, audio_path, output_path):
     """Render MP4 from cover + audio."""
     subprocess.run([
@@ -154,7 +235,110 @@ def render_mp4(cover_path, audio_path, output_path):
         str(output_path), "-y"
     ], capture_output=True, check=True)
 
-def upload_to_youtube(token_path, title, description, tags, video_path):
+def _normalize_handle(value):
+    value = (value or "").strip()
+    if not value:
+        return ""
+    return value if value.startswith("@") else f"@{value}"
+
+
+def fetch_channel_identity(yt):
+    resp = yt.channels().list(part="id,snippet", mine=True).execute()
+    items = resp.get("items", [])
+    if not items:
+        raise RuntimeError("No authenticated YouTube channel found for this token")
+
+    ch = items[0]
+    snippet = ch.get("snippet", {})
+    custom_url = snippet.get("customUrl", "")
+    return {
+        "id": ch.get("id", ""),
+        "title": (snippet.get("title", "") or "").strip(),
+        "handle": _normalize_handle(custom_url),
+    }
+
+
+def verify_expected_channel(yt, token_path, expected):
+    actual = fetch_channel_identity(yt)
+
+    mismatches = []
+    if expected.get("id") and actual["id"] != expected["id"]:
+        mismatches.append(f"id expected={expected['id']} actual={actual['id']}")
+    if expected.get("title") and actual["title"] != expected["title"]:
+        mismatches.append(
+            f"title expected={expected['title']!r} actual={actual['title']!r}"
+        )
+
+    expected_handle = _normalize_handle(expected.get("handle", ""))
+    if expected_handle and actual["handle"] != expected_handle:
+        mismatches.append(
+            f"handle expected={expected_handle!r} actual={actual['handle']!r}"
+        )
+
+    if mismatches:
+        detail = "\n  - ".join(mismatches)
+        raise RuntimeError(
+            "\n❌ HARD STOP: Token channel mismatch before upload.\n"
+            f"Token: {token_path}\n"
+            f"Authenticated: id={actual['id']} title={actual['title']!r} handle={actual['handle']!r}\n"
+            f"Expected: id={expected.get('id')} title={expected.get('title')!r} handle={expected_handle!r}\n"
+            f"Mismatches:\n  - {detail}\n"
+            "Upload aborted before videos.insert()."
+        )
+
+    print(
+        f"  ✅ Channel verified: {actual['title']} ({actual['id']}, {actual['handle']})"
+    )
+
+
+def check_episode_already_uploaded(yt, episode_number):
+    """Check if an episode with this number is already on the channel.
+    Uses read-only API key (Lilly's quota) for playlist reads — no OAuth quota burned.
+    Falls back to OAuth if API key unavailable.
+    Returns (video_id, title) or (None, None)."""
+    ep_str = f"{episode_number:03d}"
+    search_terms = [f"EP{ep_str}", f"Episode {episode_number}:", f"Episode {ep_str}"]
+
+    if READONLY_API_KEY:
+        # Get channel ID from OAuth (1 unit), then use API key for playlist reads
+        channel_resp = yt.channels().list(part="contentDetails", mine=True).execute()
+        uploads_playlist = channel_resp["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+        page_token = None
+        while True:
+            params = {"key": READONLY_API_KEY, "playlistId": uploads_playlist,
+                      "part": "snippet", "maxResults": 50}
+            if page_token:
+                params["pageToken"] = page_token
+            resp = _requests.get("https://www.googleapis.com/youtube/v3/playlistItems", params=params).json()
+            for item in resp.get("items", []):
+                title = item["snippet"]["title"]
+                vid_id = item["snippet"]["resourceId"]["videoId"]
+                if "#" in title:
+                    continue  # skip shorts
+                for term in search_terms:
+                    if term.lower() in title.lower():
+                        return vid_id, title
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+        return None, None
+
+    # Fallback: OAuth playlist read
+    channel_resp = yt.channels().list(part="contentDetails", mine=True).execute()
+    uploads_playlist = channel_resp["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+    playlist_resp = yt.playlistItems().list(part="snippet", playlistId=uploads_playlist, maxResults=50).execute()
+    for item in playlist_resp.get("items", []):
+        title = item["snippet"]["title"]
+        vid_id = item["snippet"]["resourceId"]["videoId"]
+        for term in search_terms:
+            if term.lower() in title.lower():
+                # Only match long-form episode uploads, not shorts (shorts have hashtags in title)
+                if "#" not in title:
+                    return vid_id, title
+    return None, None
+
+
+def upload_to_youtube(token_path, title, description, tags, video_path, expected_channel, episode_number=None):
     """Upload video to YouTube, return video ID."""
     with open(token_path) as f:
         creds = Credentials.from_authorized_user_info(json.load(f))
@@ -162,6 +346,15 @@ def upload_to_youtube(token_path, title, description, tags, video_path):
         creds.refresh(Request())
     
     yt = build("youtube", "v3", credentials=creds)
+
+    # Hard pre-upload gate.
+    verify_expected_channel(yt, token_path, expected_channel)
+
+    # Duplicate guard: abort if this episode is already on the channel.
+    if episode_number is not None:
+        existing_id, existing_title = check_episode_already_uploaded(yt, episode_number)
+        if existing_id:
+            raise RuntimeError(f"DUPLICATE GUARD: Episode {episode_number} already exists on this channel as '{existing_title}' ({existing_id}). Aborting upload.")
     
     body = {
         "snippet": {
@@ -199,8 +392,22 @@ def main():
     print(f"{'='*60}")
     
     results = {}
-    
+
+    # Load per-channel state to skip already-uploaded channels
+    channel_state_file = SCRIPTS_DIR / "youtube_channel_state.json"
+    try:
+        channel_state = json.loads(channel_state_file.read_text()) if channel_state_file.exists() else {}
+    except Exception:
+        channel_state = {}
+    ep_state = channel_state.get(ep_str, {})
+
     for lang, config in CHANNEL_CONFIG.items():
+        # Skip if this channel already confirmed uploaded for this episode
+        if ep_state.get(lang) == "done":
+            print(f"\n--- {lang.upper()} (OpenClaw Daily {config['suffix']}) ---")
+            print(f"  ⏭️  Already uploaded (skipping)")
+            results[lang] = ep_state.get(f"{lang}_url", "already uploaded")
+            continue
         print(f"\n--- {lang.upper()} ({config['channel_name']}) ---")
         
         # Get audio
@@ -221,10 +428,24 @@ def main():
         title = get_episode_title(ep_num, lang)
         if lang != "en" and config["suffix"] not in title:
             title += f" | OpenClaw Daily EP{ep_str}{config['suffix']}"
+        # YouTube title limit is 100 characters
+        if len(title) > 100:
+            title = title[:97] + "..."
         desc = get_episode_description(ep_num, lang)
         if not desc:
             desc = f"OpenClaw Daily Episode {ep_num}"
-        desc += f"\n\nWebsite: https://tobyonfitnesstech.com"
+
+        # Build show notes deep link (language-aware)
+        show_notes_url = get_show_notes_url(ep_num, lang)
+        desc += f"\n\n📖 Full show notes & links: {show_notes_url}"
+        desc += f"\n🎙️ Subscribe on your favourite podcast app: https://tobyonfitnesstech.com/podcasts/"
+
+        # Add chapter markers (parsed from EN show notes — timestamps are universal)
+        chapters = get_episode_chapters(ep_num)
+        if chapters:
+            desc += f"\n\n─── CHAPTERS ───\n{chapters}"
+
+        desc += f"\n\n---\nWebsite: https://tobyonfitnesstech.com"
         
         print(f"  Title: {title[:80]}...")
         
@@ -242,11 +463,25 @@ def main():
         tags = ["openclaw", "AI podcast", "OpenClaw Daily", f"episode {ep_num}"]
         try:
             vid_id = upload_to_youtube(
-                config["token"], title, desc, tags, mp4_path
+                config["token"],
+                title,
+                desc,
+                tags,
+                mp4_path,
+                config["expected_channel"],
+                episode_number=ep_num,
             )
             url = f"https://www.youtube.com/watch?v={vid_id}"
             print(f"  ✅ {url}")
             results[lang] = url
+            # Save per-channel progress immediately
+            ep_state[lang] = "done"
+            ep_state[f"{lang}_url"] = url
+            channel_state[ep_str] = ep_state
+            try:
+                channel_state_file.write_text(json.dumps(channel_state, indent=2))
+            except Exception:
+                pass
         except Exception as e:
             print(f"  ❌ Upload failed: {e}")
         

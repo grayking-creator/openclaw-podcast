@@ -26,7 +26,8 @@ def render(transcript_path: str) -> str:
     content = re.sub(r'\n{3,}', '\n\n', content)
     content = content.strip()
 
-    paragraphs = [p.strip() for p in content.split('\n\n') if p.strip() and len(p.strip()) > 20]
+    # Keep all non-empty paragraphs — short lines like "I'm NOVA." are valid speaker lines
+    paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
 
     def tag_paragraph(p):
         # Detect speaker from leading "ALLOY:" or "NOVA:" prefix, then strip it from spoken text

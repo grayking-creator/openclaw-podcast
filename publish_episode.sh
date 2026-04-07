@@ -63,6 +63,18 @@ else
   exit 1
 fi
 
+# ── Step 3.5: TRANSLATION QC GATE (blocks publish if any language is incomplete) ──
+echo ""
+echo "[ 3.5/6 ] Running translation QC gate..."
+if python3 "$PODCAST_DIR/scripts/check_episode_translations.py" "$EP"; then
+  echo "  ✅ Translation QC passed"
+else
+  echo ""
+  echo "  ❌ TRANSLATION QC FAILED — fix the issues above before publishing"
+  echo "  Run: python3 scripts/check_episode_translations.py $EP --fix"
+  exit 1
+fi
+
 # ── Step 4: Push to grayking-creator/openclaw-podcast ─────────────────────────
 echo ""
 echo "[ 4/6 ] Pushing podcast repo (feed.xml + assets)..."

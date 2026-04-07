@@ -161,9 +161,9 @@ def run_checks(path):
           hint="Episode must have at least 3 timestamped segment headers: ## [HH:MM–HH:MM] Title")
 
     # ── Outro quality checks ─────────────────────────────────────────────────
-    has_website_cta = bool(re.search(r'tobyonfitnesstech\.com', last_500_words, re.IGNORECASE))
+    has_website_cta = bool(re.search(r'tobyonfitnesstech\.com|toby on fitness tech dot com', last_500_words, re.IGNORECASE))
     check("CTA to tobyonfitnesstech.com in outro", has_website_cta,
-          hint="Outro must direct listeners to tobyonfitnesstech.com for show notes")
+          hint="Outro must direct listeners to tobyonfitnesstech.com (or 'Toby On Fitness Tech dot com') for show notes")
 
     has_correct_closing = bool(re.search(r"we'll be back soon", last_500_words, re.IGNORECASE))
     has_wrong_closing = bool(re.search(r"we'll be back next week", last_500_words, re.IGNORECASE))

@@ -26,6 +26,22 @@
 
 
     
+    <!-- Episode 24 -->
+    <item>
+      <title>Episódio 24: A Camada Narrativa</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_024_pt.mp3</guid>
+      <link>https://tobyonfitnesstech.com/pt/podcasts/episode-24/</link>
+      <description><![CDATA[OpenAI compra uma plataforma de mídia. Microsoft lança um toolkit de governança de agentes de código aberto. Meta mostra IA otimizando a camada de máquina abaixo da inferência. Microsoft compromete dez bilhões de dólares em infraestrutura de IA no Japão. E nos Estados Unidos, o boom dos data centers encontra um antigo gargalo: eletricidade. Seis histórias sobre quem controla a pilha de IA.
+
+Notas do episódio: https://tobyonfitnesstech.com/pt/podcasts/episode-24/]]></description>
+      <pubDate>Sun, 05 Apr 2026 14:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_024_pt.mp3" length="35000000" type="audio/mpeg"/>
+      <itunes:duration>38:00</itunes:duration>
+      <itunes:episode>24</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_024_cover_pt.png"/>
+    </item>
+
     <item><title>Episódio 23: A Semana da Infraestrutura</title><guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_023_pt.mp3</guid><link>https://tobyonfitnesstech.com/pt/podcasts/episode-23/</link><description><![CDATA[Dois releases do OpenClaw em 48 horas. Google libera seu melhor modelo de raciocínio como open-source. Anthropic paga 400 milhões por uma equipe de nove pessoas. E o Fórum Econômico Mundial diz que é hora de tratar a infraestrutura de computação de IA como redes elétricas e sistemas de água. Cinco histórias sobre a semana em que a infraestrutura parou de ser chata.
 
 Notas do episódio: https://tobyonfitnesstech.com/pt/podcasts/episode-23/]]></description><pubDate>Fri, 04 Apr 2026 18:00:00 +0000</pubDate><enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_023_pt.mp3" length="42427080" type="audio/mpeg"/><itunes:duration>44:11</itunes:duration><itunes:episode>23</itunes:episode><itunes:episodeType>full</itunes:episodeType><itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_023_cover_pt.png"/></item>
