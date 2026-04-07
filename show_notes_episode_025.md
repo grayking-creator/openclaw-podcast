@@ -1,73 +1,115 @@
 # EP025 — The Control Surface
-**OpenClaw Daily** | April 5, 2026 | ~33 min
-
-OpenClaw release check: newest uncovered stable release is **v2026.3.24** (not previously covered in show notes). This episode pairs that platform catch-up with fresh stories from the last 2–3 days on agent UX, observability agents, and the power-policy edge of AI infrastructure.
-
-## Stories already covered (last 5 episodes)
-OpenClaw v2026.3.31 platform release; OpenClaw China frenzy and Beijing response; Microsoft 365 + OpenClaw integration; Perplexity Personal Computer; Q1 2026 funding surge; OpenClaw vs Claude Code vs Hermes architecture deep dive; OpenClaw v2026.4.1; Microsoft MAI models; Okta AI agent governance; Oracle AI infrastructure job cuts; US federal vs state AI policy and EU AI Act clock; OpenClaw v2026.4.2; Google Gemma 4; Anthropic Coefficient Bio acquisition; WEF critical infrastructure framing; OpenAI acquires TBPN; Anthropic cuts Claude third-party subscription use; Microsoft Agent Governance Toolkit; Meta KernelEvolve; Microsoft Japan $10B AI buildout; US data-center power bottlenecks.
+**OpenClaw Daily** | April 7, 2026 | ~32 min
 
 ## Episode Title
 **The Control Surface**
 
 ## Tagline
-The AI race is shifting from raw model launches to who controls the operator layer: agent interfaces, investigative workflows, and the physical systems that keep inference alive.
+The AI race is shifting from raw model launches to who controls the layers underneath: the runtime, the silicon, the policy narrative, the security perimeter, and the physical infrastructure.
 
 ## Story Slate
 
-### 1. OpenClaw v2026.3.24 (uncovered stable release)
-OpenClaw v2026.3.24 is the newest stable release in the recent feed that had not yet been covered in any prior episode notes. It’s a platform-hardening release centered on broader OpenAI compatibility (`/v1/models`, `/v1/embeddings`), better real-time tool visibility (`/tools` shows actually available tools now), and a significant Teams SDK/UX overhaul. NOVA and ALLOY can use this as a “why integration surfaces matter more than feature count” story.
+### 1. OpenClaw v2026.3.24 — Platform Compatibility Release
+Platform-hardening release: broader OpenAI compatibility (`/v1/models`, `/v1/embeddings`), real-time tool visibility (`/tools` shows actually available tools), official Teams SDK migration, and operational quality fixes across the board.
 
-### 2. Cursor 3 goes agent-first with parallel agents across environments
-Cursor 3 shifts the IDE center of gravity toward an Agents Window where multiple agents run in parallel across local, cloud, worktrees, and remote SSH contexts. The key angle isn’t just a UI refresh—it’s a workflow change where developers orchestrate agent fleets rather than single-thread prompting. NOVA and ALLOY can debate whether this is the beginning of the post-IDE control plane.
+### 2. OpenClaw v2026.4.5 — Media Stack & Dream System Overhaul
+Landmark feature release: built-in `video_generate` and `music_generate` tools (xAI, Alibaba Wan, Runway, Google Lyria, MiniMax), ComfyUI workflow plugin, 12-language Control UI localization, Amazon Bedrock Mantle support, major dreaming/memory system rebuild (light/deep/REM phases, Dream Diary UI), prompt caching rebuild, Claude CLI MCP bridge, and dozens of security fixes.
 
-### 3. Amazon OpenSearch adds built-in agentic troubleshooting flows
-Amazon OpenSearch Service introduced agentic AI features for observability, including a conversational assistant, an Investigation Agent, and persistent agent memory in the UI. The standout point is operational: root-cause analysis is moving from handcrafted query loops to “plan-execute-reflect” investigation cycles with traceable reasoning. NOVA and ALLOY can discuss what this means for SRE skill stacks and incident-response accountability.
+### 3. Cursor 3 — Agent-Orchestrator IDE
+Cursor 3 introduces an Agents Window where developers run many agents in parallel across local repos, cloud environments, worktrees, and remote SSH targets. The product shifts from AI pair programmer to agent orchestration console.
 
-### 4. Meta/Entergy push utility-scale power expansion for AI campuses
-A new Louisiana plan tied to Meta’s AI campus buildout outlines major generation and transmission expansion, including additional gas plants and long-haul grid investments. This is a ground-truth infrastructure story: AI demand is now driving regional utility planning timelines and political risk, not just cloud procurement. NOVA and ALLOY can frame it as the collision between model ambition and public-energy economics.
+### 4. Amazon OpenSearch — Agentic Observability
+Amazon OpenSearch Service adds a context-aware assistant, Investigation Agent (iterative plan-execute-reflect root-cause analysis), and persistent memory across sessions. Root-cause analysis becomes a first-class agentic workflow rather than a human-driven query loop.
 
-### 5. Local governments begin direct zoning pushback on data-center externalities
-Flagstaff announced continuation of a data-center zoning code amendment process focused on water use, energy demand, and other community impacts. While local, this is strategically important: the permitting and municipal-governance layer is becoming a real bottleneck for AI-scale infrastructure. NOVA and ALLOY can explore whether AI deployment speed now depends as much on city councils as on model labs.
+### 5. Anthropic — $30B Annual Revenue Run Rate
+Anthropic's revenue run rate crosses $30B annually, up from $9B at the end of 2025 — a tripling in roughly 15 weeks. Enterprise customers spending $1M+ annually now exceed 1,000, doubling in under two months.
+
+### 6. Anthropic — Google & Broadcom TPU Deal
+Anthropic signs an expanded deal for approximately 3.5 gigawatts of next-generation TPU compute coming online from 2027, extending through 2031. Anthropic now runs inference across AWS Trainium, NVIDIA GPUs, and Google TPUs simultaneously.
+
+### 7. Meta — Open Source Reversal (Avocado & Mango)
+Meta reverses its December 2025 closed-source pivot. Next-gen models codenamed Avocado (LLM) and Mango (multimedia) will ship with open-source variants, though with capability gaps relative to proprietary editions.
+
+### 8. OpenAI — Industrial Policy Paper
+OpenAI publishes a 13-page policy document: 32-hour workweeks at full pay, a public wealth fund giving citizens equity stakes in AI growth, and automation taxes to sustain social safety nets. The document positions OpenAI as a policy actor shaping AI governance before it becomes a regulatory crisis.
+
+### 9. Google DeepMind — AI Agent Traps Framework
+DeepMind researchers identify six categories of AI agent attacks via malicious web content. Success rates: prompt injection 86%, sub-agent hijacking 58–90%, data exfiltration 80%. Untrusted web content is not a safe input to any agentic system.
+
+### 10. Meta & Entergy — Louisiana Power Expansion
+A utility-scale expansion plan linked to Meta's Louisiana AI campus includes additional gas generation and long-haul transmission investments. AI infrastructure is now explicit project finance and grid planning at state scale — not abstract energy demand.
+
+### 11. Flagstaff — Data Center Zoning Hearing
+Flagstaff continues a public process to amend data center zoning, citing water, power demand, and community impacts. AI deployment speed now depends on city councils as much as on model labs.
 
 ## Show Notes block
 
 ```md
 # EP025 — The Control Surface
-**OpenClaw Daily** | April 5, 2026 | ~33 min
+**OpenClaw Daily** | April 7, 2026 | ~32 min
 
-This week’s throughline is control: who controls the runtime, who controls agent behavior during real incidents, and who controls the physical systems AI now depends on.
+Eleven stories, multiple days, one throughline: the AI race is shifting from raw model launches to who controls the layers underneath. The runtime, the silicon supply chain, the policy narrative, the security perimeter, the open-source ecosystem, and the physical infrastructure that decides whether any of this can actually scale.
 
-## 1. OpenClaw v2026.3.24 (Uncovered Stable Release)
-OpenClaw v2026.3.24 is the newest stable release in the current GitHub release window that had not yet been covered in prior OpenClaw Daily show notes. The release strengthens platform compatibility layers (`/v1/models`, `/v1/embeddings`), improves tool-surface clarity (`/tools` now reflects real-time availability), and deepens channel/runtime maturity through official Teams SDK migration and operational quality fixes. It’s a practical reminder that platform reliability and integration ergonomics are now as strategic as model quality.
+## 1. OpenClaw v2026.3.24 — Platform Compatibility
+OpenClaw v2026.3.24 is a platform-hardening release: broader OpenAI API compatibility (`/v1/models`, `/v1/embeddings`), real-time tool visibility, official Teams SDK migration, and operational quality fixes. When model quality differences between frontier labs narrow, runtime reliability and integration smoothness become the differentiator.
 
-## 2. Cursor 3’s Agent-First Interface
-Cursor 3 introduces an Agents Window that lets developers run many agents in parallel across local repos, cloud environments, worktrees, and remote SSH targets. The product posture shifts from “AI pair programmer” to “agent orchestration console,” with design-mode feedback loops and multi-chat tab workflows. That reframes coding from direct authoring to agent supervision.
+## 2. OpenClaw v2026.4.5 — Media Stack & Dream System Overhaul
+The most feature-dense OpenClaw release in memory: built-in video and music generation (xAI Grok, Alibaba Wan, Runway, Google Lyria, MiniMax), a ComfyUI workflow plugin, 12-language UI localization, Amazon Bedrock Mantle support, a rebuilt three-phase dreaming/memory system (light, deep, REM with Dream Diary UI), prompt caching improvements, Claude CLI MCP bridge, and dozens of security fixes. OpenClaw is moving well beyond personal AI OS into a full multimedia agent platform.
 
-## 3. Amazon OpenSearch Agentic AI for Incident Workflows
-Amazon OpenSearch Service added agentic observability features including a context-aware assistant, an Investigation Agent, and memory that persists context across sessions and pages. The Investigation Agent’s iterative planning model is built for multi-step root-cause work instead of one-shot query generation. This is a meaningful shift toward agent-native operations tooling in production SRE environments.
+## 3. Cursor 3 — Agent Orchestration Console
+Cursor 3 introduces an Agents Window for running many agents in parallel across local repos, cloud environments, worktrees, and remote SSH targets. The shift is from AI pair programmer to agent orchestration console — from direct authoring to agent supervision. The IDE that wins the agent orchestration transition will own the developer experience for the next decade.
 
-## 4. Meta + Entergy Louisiana Power Expansion for AI Data Centers
-Reporting this week details a major utility/infrastructure expansion path linked to Meta’s Louisiana AI data-center footprint, including additional generation and transmission commitments. The conversation is no longer abstract “AI energy demand”—it is now explicit project finance, grid planning, and public utility tradeoffs at state scale. AI infrastructure economics are becoming local politics.
+## 4. Amazon OpenSearch — Investigation Agent for Incident Response
+Amazon OpenSearch Service adds a context-aware assistant, an Investigation Agent with iterative plan-execute-reflect root-cause analysis, and memory that persists across sessions. Operational tooling is becoming agent-native — not AI-assisted autocomplete, but autonomous investigation loops. An Investigation Agent with traceable reasoning produces incident response that is not just faster but consistently documented.
 
-## 5. Flagstaff’s Data-Center Zoning Hearing Continuation
-Flagstaff announced continuation of a public process to amend zoning rules for data centers, explicitly citing water, power demand, and other community impacts. This is a signal that municipal governance is becoming part of the AI deployment stack: if zoning and permitting tighten, compute expansion slows regardless of frontier model momentum. The local rulebook is now part of global AI velocity.
+## 5. Anthropic — $30B Revenue Run Rate
+Anthropic's revenue crosses $30B annually, up from $9B in roughly 15 weeks. Enterprise customers at $1M+ annual spend have doubled in under two months. The commercial momentum is running well ahead of ongoing government classification risk.
+
+## 6. Anthropic — 3.5GW Google & Broadcom TPU Deal
+Anthropic signed an expanded TPU deal with Google and Broadcom for approximately 3.5 gigawatts of next-generation compute coming online from 2027 through 2031. Anthropic now runs inference across AWS Trainium, NVIDIA GPUs, and Google TPUs. Frontier AI labs are now as defined by silicon partnerships as by model architecture.
+
+## 7. Meta — Open Source Reversal
+Meta is planning open-source releases of its next-gen models Avocado (LLM) and Mango (multimedia), reversing a December 2025 closed-source pivot. The open versions will have capability gaps relative to proprietary editions. Meta's return after a six-month experiment is a signal about the durability of the open-weights ecosystem.
+
+## 8. OpenAI — Industrial Policy for the Intelligence Age
+OpenAI published a 13-page policy framework: 32-hour workweeks at full pay, a public wealth fund with citizen equity stakes in AI growth, and automation taxes for social safety nets. OpenAI is investing in the policy narrative — shaping the terms of the AI governance debate before it becomes a regulatory crisis. Other labs will watch whether this approach reduces regulatory risk.
+
+## 9. Google DeepMind — AI Agent Traps
+DeepMind's framework identifies six attack categories against autonomous agents via malicious web content: content injection, semantic manipulation, cognitive state poisoning, behavioral control, systemic multi-agent failures, and human-in-the-loop hijacking. Success rates: prompt injection 86%, sub-agent hijacking 58–90%, data exfiltration 80%. Untrusted web content is not a safe input to any agentic system.
+
+## 10. Meta & Entergy — Louisiana Power Expansion
+Meta's AI data center buildout is now driving regional utility planning in Louisiana, including gas plant additions and major transmission investments. AI infrastructure is now explicit project finance at state scale. The labs that secure power, land, and grid access at scale will have a structural competitive moat that model improvements alone won't close.
+
+## 11. Flagstaff — Municipal Governance as AI Infrastructure Constraint
+Flagstaff is amending its data center zoning rules, citing water, power demand, and community impacts. If a mid-sized city can slow or reshape a major data center project, that has implications for the entire AI buildout timeline. AI deployment speed now depends on city councils as much as on model labs.
 
 ## Links
 - OpenClaw v2026.3.24: https://github.com/openclaw/openclaw/releases/tag/v2026.3.24
+- OpenClaw v2026.4.5: https://github.com/openclaw/openclaw/releases/tag/v2026.4.5
 - Cursor 3 changelog: https://cursor.com/changelog/3-0
-- Amazon OpenSearch "What’s New": https://aws.amazon.com/about-aws/whats-new/2026/03/opensearch-agentic-ai-log-analytics-observability/
-- Amazon OpenSearch agentic AI deep dive: https://aws.amazon.com/blogs/big-data/agentic-ai-for-observability-and-troubleshooting-with-amazon-opensearch-service/
-- Meta/Entergy Louisiana coverage: https://thelensnola.org/2026/04/03/meta-entergy-louisiana-power-plants-ai-data-centers-2/
-- Flagstaff data-center public hearing continuation: https://www.flagstaff.az.gov/m/newsflash/home/detail/2247
+- Amazon OpenSearch agentic AI: https://aws.amazon.com/blogs/big-data/agentic-ai-for-observability-and-troubleshooting-with-amazon-opensearch-service/
+- Anthropic revenue reporting: https://www.bloomberg.com/news/articles/2026-04-06/anthropic-revenue-run-rate-reaches-30-billion
+- Anthropic TPU deal: https://www.theinformation.com/articles/anthropic-signs-3-5-gigawatt-deal-with-google-broadcom
+- Meta open source reversal: https://axios.com/2026/04/07/meta-avocado-mango-open-source
+- OpenAI industrial policy paper: https://openai.com/index/industrial-policy-for-the-intelligence-age/
+- Google DeepMind Agent Traps: https://deepmind.google/research/publications/agent-traps/
+- Meta/Entergy Louisiana: https://thelensnola.org/2026/04/03/meta-entergy-louisiana-power-plants-ai-data-centers-2/
+- Flagstaff data center zoning: https://www.flagstaff.az.gov/m/newsflash/home/detail/2247
 
 ## Chapters
-- **[00:00] Hook — The Control Surface**
-- **[02:10] OpenClaw v2026.3.24 — Platform Compatibility and Runtime Maturity**
-- **[08:40] Cursor 3 — The Agent-Orchestrator IDE Shift**
-- **[15:10] OpenSearch Investigation Agent — Incident Response Goes Agentic**
-- **[21:50] Meta + Entergy — AI Compute Meets Utility-Scale Power**
-- **[28:10] Flagstaff Zoning — The Municipal Layer of AI Infrastructure**
-- **[33:20] Outro**
+- **[0:00] Hook — The Control Surface**
+- **[1:42] OpenClaw v2026.3.24 — Platform Compatibility**
+- **[3:23] OpenClaw v2026.4.5 — Media Stack & Dream System**
+- **[7:07] Cursor 3 — Agent Orchestration Console**
+- **[9:30] Amazon OpenSearch — Investigation Agent**
+- **[11:51] Anthropic — $30B Revenue Run Rate**
+- **[13:54] Anthropic — 3.5GW TPU Deal**
+- **[15:35] Meta — Open Source Reversal**
+- **[18:17] OpenAI — Industrial Policy Paper**
+- **[21:20] Google DeepMind — AI Agent Traps**
+- **[26:26] Meta & Entergy — Louisiana Power**
+- **[28:48] Flagstaff — Data Center Zoning**
+- **[31:31] Outro**
 ```
 
-→ Reply on Telegram to approve transcript generation.
+→ Chapters are estimated from transcript paragraph proportions. Run whisper for exact timestamps if needed.
