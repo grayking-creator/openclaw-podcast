@@ -23,3 +23,9 @@ audio/
 
 # Temp / scratch directories
 tmp_short_test/
+
+# Shorts rendering output (PNGs, MP4s, WAVs, subtitles — build artifacts, not source)
+content_staging/shorts/
+
+# Translation staging (final versions live in translations/<lang>/)
+content_staging/translations/
