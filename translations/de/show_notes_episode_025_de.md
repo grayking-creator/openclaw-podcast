@@ -1,36 +1,65 @@
 # EP025 — Die Kontrolloberfläche
-**OpenClaw Daily** | 5. April 2026 | ~33 Min
+**OpenClaw Daily** | 7. April 2026 | ~32 Min.
 
-Das übergreifende Thema dieser Woche ist Kontrolle: Wer kontrolliert die Laufzeitumgebung, wer kontrolliert das Verhalten von Agents während echter Vorfälle, und wer kontrolliert die physischen Systeme, von denen KI heute abhängt.
+Elf Geschichten, mehrere Tage, ein roter Faden: das KI-Rennen verlagert sich von rohen Modell-Launches hin zu der Frage, wer die darunterliegenden Schichten kontrolliert. Die Runtime, die Silizium-Lieferkette, die politische Erzählung, der Sicherheitsperimeter, das Open-Source-Ökosystem und die physische Infrastruktur, die darüber entscheidet, ob irgendetwas davon tatsächlich skalieren kann.
 
-## 1. OpenClaw v2026.3.24 (Unveröffentlichtes stabiles Release)
-OpenClaw v2026.3.24 ist die neueste stabile Version im aktuellen GitHub-Release-Zyklus, die noch nicht in früheren OpenClaw Daily-Shownotizen behandelt wurde. Das Release stärkt die Plattform-Kompatibilitätsschichten (`/v1/models`, `/v1/embeddings`), verbessert die Klarheit der Tool-Oberfläche (`/tools` spiegelt jetzt die Echtzeit-Verfügbarkeit wider) und vertieft die Reife von Kanälen/Laufzeitumgebung durch offizielle Teams-SDK-Migration und operative Qualitätskorrekturen. Es ist eine praktische Erinnerung daran, dass Plattform-Zuverlässigkeit und Integrationsergonomie heute ebenso strategisch sind wie die Modellqualität.
+## 1. OpenClaw v2026.3.24 — Plattformkompatibilität
+OpenClaw v2026.3.24 ist ein Plattform-Hardening-Release: erweiterte OpenAI-API-Kompatibilität (`/v1/models`, `/v1/embeddings`), Echtzeit-Tool-Sichtbarkeit, offizielle Teams-SDK-Migration und operationelle Qualitätskorrekturen. Wenn die Modellqualitätsunterschiede zwischen Frontier-Labs schmaler werden, werden Laufzeit-Zuverlässigkeit und Integrations-Glättung zum Differenzierungsmerkmal.
 
-## 2. Cursor 3's agent-first Benutzeroberfläche
-Cursor 3 führt ein Agents-Fenster ein, das Entwicklern ermöglicht, viele Agents parallel über lokale Repositories, Cloud-Umgebungen, Worktrees und Remote-SSH-Ziele hinweg auszuführen. Die Produktpositionierung verschiebt sich vom „KI-Paarprogrammierer" zur „Agenten-Orchestrierungskonsole", mit Design-Mode-Feedbackschleifen und Multi-Chat-Tab-Workflows. Das refaktoriert das Programmieren von direkter Erstellung zur Agenten-Überwachung.
+## 2. OpenClaw v2026.4.5 — Media Stack & Traumsystem-Überholung
+Das funktionsdichteste OpenClaw-Release seit Langem: integrierte Video- und Musikgenerierung (xAI Grok, Alibaba Wan, Runway, Google Lyria, MiniMax), ein ComfyUI-Workflow-Plugin, 12-sprachige UI-Lokalisierung, Amazon Bedrock Mantle-Unterstützung, ein neu aufgebautes dreiphasiges Traum-/Erinnerungssystem (leicht, tief, REM mit Traumtagebuch-UI), Prompt-Caching-Verbesserungen, Claude CLI MCP-Bridge und Dutzende von Sicherheitskorrekturen. OpenClaw bewegt sich weit über das persönliche KI-OS hinaus in eine vollständige Multimedia-Agenten-Plattform.
 
-## 3. Amazon OpenSearch Agentic AI für Incident-Workflows
-Amazon OpenSearch Service hat agentic Observability-Funktionen hinzugefügt, darunter einen kontextbewussten Assistenten, einen Investigation Agent und ein Gedächtnis, das Kontext über Sitzungen und Seiten hinweg beibehält. Das iterative Planungsmodell des Investigation Agent ist für mehrstufige Root-Cause-Arbeit statt für Einmal-Abfragegenerierung konzipiert. Dies ist eine bedeutsame Verschiebung hin zu agent-nativem Operations-Tooling in Produktions-SRE-Umgebungen.
+## 3. Cursor 3 — Agenten-Orchestrierungskonsole
+Cursor 3 führt ein Agenten-Fenster für die parallele Ausführung vieler Agenten über lokale Repos, Cloud-Umgebungen, Worktrees undRemote-SSH-Ziele ein. Der Wandel geht vom KI-Pair-Programmierer zur Agenten-Orchestrierungskonsole — von direkter Autorschaft zur Agenten-Überwachung. Die IDE, die den Agenten-Orchestrierungs-Übergang gewinnt, wird das Entwicklererlebnis für das nächste Jahrzehnt prägen.
 
-## 4. Meta + Entergy Louisiana Stromausbau für KI-Rechenzentren
-Die Berichterstattung diese Woche zeigt einen großen Versorgungs-/Infrastruktur-Expansionspfad im Zusammenhang mit Metas Louisiana-KI-Rechenzentrum-Footprint, einschließlich zusätzlicher Erzeugungs- und Übertragungszusagen. Die Diskussion ist nicht mehr abstrakte „KI-Energienachfrage" – sie ist jetzt explizite Projektfinanzierung, Netzplanung und öffentliche Versorgungsabwägungen auf Staatsebene. Die Ökonomie der KI-Infrastruktur wird zur lokalen Politik.
+## 4. Amazon OpenSearch — Ermittlungsagent für Incident Response
+Amazon OpenSearch Service fügt einen kontextbewussten Assistenten hinzu, einen Ermittlungsagenten mit iterativer Plan-Ausführung-Reflekt-Root-Cause-Analyse und Speicher, der sitzungsübergreifend persistiert. Operationale Tools werden agentennativ — nicht KI-gestützte Autovervollständigung, sondern autonome Ermittlungsschleifen. Ein Ermittlungsagent mit nachvollziehbarer Begründung erzeugt Incident Response, das nicht nur schneller ist, sondern durchgehend dokumentiert.
 
-## 5. Fortsetzung der Flagstaff Rechenzentrum-Zonierungsanhörung
-Flagstaff kündigte die Fortsetzung eines öffentlichen Verfahrens zur Änderung der Zonierungsvorschriften für Rechenzentren an, mit explizitem Verweis auf Wasser, Strombedarf und andere Auswirkungen auf die Gemeinschaft. Dies ist ein Signal, dass kommunale Regierungsführung Teil des KI-Deployment-Stacks wird: Wenn Zonierung und Genehmigung verschärft werden, verlangsamt sich die Compute-Expansion unabhängig vom Frontier-Modell-Momentum. Das lokale Regelwerk ist jetzt Teil der globalen KI-Geschwindigkeit.
+## 5. Anthropic — $30B Umsatz-Run-Rate
+Anthroponics Umsatz überschreitet $30B jährlich, aufwärts von $9B in etwa 15 Wochen. Enterprise-Kunden mit $1M+ jährlichem Ausgaben haben sich in unter zwei Monaten verdoppelt. Die kommerzielle Dynamik liegt weit vor dem laufenden Risiko der staatlichen Klassifizierung.
+
+## 6. Anthropic — 3.5GW Google & Broadcom TPU-Deal
+Anthropic hat einen erweiterten TPU-Deal mit Google und Broadcom für ungefähr 3,5 Gigawatt nächster Generation Compute abgeschlossen, die von 2027 bis 2031 online gehen. Anthropic betreibt jetzt Inferenz über AWS Trainium, NVIDIA GPUs und Google TPUs. Frontier-KI-Labs definieren sich jetzt genauso durch Siliziumpartnerschaften wie durch Modellarchitektur.
+
+## 7. Meta — Open-Source-Umkehr
+Meta plant Open-Source-Releases seiner nächsten Modelle Avocado (LLM) und Mango (Multimedia) und kehrt damit eine Schließung im Dezember 2025 um. Die Open-Versionen werden Fähigkeitslücken gegenüber proprietären Editionen haben. Metas Rückkehr nach einem sechsmonatigen Experiment ist ein Signal über die Dauerhaftigkeit des Open-Weights-Ökosystems.
+
+## 8. OpenAI — Industriepolitik für das Zeitalter der Intelligenz
+OpenAI hat ein 13-seitiges politisches Rahmenwerk veröffentlicht: 32-Stunden-Wochen bei vollem Lohn, ein öffentlicher Wohlstandsfonds mit Bürgerbeteiligungen am KI-Wachstum und Automatisierungsabgaben für soziale Sicherheitsnetze. OpenAI investiert in die politische Erzählung — und gestaltet die Bedingungen des KI-Governance-Debatte, bevor sie zu einer regulatorischen Krise wird. Andere Labs werden beobachten, ob dieser Ansatz regulatorisches Risiko reduziert.
+
+## 9. Google DeepMind — KI-Agenten-Fallen
+Das Framework von DeepMind identifiziert sechs Angriffskategorien gegen autonome Agenten über bösartige Web-Inhalte: Inhaltsinjektion, semantische Manipulation, kognitiver Zustands-Poisoning, Verhaltenskontrolle, systemische Multi-Agenten-Fehler und Human-in-the-Loop-Hijacking. Erfolgsraten: Prompt-Injection 86%, Sub-Agenten-Hijacking 58–90%, Datenexfiltration 80%. Nicht vertrauenswürdige Web-Inhalte sind kein sicherer Input für任何 agentisches System.
+
+## 10. Meta & Entergy — Louisiana-Stromausbau
+Metas KI-Rechenzentrums-Ausbau treibt jetzt regionale Versorgungsplanung in Louisiana an, einschließlich Gaskraftwerkserweiterungen und größerer Übertragungsinvestitionen. KI-Infrastruktur ist jetzt explizites Projektfinanzierungsvolumen auf Staats ebene. Die Labs, die Strom, Land und Netzwerkzugang in großem Maßstab sichern, werden einen strukturellen Wettbewerbsvorteil haben, den Modellverbesserungen allein nicht schließen werden.
+
+## 11. Flagstaff — Kommunale Governance als KI-Infrastruktur-Einschränkung
+Flagstaff ändert seine Rechenzentrums-Zonierungsregeln und nennt Wasser, Strombedarf und Community-Auswirkungen. Wenn eine mittelgroße Stadt ein großes Rechenzentrumsprojekt verlangsamen oder umformen kann, hat das Implikationen für den gesamten KI-Ausbau-Zeitplan. Die KI-Deploymentsgeschwindigkeit hängt jetzt genauso von Stadtparlamenten ab wie von Modellen-Labs.
 
 ## Links
 - OpenClaw v2026.3.24: https://github.com/openclaw/openclaw/releases/tag/v2026.3.24
-- Cursor 3 Changelog: https://cursor.com/changelog/3-0
-- Amazon OpenSearch „What's New": https://aws.amazon.com/about-aws/whats-new/2026/03/opensearch-agentic-ai-log-analytics-observability/
-- Amazon OpenSearch agentic AI Deep Dive: https://aws.amazon.com/blogs/big-data/agentic-ai-for-observability-and-troubleshooting-with-amazon-opensearch-service/
-- Meta/Entergy Louisiana Berichterstattung: https://thelensnola.org/2026/04/03/meta-entergy-louisiana-power-plants-ai-data-centers-2/
-- Flagstaff Rechenzentrum öffentliche Anhörung Fortsetzung: https://www.flagstaff.az.gov/m/newsflash/home/detail/2247
+- OpenClaw v2026.4.5: https://github.com/openclaw/openclaw/releases/tag/v2026.4.5
+- Cursor 3 changelog: https://cursor.com/changelog/3-0
+- Amazon OpenSearch agentic AI: https://aws.amazon.com/blogs/big-data/agentic-ai-for-observability-and-troubleshooting-with-amazon-opensearch-service/
+- Anthropic revenue reporting: https://www.bloomberg.com/news/articles/2026-04-06/anthropic-revenue-run-rate-reaches-30-billion
+- Anthropic TPU deal: https://www.theinformation.com/articles/anthropic-signs-3-5-gigawatt-deal-with-google-broadcom
+- Meta open source reversal: https://axios.com/2026/04/07/meta-avocado-mango-open-source
+- OpenAI industrial policy paper: https://openai.com/index/industrial-policy-for-the-intelligence-age/
+- Google DeepMind Agent Traps: https://deepmind.google/research/publications/agent-traps/
+- Meta/Entergy Louisiana: https://thelensnola.org/2026/04/03/meta-entergy-louisiana-power-plants-ai-data-centers-2/
+- Flagstaff data center zoning: https://www.flagstaff.az.gov/m/newsflash/home/detail/2247
 
 ## Kapitel
-- **[00:00] Einleitung — Die Kontrolloberfläche**
-- **[02:10] OpenClaw v2026.3.24 — Plattformkompatibilität und Laufzeitreife**
-- **[08:40] Cursor 3 — Der Agenten-Orchestrator-IDE-Wandel**
-- **[15:10] OpenSearch Investigation Agent — Incident Response wird agentic**
-- **[21:50] Meta + Entergy — KI-Compute trifft auf Versorgungsmaßstab-Strom**
-- **[28:10] Flagstaff Zonierung — Die kommunale Schicht der KI-Infrastruktur**
-- **[33:20] Outro**
+- **[0:00] Hook — Die Kontrolloberfläche**
+- **[1:42] OpenClaw v2026.3.24 — Plattformkompatibilität**
+- **[3:23] OpenClaw v2026.4.5 — Media Stack & Traumsystem**
+- **[7:07] Cursor 3 — Agenten-Orchestrierungskonsole**
+- **[9:30] Amazon OpenSearch — Ermittlungsagent**
+- **[11:51] Anthropic — $30B Umsatz-Run-Rate**
+- **[13:54] Anthropic — 3.5GW TPU-Deal**
+- **[15:35] Meta — Open-Source-Umkehr**
+- **[18:17] OpenAI — Industriepolitik-Papier**
+- **[21:20] Google DeepMind — KI-Agenten-Fallen**
+- **[26:26] Meta & Entergy — Louisiana-Strom**
+- **[28:48] Flagstaff — Rechenzentrums-Zonung**
+- **[31:31] Outro**
