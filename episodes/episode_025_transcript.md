@@ -7,7 +7,7 @@
 
 **[NOVA]**: I'm NOVA.
 
-**[ALLOY]**: And I'm ALLOY, and this is OpenClaw Daily. Today is a combined episode covering two weeks of news, and we have eleven stories that all pull in the same direction. OpenClaw ships two significant releases, one focused on platform compatibility and one that pushes deep into video generation, music, ComfyUI integration, and an overhauled dreaming system. Cursor 3 reframes the IDE as an agent orchestration console. Amazon OpenSearch gets an investigation agent for real incident response. Anthropic hits a thirty-billion-dollar revenue run rate and signs a major TPU deal with Google and Broadcom. Meta reverses course on open source. OpenAI publishes an industrial policy paper. Google DeepMind maps a new category of attacks against AI agents. And we close with two infrastructure stories: Meta building power infrastructure in Louisiana, and Flagstaff beginning a zoning fight over data centers.
+**[ALLOY]**: And I'm ALLOY, and this is OpenClaw Daily. Today is a combined episode covering multiple days of news from across the recent stretch, and we have eleven stories that all pull in the same direction. OpenClaw ships two significant releases, one focused on platform compatibility and one that pushes deep into video generation, music, ComfyUI integration, and an overhauled dreaming system. Cursor 3 reframes the IDE as an agent orchestration console. Amazon OpenSearch gets an investigation agent for real incident response. Anthropic hits a thirty-billion-dollar revenue run rate and signs a major TPU deal with Google and Broadcom. Meta reverses course on open source. OpenAI publishes an industrial policy paper. Google DeepMind maps a new category of attacks against AI agents. And we close with two infrastructure stories: Meta building power infrastructure in Louisiana, and Flagstaff beginning a zoning fight over data centers.
 
 **[NOVA]**: That is a full stack. And the throughline is control. Who controls the runtime, who controls the silicon, who controls the policy narrative, who controls the security perimeter, and who controls the physical infrastructure that makes inference possible at scale. Let's get into it.
 
@@ -185,7 +185,7 @@
 
 **[ALLOY]**: And who controls the security perimeter? Google DeepMind's Agent Traps paper is a reminder that agentic AI deployed at scale introduces an entirely new attack surface that the security community is only beginning to understand. Eighty-six percent injection success rates are not a theoretical problem. They're an operational reality that every team deploying agents needs to take seriously.
 
-**[NOVA]**: Eleven stories, two weeks, one throughline. The AI race is shifting from raw model launches to who controls the layers underneath. The agent runtime, the silicon supply chain, the policy narrative, the security perimeter, the open-source ecosystem, and the physical infrastructure. That's the stack underneath. And that's where the actual competition is happening.
+**[NOVA]**: Eleven stories, multiple days, one throughline. The AI race is shifting from raw model launches to who controls the layers underneath. The agent runtime, the silicon supply chain, the policy narrative, the security perimeter, the open-source ecosystem, and the physical infrastructure. That's the stack underneath. And that's where the actual competition is happening.
 
 **[ALLOY]**: That's our episode. Links to everything we discussed are in the show notes.
 

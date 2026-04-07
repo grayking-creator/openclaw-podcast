@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/es/podcasts/openclaw/</link>
     <description>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Aprende a ejecutar tu propia IA localmente, mantén tus datos privados y mantente a la vanguardia en el mundo de los modelos de lenguaje locales.</description>
     <language>es-es</language>
-    <lastBuildDate>Sun, 29 Mar 2026 20:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 07 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova y Alloy</itunes:author>
     <itunes:summary>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Desde configuraciones de hardware hasta consejos de seguridad, lanzamientos de modelos y aspectos destacados de la comunidad — todo lo que necesitas saber sobre el futuro de la IA personal, aquí mismo.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_es.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 25 -->
+    <item>
+      <title>Episodio 25: La Superficie de Control</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_025_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-25/</link>
+      <description><![CDATA[Esta semana la línea central es el control. Quién controla el tiempo de ejecución, quién controla el comportamiento de los agentes durante incidentes reales y quién controla los sistemas físicos de los que ahora depende la IA.
+
+Notas del episodio: https://tobyonfitnesstech.com/es/podcasts/episode-25/
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-25/]]></description>
+      <pubDate>Mon, 07 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_025_es.mp3" length="34674772" type="audio/mpeg"/>
+      <itunes:duration>36:07</itunes:duration>
+      <itunes:episode>25</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_025_cover_es.png"/>
+    </item>
+
     
 
 

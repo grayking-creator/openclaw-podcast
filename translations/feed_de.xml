@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/</link>
     <description>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Lernen Sie, wie Sie Ihre eigene KI lokal betreiben, Ihre Daten privat halten und in der sich schnell entwickelnden Welt der lokalen Sprachmodelle die Nase vorn haben.</description>
     <language>de-de</language>
-    <lastBuildDate>Sun, 29 Mar 2026 20:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 07 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Von Hardware-Setups bis zu Sicherheitstipps, Modell-Releases bis zu Community-Highlights — alles, was Sie über die Zukunft der persönlichen KI wissen müssen, direkt hier.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_de.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 25 -->
+    <item>
+      <title>Folge 25: Die Kontrolloberfläche</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_025_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-25/</link>
+      <description><![CDATA[Das Leitthema dieser Woche ist Kontrolle. Wer kontrolliert die Laufzeitumgebung, wer das Verhalten von Agenten in echten Vorfällen und wer die physischen Systeme, von denen KI heute abhängt?
+
+Episodennotizen: https://tobyonfitnesstech.com/de/podcasts/episode-25/
+
+Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-25/]]></description>
+      <pubDate>Mon, 07 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_025_de.mp3" length="36878253" type="audio/mpeg"/>
+      <itunes:duration>38:24</itunes:duration>
+      <itunes:episode>25</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_025_cover_de.png"/>
+    </item>
+
     
 
 

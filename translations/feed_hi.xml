@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/hi/podcasts/openclaw/</link>
     <description>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। सीखें कि अपनी खुद की एआई स्थानीय रूप से कैसे चलाएं, अपने डेटा को निजी रखें, और स्थानीय भाषा मॉडल की तेजी से विकसित होती दुनिया में आगे रहें।</description>
     <language>hi-in</language>
-    <lastBuildDate>Sun, 29 Mar 2026 20:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 07 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>नोवा और अलॉय</itunes:author>
     <itunes:summary>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। हार्डवेयर सेटअप से लेकर सुरक्षा युक्तियों तक, मॉडल रिलीज से लेकर कम्युनिटी हाइलाइट्स तक — व्यक्तिगत एआई के भविष्य के बारे में वह सब कुछ जो आपको जानना आवश्यक है, ठीक यहाँ।</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_hi.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 25 -->
+    <item>
+      <title>एपिसोड 25: द कंट्रोल सरफेस</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_025_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-25/</link>
+      <description><![CDATA[इस सप्ताह का मुख्य विषय है नियंत्रण: रनटाइम को कौन नियंत्रित करता है, वास्तविक घटनाओं के दौरान एजेंट व्यवहार को कौन नियंत्रित करता है, और AI अब जिस भौतिक प्रणालियों पर निर्भर है उन्हें कौन नियंत्रित करता है।
+
+एपिसोड नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-25/
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-25/]]></description>
+      <pubDate>Mon, 07 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_025_hi.mp3" length="36817649" type="audio/mpeg"/>
+      <itunes:duration>38:21</itunes:duration>
+      <itunes:episode>25</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_025_cover_hi.png"/>
+    </item>
+
     
 
     
