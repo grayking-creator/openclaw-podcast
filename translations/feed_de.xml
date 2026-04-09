@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_de.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 26 -->
+    <item>
+      <title>Folge 26: OpenClaw bekommt ein Gehirntransplantat, Glasswing, gigantische Gehirne und geklonte Autoren</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_026_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-26/</link>
+      <description><![CDATA[OpenClaw 2026.4.8 führt eine einheitliche Inferenzschicht, Session‑Checkpointing und einen vollständig wiederhergestellten Speicher‑Stack ein. Anthropics Glasswing‑Koalition und MegaTrains Training eines 120‑Milliarden‑Parameter‑Modells auf einer einzelnen GPU zeigen neue Möglichkeiten im KI‑Bereich. Eine aktuelle Studie deutet darauf hin, dass Ihr Schreib‑KI möglicherweise ein Klon von Claude ist.
+
+Episodennotizen: https://tobyonfitnesstech.com/de/podcasts/episode-26/
+
+Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-26/]]></description>
+      <pubDate>Mon, 07 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_026_de.mp3" length="42830828" type="audio/mpeg"/>
+      <itunes:duration>44:36</itunes:duration>
+      <itunes:episode>26</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_026_cover_de.png"/>
+    </item>
+
     <!-- Episode 25 -->
     <item>
       <title>Folge 25: Die Kontrolloberfläche</title>

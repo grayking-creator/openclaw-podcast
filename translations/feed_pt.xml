@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_pt.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 26 -->
+    <item>
+      <title>Episódio 26: OpenClaw Faz um Transplante de Cérebro, Glasswing, Cérebros Gigantes e Escritores Clonados</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_026_pt.mp3</guid>
+      <link>https://tobyonfitnesstech.com/pt/podcasts/episode-26/</link>
+      <description><![CDATA[OpenClaw 2026.4.8 traz uma camada de inferência unificada, checkpoint de sessão e uma pilha de memória restaurada. A coalizão Glasswing da Anthropic, o treinamento de fronteira em uma única GPU pela MegaTrain e um estudo que mostra que sua IA de escrita pode ser um clone de Claude também são abordados.
+
+Notas do episódio: https://tobyonfitnesstech.com/pt/podcasts/episode-26/
+
+Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-26/]]></description>
+      <pubDate>Mon, 07 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_026_pt.mp3" length="39228856" type="audio/mpeg"/>
+      <itunes:duration>40:51</itunes:duration>
+      <itunes:episode>26</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_026_cover_pt.png"/>
+    </item>
+
     <!-- Episode 25 -->
     <item>
       <title>Episódio 25: A Superfície de Controle</title>

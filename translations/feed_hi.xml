@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_hi.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 26 -->
+    <item>
+      <title>एपिसोड 26: ओपनक्लॉ को एक मस्तिष्क प्रत्यारोपण मिला, ग्लासविंग, विशाल मस्तिष्क, और क्लोन लेखक</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_026_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-26/</link>
+      <description><![CDATA[ओपनक्लॉ 2026.4.8 एक एकीकृत अनुमान परत, सत्र चेकपॉइंटिंग और पूर्ण रूप से पुनर्स्थापित स्मृति स्टैक लाता है। एंथ्रोपिक का ग्लासविंग गठबंधन, मेगाट्रेन की एक GPU पर फ्रंटियर ट्रेनिंग, और एक नया अध्ययन जो दर्शाता है कि आपका लेखन AI शायद एक क्लॉड क्लोन है। छह प्रमुख उप-प्रणालियाँ एक ही रिलीज़ में उतरती हैं।
+
+एपिसोड नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-26/
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-26/]]></description>
+      <pubDate>Mon, 07 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_026_hi.mp3" length="35338910" type="audio/mpeg"/>
+      <itunes:duration>36:48</itunes:duration>
+      <itunes:episode>26</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_026_cover_hi.png"/>
+    </item>
+
     <!-- Episode 25 -->
     <item>
       <title>एपिसोड 25: द कंट्रोल सरफेस</title>

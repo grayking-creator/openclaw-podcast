@@ -1,0 +1,45 @@
+OPENCLAW DAILY — EPISODE 026 — 8. April 2026
+
+[00:00] INTRO / HOOK
+OpenClaw 2026.4.8 bringt eine vereinheitlichte Inferenzschicht, Session-Checkpointing und einen wiederhergestellten Memory-Stack. Anthropics Glasswing-Koalition, MegaTrains Training von Frontier-Modellen auf einer einzigen GPU und eine Studie, die beweist, dass dein Schreib-KI möglicherweise nur ein Claude-Nachbau ist.
+
+[02:00] STORY 1 — OpenClaw 2026.4.8: Das Release, das alles verändert
+Sechs wichtige Subsysteme erscheinen in einem Release.
+
+Das erste ist das infer hub CLI — openclaw infer hub — eine vereinheitlichte Schnittstelle für provider-gestützte Inferenz über Model-Tasks, Media-Generierung, Web-Suche und Embeddings. Es leitet Anfragen an den richtigen Provider weiter, handhabt Authentifizierung, remappt Parameter bei unterschiedlichen Provider-Fähigkeiten und fällt automatisch zurück, wenn ein Provider ausgefallen oder rate-limited ist. Wenn du mehrere Provider-Konfigurationen über verschiedene Workflows hinweg verwaltet hast, wird der Hub zur einzigen Abstraktionsschicht. Provider-Wechsel werden zu Konfigurationsänderungen auf Hub-Ebene; der Rest deines Workflows bleibt unverändert.
+
+Das zweite ist das Media-Generierung Auto-Fallback-System, das Bild, Musik und Video abdeckt. Wenn dein primärer Provider nicht verfügbar ist oder die spezifische angeforderte Fähigkeit nicht unterstützt — Seitenverhältnis, Dauer, Format — leitet OpenClaw zum nächsten konfigurierten Provider weiter und passt Parameter automatisch an. Eine fehlgeschlagene Generierung ist eine Unannehmlichkeit. Tausend pro Tag über eine Produktions-Flotte hinweg sind ein operatives Problem. Dies wird einmal auf Plattformebene gehandhabt; jeder Agent profitiert sofort.
+
+Das dritte ist der Sessions-UI-Branch und die Restore-Funktionalität. Wenn Context Compaction läuft, erstellt das System jetzt einen Snapshot des Session-Zustands vor der Zusammenfassung. Operatoren können die Sessions-UI verwenden, um Checkpoints zu inspizieren und zu einem Zustand vor der Kompaktierung zurückzukehren, oder jeden Checkpoint als Branch-Punkt nutzen, um eine andere Richtung zu erkunden, ohne den ursprünglichen Thread zu verlieren. Das ist Versionshistorie für Session-Kontext — der Unterschied zwischen Bearbeiten mit Auto-Speichern und Bearbeiten, wo jeder Speichervorgang die vorherige Datei überschreibt.
+
+Das vierte ist die vollständige Wiederherstellung des Memory- und Wiki-Stacks. Dies umfasst strukturierte Claim- und Evidence-Felder, kompilierten Digest-Abruf, Claim-Health-Linting, Widerspruchs-Clustering, Staleness-Dashboards und Freshness-gewichtete Suche. Claims können mit unterstützenden Evidence getaggt, auf interne Konsistenz gelintet und gruppiert werden, wo sie sich widersprechen. Suchergebnisse werden nach Aktualität gerankt, nicht nur nach Relevanz. Wenn du in früheren Versionen mit fehlenden Teilen gearbeitet hast, ist dies die native Implementierung — teste deinen Workflow dagegen.
+
+Das fünfte ist das Webhook-Ingress-Plugin. Per-Route Shared-Secret-Endpunkte ermöglichen es externen Systemen, sich zu authentifizieren und gebundene TaskFlows direkt auszulösen — CI-Pipelines, Monitoring-Tools, geplante Jobs, Drittanbieter-Webhooks — ohne benutzerdefinierten Integrationscode. Das Plugin handhabt Routing, Auth und Workflow-Binding.
+
+Das sechste ist das steckbare Compaction-Provider-Registry. Du kannst jetzt Context Compaction über agents.defaults.compaction.provider an ein anderes Modell oder einen anderen Service weiterleiten — ein schnelleres, günstigeres Modell, das für Zusammenfassung optimiert ist, anstatt das leistungsfähigste Modell, das du hast. Fällt auf integrierte LLM-Zusammenfassung zurück bei Fehler. Bei Skala läuft Compaction ständig; es angemessen zu routen, ist wichtig für Kosten und Latenz.
+
+Weitere bemerkenswerte Neuerungen: Google Gemma 4 wird jetzt nativ unterstützt mit erhaltenen Thinking-Semantics und behobenem Google-Fallback-Resolution. Claude CLI ist als bevorzugter lokaler Anthropic-Pfad über Onboarding, Doctor-Flows und Docker-Live-Lanes wiederhergestellt. Ollama Vision-Modelle akzeptieren jetzt nativ Bild-Anhänge — Vision-Fähigkeit wird von /api/show erkannt, keine Workarounds erforderlich. Das Memory- und Dreaming-System nimmt redigierte Session-Transkripte in den Dreaming-Korpus auf mit per-Tag Session-Corpus-Notizen und Cursor-Checkpointing. Ein neues gebündeltes Arcee-AI-Provider-Plugin mit Trinity-Katalog-Einträgen und OpenRouter-Support. Context-Engine-Änderungen exponieren availableTools, citationsMode und Memory-Artifact-Seams für Companion-Plugins — eine bessere Extension-API.
+
+Sicherheitsrelevante Fixes: Host-Exec und Environment-Sanitisierung blockieren jetzt gefährliche Overrides für Java, Rust, Cargo, Git, Kubernetes, Cloud-Credentials und Helm. Der /allowlist-Befehl erfordert jetzt Owner-Autorisierung, bevor Änderungen angewendet werden. Slack-Proxy-Support funktioniert korrekt — Ambient-HTTP/HTTPS-Proxy-Einstellungen werden für Socket-Mode-WebSocket-Verbindungen inklusive NO_PROXY-Exclusions geachtet. Gateway-Startup-Fehler über alle gebündelten Kanäle (Telegram, BlueBubbles, Feishu, Google Chat, IRC, Matrix, Mattermost, Teams, Nextcloud, Slack, Zalo) sind über das paketierte Top-Level-Sidecar-Fix gelöst.
+→ github.com/openclaw/openclaw/releases
+
+[12:00] STORY 2 — Project Glasswing: Die Cyber-Verteidigungskoalition
+Anthropic hat Project Glasswing mit einer Koalition aus Amazon, Apple, Broadcom, Cisco, CrowdStrike, Google, JPMorganChase, Microsoft, NVIDIA, Palo Alto Networks und anderen gestartet. Das Herzstück ist Claude Mythos Preview — ein unveröffentlichtes Frontier-Modell, das 83,1% auf CyberGym erreicht, gegenüber 66,6% für Opus 4.6. Beim Testen fand es tausende Zero-Day-Schwachstellen, einschließlich eines 27 Jahre alten OpenBSD-Bugs und eines 16 Jahre alten FFmpeg-Fehlers. Anthropic verpflichtet sich zu $100M in Nutzungsgutschriften und $4M an Spenden an Open-Source-Sicherheitsorganisationen. Die Kernthese: Offensive KI-Fähigkeit hat die menschliche defensive Reaktionszeit überholt, also muss dieselbe Fähigkeit defensiv eingesetzt werden. Diskussionswürdig: Was bedeutet „Koalition", wenn Anthropic das Modell kontrolliert? Und ist das Finden und Patchen von Bugs tatsächlich besser, als einfach keine verwundbaren Codes auszuliefern?
+→ anthropic.com/glasswing
+
+[20:00] STORY 3 — MegaTrain: Training mit voller Präzision von 100B+ auf einer einzigen GPU
+MegaTrain ermöglicht das Training von LLMs mit 100B+ Parametern auf einer einzigen GPU durch Speichern von Parametern und Optimizer-States im Host (CPU)-Speicher und Behandlung von GPUs als transiente Compute-Engines. Auf einer einzigen H200-GPU mit 1,5TB Host-Speicher trainiert es zuverlässig Modelle bis zu 120B Parametern. Es erreicht 1,84x den Training-Throughput von DeepSpeed ZeRO-3 mit CPU-Offloading beim Training von 14B-Modellen und ermöglicht 7B-Modell-Training mit 512k Token-Kontext auf einer einzigen GH200. Praktische Auswirkungen: Senkt drastisch die Hardware-Barriere für Frontier-Scale-Training, was sowohl legitime Forschung als auch... alles andere beschleunigen könnte.
+→ arxiv.org/abs/2604.05091
+
+[27:00] STORY 4 — 178 KI-Modelle fingerprintiert: Gemini Flash Lite schreibt zu 78% wie Claude 3 Opus
+Ein Forschungsprojekt erstellte stilometrische Fingerprints für 178 KI-Modelle über lexikalische Reichhaltigkeit, Satzstruktur, Zeichensetzungsgewohnheiten und Diskursmarker. Neun Klone-Cluster zeigten >90% Kosinus-Ähnlichkeit. Hauptergebnis: Gemini 2.5 Flash Lite schreibt zu 78% wie Claude 3 Opus, kostet aber 185x weniger. Die Konvergenz deutet darauf hin, dass Frontier-Modelle ähnliche optimale Muster erreichen, trotz unterschiedlicher Architekturen und Trainingsdaten — oder dass Claues Stil einfach ein starker Attraktor für RLHF ist. Auswirkungen für KI-Detection-Tools, Originalitätsansprüche und die Ökonomie von „gut genug" KI-Schreiben.
+→ news.ycombinator.com/item?id=47690415
+
+[32:00] STORY 5 — LLM spielt Shoot-'Em-Up auf 8-bit Commander X16 über Text-Zusammenfassungen
+Ein Entwickler verband GPT-4o mit einem 8-bit Commander-X16-Emulator unter Verwendung strukturierter Text-Zusammenfassungen („Smart Senses") abgeleitet von Touch- und EMF-Style-Game-Inputs. Das LLM pflegt Notizen zwischen Turns, entwickelt Strategien und entdeckte einen Exploit im eingebauten KI-Verhalten. Demonstriert, dass Modell-Reasoning aus minimalen strukturierten Input entstehen kann — keine Pixel, kein Audio, nur Text-Zusammenfassungen des Game-States. Lustige Randnotiz: Der Commander X16 ist eine moderne Nachbildung einer 8-bit-Heimcomputer-Architektur, läuft also auf tatsächlicher Hardware, die in Software emuliert ist.
+→ news.ycombinator.com/item?id=47689550
+
+[35:30] OUTRO / CLOSE
+Die nächste Episode erscheint morgen. Wenn du ein Transkript möchtest, antworte auf Telegram.
+
+→ Auf Telegram antworten, um Transkript-Generierung zu genehmigen.

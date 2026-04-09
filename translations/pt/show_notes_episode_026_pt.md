@@ -1,0 +1,45 @@
+OPENCLAW DAILY — EPISODE 026 — 8 de Abril de 2026
+
+[00:00] INTRO / GANCHO
+OpenClaw 2026.4.8 traz uma camada de inferência unificada, checkpoint de sessão e uma pilha de memória restaurada. A coalizão Glasswing da Anthropic, o treinamento de fronteira em GPU única da MegaTrain, e um estudo comprovando que sua IA de escrita pode ser apenas um clone do Claude.
+
+[02:00] HISTÓRIA 1 — OpenClaw 2026.4.8: O Lançamento Que Muda Como Tudo Funciona
+Seis subsistemas principais chegam em um único lançamento.
+
+O primeiro é o CLI do hub de inferência — openclaw infer hub — uma interface unificada para inferência baseada em provedores em tarefas de modelo, geração de mídia, busca na web e embeddings. Ele roteia requisições para o provedor correto, gerencia autenticação, remapeia parâmetros de acordo com diferenças de capacidade entre provedores, e faz fallback automaticamente se um provedor estiver fora do ar ou com rate limiting. Se você estava gerenciando múltiplas configurações de provedores em diferentes fluxos de trabalho, o hub se torna a camada de abstração única. Trocas de provedor se tornam mudanças de configuração no nível do hub; o resto do seu fluxo de trabalho permanece inalterado.
+
+O segundo é o sistema de auto-fallback de geração de mídia, cobrindo imagem, música e vídeo. Se seu provedor principal estiver indisponível ou não suportar a capacidade específica que você solicitou — proporção de aspecto, duração, formato — o OpenClaw roteia para o próximo provedor configurado e ajusta os parâmetros automaticamente. Uma geração falhada é um inconveniente. Mil por dia em uma frota de produção é um problema operacional. Isso é tratado uma vez no nível da plataforma; cada agente se beneficia imediatamente.
+
+O terceiro é o branch da UI de sessões e a funcionalidade de restauração. Quando a compactação de contexto é executada, o sistema agora captura o estado da sessão antes de resumir. Operadores podem usar a UI de Sessões para inspecionar checkpoints e restaurar para um estado pré-compactação, ou usar qualquer checkpoint como ponto de branch para explorar uma direção diferente sem perder a linha original. Isso é histórico de versão para contexto de sessão — a diferença entre editar com autosave e editar onde cada salvamento sobrescreve o arquivo anterior.
+
+O quarto é a restauração completa da pilha de memória e wiki. Isso inclui campos estruturados de afirmação e evidência, recuperação de digest compilado, linting de saúde de afirmações, agrupamento de contradições, dashboards de estagnação e busca ponderada por frescor. Afirmações podem ser marcadas com evidências de suporte, submetidas a linting para consistência interna e agrupadas onde se contradizem. Resultados de busca são ranqueados por recência, não apenas por relevância. Se você estava trabalhando em torno de peças faltantes em versões anteriores, esta é a implementação nativa — teste seu fluxo de trabalho contra ela.
+
+O quinto é o plugin de entrada de webhook. Endpoints com segredo compartilhado por rota permitem que sistemas externos autentiquem e acionem TaskFlows vinculados diretamente — pipelines de CI, ferramentas de monitoramento, jobs agendados, webhooks de terceiros — sem código de integração personalizado. O plugin gerencia roteamento, autenticação e vinculação de fluxo de trabalho.
+
+O sexto é o registro de provedores de compactação plugáveis. Agora você pode rotear a compactação de contexto para um modelo ou serviço diferente via agents.defaults.compaction.provider — um modelo mais rápido e barato otimizado para resumo em vez do modelo mais capaz que você tem. Faz fallback para resumo via LLM integrado em caso de falha. Em escala, a compactação está acontecendo constantemente; roteá-la adequadamente é importante para custo e latência.
+
+Outras adiçõesnotáveis: Google Gemma 4 agora é suportado nativamente com semântica de pensamento preservada e resolução de fallback do Google corrigida. Claude CLI é restaurado como o caminho local preferencial da Anthropic em onboarding, fluxos de doctor e live lanes do Docker. Modelos de visão do Ollama agora aceitam anexos de imagem nativamente — capacidade de visão é detectada de /api/show, sem gambiarras necessárias. O sistema de memória e dreaming ingere transcrições de sessão redatadas no corpus de dreaming com notas de corpus-sessão por dia e checkpoint de cursor. Um novo plugin de provedor Arcee AI bundled com entradas do catálogo Trinity e suporte a OpenRouter. Mudanças no motor de contexto expõem availableTools, citationsMode e interfaces de artefatos de memória para plugins companions — uma API de extensão melhor.
+
+Correções relevantes de segurança: sanitização de host exec e ambiente agora bloqueia overrides perigosos para Java, Rust, Cargo, Git, Kubernetes, credenciais de nuvem e Helm. O comando /allowlist agora requer autorização do proprietário antes que as mudanças se apliquem. Suporte a proxy do Slack está funcionando corretamente — configurações de proxy HTTP/HTTPS ambiente são respeitadas para conexões WebSocket do Socket Mode incluindo exclusões de NO_PROXY. Erros de inicialização do gateway em todos os canais bundled (Telegram, BlueBubbles, Feishu, Google Chat, IRC, Matrix, Mattermost, Teams, Nextcloud, Slack, Zalo) são resolvidos via correção sidecar de alto nível empacotada.
+→ github.com/openclaw/openclaw/releases
+
+[12:00] HISTÓRIA 2 — Projeto Glasswing: A Coalizão de Defesa Cibernética
+A Anthropic lançou o Projeto Glasswing com uma coalizão de Amazon, Apple, Broadcom, Cisco, CrowdStrike, Google, JPMorganChase, Microsoft, NVIDIA, Palo Alto Networks e outros. A peça central é Claude Mythos Preview — um modelo de fronteira não lançado marcando 83,1% no CyberGym vs 66,6% do Opus 4.6. Nos testes, encontrou milhares de vulnerabilidades de zero-day, incluindo um bug de 27 anos do OpenBSD e uma falha de 16 anos do FFmpeg. A Anthropic está comprometendo $100M em créditos de uso e $4M em doações para organizações de segurança open-source. A tese central: capacidade de IA ofensiva superou o tempo de resposta defensiva humana, então a mesma capacidade deve ser implantada defensivamente. Vale discutir: o que "coalizão" significa quando a Anthropic controla o modelo? E encontrar bugs e corrigi-los é realmente melhor do que simplesmente não shipped código vulnerável?
+→ anthropic.com/glasswing
+
+[20:00] HISTÓRIA 3 — MegaTrain: Treinamento de Precisão Completa de 100B+ em Uma Única GPU
+MegaTrain permite treinar LLMs de 100B+ parâmetros em uma única GPU armazenando parâmetros e estados do otimizador em memória host (CPU) e tratando GPUs como motores de computação transitórios. Em uma única GPU H200 com 1,5TB de memória host, ele treina modelos de forma confiável até 120B parâmetros. Ele alcança 1,84x a taxa de transferência de treinamento do DeepSpeed ZeRO-3 com offloading de CPU ao treinar modelos de 14B, e permite treinamento de modelo de 7B com contexto de 512k tokens em um único GH200. Implicações práticas: reduz drasticamente a barreira de hardware para treinamento de escala de fronteira, o que poderia acelerar tanto pesquisa legítima quanto... tudo mais.
+→ arxiv.org/abs/2604.05091
+
+[27:00] HISTÓRIA 4 — 178 Modelos de IA Com Impressões Digitais: Gemini Flash Lite Escreve 78% Como Claude 3 Opus
+Um projeto de pesquisa criou impressões digitais estilométricas para 178 modelos de IA através de riqueza lexical, estrutura de sentença, hábitos de pontuação e marcadores de discurso. Nove clusters de clones mostraram similaridade de cosseno >90%. Descoberta principal: Gemini 2.5 Flash Lite escreve 78% como Claude 3 Opus mas custa 185x menos. A convergência sugere que modelos de fronteira estão atingindo padrões ótimos similares apesar de arquiteturas e dados de treinamento diferentes — ou que o estilo do Claude é apenas um forte atrator para RLHF. Implicações para ferramentas de detecção de IA, alegações de originalidade e a economia de escrita de IA "suficientemente boa".
+→ news.ycombinator.com/item?id=47690415
+
+[32:00] HISTÓRIA 5 — LLM Joga Shoot-'Em-Up em Commander X16 de 8-bit via Resumos de Texto
+Um desenvolvedor conectou o GPT-4o a um emulador Commander X16 de 8-bit usando resumos de texto estruturados ("sentidos inteligentes") derivados de entradas de jogo estilo touch e EMF. O LLM mantém notas entre turnos, desenvolve estratégias e descobriu uma exploração no comportamento da IA embutida. Demonstra que raciocínio de modelo pode emergir de entrada estruturada mínima — sem pixels, sem áudio, apenas resumos de texto do estado do jogo. Nota lateral divertida: o Commander X16 é uma recriação moderna de uma arquitetura de computador doméstico de 8-bit, então está rodando em hardware real emulado em software.
+→ news.ycombinator.com/item?id=47689550
+
+[35:30] OUTRO / ENCERRAMENTO
+Próximo episódioamanhã. Se você quer uma transcrição, responda no Telegram.
+
+→ Responda no Telegram para aprovar geração de transcrição.
