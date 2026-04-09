@@ -44,7 +44,7 @@ LANG_LINKS = {
 }
 CDN_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio"
 
-ALL_PHASES = ["setup", "translate", "tts", "covers", "feeds", "qc", "youtube", "cdn", "publish"]
+ALL_PHASES = ["setup", "translate", "tts", "covers", "feeds", "qc", "youtube", "cdn", "publish", "discord"]
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -87,7 +87,7 @@ def minimax_call(prompt, max_tokens=4000, retries=3):
     for attempt in range(1, retries + 1):
         try:
             r = client.chat.completions.create(
-                model="MiniMax-M2.7",
+                model="Gemini 3.1 Pro",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
             )
@@ -795,6 +795,56 @@ def phase_publish(ep_num, state):
 
     return state
 
+def phase_discord(ep_num, state):
+    import urllib.request, urllib.error
+
+    DISCORD_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "REDACTED_DISCORD_TOKEN")
+    GUILD_ID = "1475905694145318944"
+    DAILY_CHANNEL_ID = "1485445727772475533"
+    ep_str = f"{ep_num:03d}"
+    ep_channel_name = f"openclaw-ep{ep_str}"
+
+    def discord_request(method, path, body=None):
+        url = f"https://discord.com/api/v10{path}"
+        data = json.dumps(body).encode() if body else None
+        req = urllib.request.Request(url, data=data, method=method,
+            headers={"Authorization": f"Bot {DISCORD_TOKEN}", "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            body_text = e.read().decode()
+            raise RuntimeError(f"Discord {method} {path} → {e.code}: {body_text}")
+
+    log(f"[ DISCORD ] Posting release to #openclaw-daily and cleaning up #{ep_channel_name}...")
+
+    # Read show notes for the release announcement
+    show_notes_path = PODCAST_DIR / f"show_notes_episode_{ep_str}.md"
+    if show_notes_path.exists():
+        show_notes = show_notes_path.read_text()
+        # Extract just title + tagline + story titles for the announcement (keep it concise)
+        lines = show_notes.splitlines()
+        title_line = next((l for l in lines if l.startswith("# EP")), f"# EP{ep_str}")
+        tagline_line = next((l for l in lines if l.startswith("**OpenClaw Daily**")), "")
+        announcement = f"🎙️ **EP{ep_str} is live!**\n\n{title_line}\n{tagline_line}\n\nhttps://tobyonfitnesstech.com/podcasts/episode-{ep_num}/"
+    else:
+        announcement = f"🎙️ **EP{ep_str} is live!**\nhttps://tobyonfitnesstech.com/podcasts/episode-{ep_num}/"
+
+    # Post to #openclaw-daily
+    discord_request("POST", f"/channels/{DAILY_CHANNEL_ID}/messages", {"content": announcement})
+    log(f"  ✅ Posted to #openclaw-daily")
+
+    # Find and delete the per-episode channel
+    channels = discord_request("GET", f"/guilds/{GUILD_ID}/channels")
+    ep_channel = next((c for c in channels if c.get("name") == ep_channel_name), None)
+    if ep_channel:
+        discord_request("DELETE", f"/channels/{ep_channel['id']}")
+        log(f"  ✅ Deleted #{ep_channel_name}")
+    else:
+        log(f"  ℹ️  #{ep_channel_name} not found (already deleted or never created)")
+
+    return state
+
 # ── State management ──────────────────────────────────────────────────────────
 
 def load_state(ep_num):
@@ -819,6 +869,7 @@ PHASE_FNS = {
     "youtube":   phase_youtube,
     "cdn":       phase_cdn,
     "publish":   phase_publish,
+    "discord":   phase_discord,
 }
 
 def main():
