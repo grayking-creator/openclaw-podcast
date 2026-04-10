@@ -78,7 +78,7 @@ def load_env_key(name):
 
 # ── Minimax translation ───────────────────────────────────────────────────────
 
-def minimax_call(prompt, max_tokens=4000, retries=3):
+def gemini_call(prompt, max_tokens=4000, retries=3):
     """Call Minimax M2.7, strip <think> blocks, return clean text. Retries on empty output."""
     import openai
     key = load_env_key("MINIMAX_API_KEY")
@@ -87,7 +87,7 @@ def minimax_call(prompt, max_tokens=4000, retries=3):
     for attempt in range(1, retries + 1):
         try:
             r = client.chat.completions.create(
-                model="Gemini 3.1 Pro",
+                model="MiniMax-M2.7",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
             )
@@ -156,7 +156,7 @@ Return JSON with these exact keys:
   "cover_tagline": "<translated short tagline phrase>"
 }}"""
 
-    raw = minimax_call(prompt, max_tokens=4000)
+    raw = gemini_call(prompt, max_tokens=4000)
     # Extract JSON from response
     json_m = re.search(r'\{[\s\S]*\}', raw)
     if not json_m:
@@ -194,7 +194,7 @@ def translate_text_chunked(text, lang, chunk_type="transcript"):
         chunk_text = "\n\n".join(chunk)
         prompt = f"{system_note}\n\nTranslate the following:\n\n{chunk_text}"
         log(f"    Translating chunk {i+1}/{len(chunks)} ({len(chunk)} paragraphs)...", indent=2)
-        result = minimax_call(prompt, max_tokens=10000)
+        result = gemini_call(prompt, max_tokens=10000)
         translated_chunks.append(result)
         if i < len(chunks) - 1:
             time.sleep(1)  # polite pause between chunks
@@ -798,7 +798,7 @@ def phase_publish(ep_num, state):
 def phase_discord(ep_num, state):
     import urllib.request, urllib.error
 
-    DISCORD_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "REDACTED_DISCORD_TOKEN")
+    DISCORD_TOKEN = load_env_key("DISCORD_BOT_TOKEN")
     GUILD_ID = "1475905694145318944"
     DAILY_CHANNEL_ID = "1485445727772475533"
     ep_str = f"{ep_num:03d}"
