@@ -11,7 +11,7 @@ if [ -z "$EP" ]; then
   exit 1
 fi
 
-EPNUM=$(printf "%03d" $EP)
+EPNUM=$(printf "%03d" $((10#$EP)))
 WORKSPACE="$HOME/.openclaw/workspace"
 PODCAST_DIR="$WORKSPACE/openclaw-podcast"
 CDN_DIR="$WORKSPACE/openclaw-podcast-audio"
