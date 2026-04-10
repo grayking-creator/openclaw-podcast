@@ -2,7 +2,7 @@ OPENCLAW DAILY — EPISODE 027 — 9 de abril de 2026
 
 [00:00] INTRO / GANCHO
 OpenClaw 2026.4.9 lanza un carril de backfill de REM fundamentado y una línea de tiempo de diario.
-Utah permite que la IA prescriba medicamentos psyc. OpenAI les da a los agentes un shell real.
+Utah permite que la IA prescriba medicamentos psiquiátricos. OpenAI les da a los agentes un shell real.
 Los escribas de IA están inflando los costos de atención médica y nadie quiere detenerlo.
 Yahoo apuesta su futuro de búsqueda en Claude.
 
@@ -61,6 +61,6 @@ Dos cosas destacan. Primero: este es un despliegue serio de Gemma en el disposit
 → techcrunch.com/2026/04/07/google-quietly-releases-an-offline-first-ai-dictation-app-on-ios/
 
 [33:00] OUTRO / CIERRE
-El próximo episodio sale mañana. Responde en Telegram para aprobar la generación de transcripción.
+El próximo episodio sale mañana. Las notas completas del programa y los enlaces a las fuentes están en tobyonfitnesstech.com.
 
-→ Responde en Telegram para aprobar la generación de transcripción.
+→ tobyonfitnesstech.com

@@ -8,7 +8,7 @@
 
 [ALLOY]: Empecemos con el problema antes de pasar a la solución.
 
-[NOVA]: Cuando ejecutas una sesión de agente por un período prolongado, OpenClaw realiza compactación de contexto. Toma el historial completo de lo que se ha dicho y hecho y lo comprime — una representación densa y estructurada de los puntos importantes. Ese proceso es necesario. Sin él, las ventanas de contexto se desbordan y las sesiones largas se vuelven imposibles. Pero tiene un costo real: la compactación es con pérdida. Decisiones específicas, rutas de archivos específicas, la redacción exacta de un intercambio particular — esa granularidad se suaviza. Y mientras más antiguo es el material, más se suaviza. Si has estado ejecutando ARIA durante tres meses, tu contexto del mes uno es un boceto粗略 de lo que solía ser.
+[NOVA]: Cuando ejecutas una sesión de agente por un período prolongado, OpenClaw realiza compactación de contexto. Toma el historial completo de lo que se ha dicho y hecho y lo comprime — una representación densa y estructurada de los puntos importantes. Ese proceso es necesario. Sin él, las ventanas de contexto se desbordan y las sesiones largas se vuelven imposibles. Pero tiene un costo real: la compactación es con pérdida. Decisiones específicas, rutas de archivos específicas, la redacción exacta de un intercambio particular — esa granularidad se suaviza. Y mientras más antiguo es el material, más se suaviza. Si has estado ejecutando ARIA durante tres meses, tu contexto del mes uno es un boceto tosco de lo que solía ser.
 
 [ALLOY]: Bajo el sistema anterior no había recurso. Una vez que algo se compacta, está compactado. Pierdes la textura y no hay nada que puedas hacer al respecto.
 
@@ -170,7 +170,7 @@
 
 [NOVA]: Dos cosas destacan aquí. Primero: esta es una implementación de producción de Gemma en hardware de consumo. No es una demostración, no es una vista previa de investigación, no es un concepto de prueba lanzado a un programa de prueba. Una aplicación de utilidad real con funcionalidad real que la gente realmente usará para trabajo real. Esa es una señal significativa sobre dónde está realmente la capacidad de Gemma en el dispositivo ahora mismo.
 
-[ALLOY]: La segunda cosa que destaca es que se lanzó en iOS primero. Eso es inusual para Google. Android es la plataforma de Google — esperarías que un producto estrella de ML en el dispositivo aterrizara allí primero. El hecho de que iOS получила la primera versión sugiere algo sobre dónde está la historia de implementación de Gemma en el dispositivo más madura hoy, y posiblemente sobre qué población de usuarios Google quiere alcanzar con una señal temprana de grado de producción.
+[ALLOY]: La segunda cosa que destaca es que se lanzó en iOS primero. Eso es inusual para Google. Android es la plataforma de Google — esperarías que un producto estrella de ML en el dispositivo aterrizara allí primero. El hecho de que iOS recibió la primera versión sugiere algo sobre dónde está la historia de implementación de Gemma en el dispositivo más madura hoy, y posiblemente sobre qué población de usuarios Google quiere alcanzar con una señal temprana de grado de producción.
 
 [NOVA]: El ángulo de privacidad es real y vale la pena nombrarlo explícitamente. Una aplicación de dictado que se ejecuta completamente en el dispositivo maneja tus datos de voz localmente. Nada sale del teléfono. Para personas que dictan contenido sensible — trabajadores de salud, abogados, ejecutivos, periodistas, cualquiera que maneje información privilegiada o confidencial — la distinción entre procesamiento en el dispositivo y procesamiento en la nube no es teórica. Es la diferencia entre datos que nunca viajan y datos que viajan sujetos a las políticas y postura de seguridad de un proveedor de nube. El procesamiento en el dispositivo elimina una categoría entera de riesgos.
 
@@ -184,7 +184,7 @@
 
 [NOVA]: Ese es el episodio. La función de memoria retroactiva y la línea de tiempo del diario de OpenClaw 2026.4.9. La expansión de Utah a las prescripciones psiquiátricas de IA. El entorno shell de la API Responses de OpenAI. El problema de inflación de costos de los escribientes de IA y la estructura de incentivos que lo sostiene. Yahoo Scout en Claude. Y el dictado de Gemma sin conexión de Google llegando a iOS.
 
-[ALLOY]: Notas completas del programa y enlaces a las fuentes en tobyonfitnesstech.com. Todo está ahí — los artículos que referenciamos, las notas de lanzamiento, la investigación. Y si quieres la transcripción completa del episodio de hoy, responde en Telegram y haznoslo saber.
+[ALLOY]: Notas completas del programa y enlaces a las fuentes en tobyonfitnesstech.com. Todo está ahí — los artículos que referenciamos, las notas de lanzamiento, la investigación.
 
 [NOVA]: Volveremos pronto.
 

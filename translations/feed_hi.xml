@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_hi.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 27 -->
+    <item>
+      <title>एपिसोड 27: ड्रीम स्टैक, एआई नुस्खे, शेल एजेंट, और स्क्राइब्स की लागत</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_027_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-27/</link>
+      <description><![CDATA[OpenClaw 2026.4.9 एक भू-आधारित REM बैकफिल लेन और डायरी टाइमलाइन जारी करता है। यूटा ने AI को मनोवैज्ञानिक दवाइयों का नुस्खा लिखने की अनुमति दी है, जबकि OpenAI ने एजेंटों को एक असली शेल प्रदान किया है। AI स्क्राइब्स स्वास्थ्य लागतों को बढ़ा रहे हैं और Yahoo ने अपने खोज भविष्य पर क्लॉड पर दांव लगाया है।
+
+एपिसोड नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-27/
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-27/]]></description>
+      <pubDate>Mon, 07 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_027_hi.mp3" length="39908039" type="audio/mpeg"/>
+      <itunes:duration>41:34</itunes:duration>
+      <itunes:episode>27</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_027_cover_hi.png"/>
+    </item>
+
     <!-- Episode 26 -->
     <item>
       <title>एपिसोड 26: ओपनक्लॉ को एक मस्तिष्क प्रत्यारोपण मिला, ग्लासविंग, विशाल मस्तिष्क, और क्लोन लेखक</title>

@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_es.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 27 -->
+    <item>
+      <title>Episodio 27: Dream Stack, Prescripciones de IA, Agentes de Shell y el Costo de los Escribientes</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_027_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-27/</link>
+      <description><![CDATA[OpenClaw 2026.4.9 lanza un carril de backfill de REM y línea de tiempo de diario. Utah permite prescripciones psiquiátricas de IA. OpenAI da a los agentes un shell real. Los escribientes de IA inflan los costos de salud.
+
+Notas del episodio: https://tobyonfitnesstech.com/es/podcasts/episode-27/
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-27/]]></description>
+      <pubDate>Mon, 07 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_027_es.mp3" length="34360885" type="audio/mpeg"/>
+      <itunes:duration>35:47</itunes:duration>
+      <itunes:episode>27</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_027_cover_es.png"/>
+    </item>
+
     <!-- Episode 26 -->
     <item>
       <title>Episodio 26: OpenClaw Recibe un Transplante de Cerebro, Glasswing, Cerebros Gigantes y Escritores Clonados</title>
