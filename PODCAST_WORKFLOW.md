@@ -1,14 +1,14 @@
 # PODCAST WORKFLOW — Hard Rules (locked 2026-03-12)
 
-## ⛔ ABSOLUTE GATE — NO AUDIO WITHOUT DISCORD APPROVAL
+## ✅ APPROVAL GATE — AFTER AUDIO UPLOAD (updated 2026-04-11)
 
-**ARIA MUST NOT generate audio until Toby explicitly approves in Discord.**
-This rule was violated for EP11 and EP12. It will not happen again.
+ARIA **must** generate audio and upload it to the CDN automatically. The gate is AFTER upload.
 
-## ✅ APPROVAL SEQUENCE (locked 2026-03-24 — do NOT ask for extra approval)
-
-1. **Toby approves audio** → ARIA immediately pushes feeds (EN + all translation feeds). No approval needed. No asking. Just do it.
-2. **ARIA shows website diff** → Toby approves → ARIA pushes website.
+**Approval sequence:**
+1. Generate audio → upload to CDN → post the listen URL in Discord
+2. **⛔ STOP HERE. Do not proceed until Toby explicitly approves.**
+3. **Toby approves** (✅ react or "go ahead" / "approved") → ARIA immediately pushes feeds (EN + all translations). No extra approval needed. No asking. Just do it.
+4. **ARIA shows website diff** → Toby approves → ARIA pushes website.
 
 ARIA must NEVER ask Toby to approve the feeds after audio is approved. Feed publish is automatic on audio approval. Asking for feed approval after audio approval is a repeated process violation.
 
@@ -33,17 +33,13 @@ If ANY of these is missing, the review post is incomplete. Do not tell Toby "rea
 - [ ] Generate cover art → `images/episode_0XX_cover.png`
 - [ ] Write show notes → `show_notes_episode_0XX.md`
 
-### Step 2 — Discord Review (GATE)
+### Step 2 — Discord Review Post (no gate here — continue to audio)
 - [ ] Create `#openclaw-epXX` channel
 - [ ] Post show notes (with all links)
 - [ ] Post cover art as file attachment
 - [ ] Post transcript as file attachment
-- [ ] Post review checklist message asking for Toby's ✅
 
-**⛔ STOP HERE. Do not proceed until Toby approves.**
-
-### Step 3 — Audio Generation (only after approval)
-- [ ] Toby reacts ✅ or explicitly says "go ahead" / "approved"
+### Step 3 — Audio Generation (automatic — no approval needed to start)
 - [ ] **Run QC check first** (MANDATORY — do not skip):
   ```bash
   python3 openclaw-podcast/scripts/check_episode.py openclaw-podcast/episodes/episode_0XX_transcript.md
@@ -119,17 +115,25 @@ The script:
   - Copy outputs to: `images/` (podcast repo), `openclaw-podcast-audio/` (CDN repo), and `websiteBuilder/frontend/public/images/podcast/` (website)
 - [ ] **Copy EN cover to website** — `cp images/episode_0XX_cover.png ../../websiteBuilder/frontend/public/images/podcast/` — MANDATORY, the website auto-generates the cover path from the episode number and will show a broken image if this file is missing
 - [ ] Push audio + cover to CDN repo (`openclaw-podcast-audio`)
+- [ ] **Post listen link in Discord** — message in `#openclaw-epXX`:
+  ```
+  ✅ EP0XX audio uploaded — listen before approving:
+  https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_0XX.mp3
+  Duration: XX:XX | Reply ✅ to publish feeds + YouTube, or ❌ to abort.
+  ```
+
+**⛔ STOP HERE. Do not proceed until Toby explicitly approves (✅ react or "go ahead" / "approved").**
+
 - [ ] **Run publish script** (handles cover art copy + website build + push automatically):
   ```bash
   bash openclaw-podcast/publish_episode.sh <episode_number>
   ```
   This script:
   1. Replaces the canonical CDN audio at `openclaw-podcast-audio/audio/episode_0XX.mp3`
-  2. Updates `openclaw-podcast-audio/audio/latest.mp3` so old build-log links can always hit the newest approved audio
-  3. Copies cover art to both `openclaw-podcast-audio/` and `websiteBuilder/frontend/public/images/podcast/`
-  4. Verifies `feed.xml` has the episode
-  5. Pushes podcast repo + CDN repo
-  6. Refreshes training data, builds website, and pushes website
+  2. Copies cover art to both `openclaw-podcast-audio/` and `websiteBuilder/frontend/public/images/podcast/`
+  3. Verifies `feed.xml` has the episode
+  4. Pushes podcast repo + CDN repo
+  5. Refreshes training data, builds website, and pushes website
 - [ ] **Validate ALL feeds after any changes** (MANDATORY — do not push broken XML):
   ```bash
   xmllint --noout feed.xml translations/feed_de.xml translations/feed_es.xml translations/feed_pt.xml translations/feed_hi.xml
@@ -156,7 +160,6 @@ The script:
 
 - [ ] **Build-log / Discord message must include exact links**
   - Episode audio URL
-  - Stable `latest.mp3` URL
   - Show-notes / website URL
   - Website episode page URL (verify it loads)
 - [ ] Notify Toby
@@ -172,7 +175,7 @@ The script:
 
 ---
 
-*Violated for EP11 (skipped Discord gate entirely) and EP12 (posted show notes but missing cover art + transcript). Locked 2026-03-12.*
+*Gate originally locked 2026-03-12. Updated 2026-04-11: gate moved to after CDN upload so Toby can listen from anywhere before approving publish.*
 
 ---
 

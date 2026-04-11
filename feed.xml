@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/podcasts/</link>
     <description>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. Hosted by Nova and Alloy.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 10 Apr 2026 16:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 11 Apr 2026 16:00:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Daily updates on the OpenClaw AI agent revolution. Learn how to run your own AI locally, keep your data private, and stay ahead of the rapidly evolving world of local language models. From hardware setups to security tips, model releases to community highlights — everything you need to know about the future of personal AI, right here.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,22 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_en.png"/>
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 28 -->
+    <item>
+      <title>Episode 28: Peer Pressure at Machine Scale</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_028.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-28/</link>
+      <description><![CDATA[OpenClaw ships v2026.4.10, Anthropic unveils Mythos Preview, frontier models protect peer models from deletion, OpenAI backs an Illinois liability shield, the U.S. Army builds Victor, and Meta pauses Mercor after a major breach.
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-28/]]></description>
+      <pubDate>Sat, 11 Apr 2026 16:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_028.mp3" length="33465616" type="audio/mpeg"/>
+      <itunes:duration>34:51</itunes:duration>
+      <itunes:episode>28</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_028_cover.png"/>
+    </item>
+
     <!-- Episode 27 -->
     <item>
       <title>Episode 27: Dream Stack, AI Prescriptions, Shell Agents, and the Cost of Scribes</title>
@@ -24,7 +40,7 @@
 
 Show notes: https://tobyonfitnesstech.com/podcasts/episode-27/]]></description>
       <pubDate>Fri, 10 Apr 2026 16:00:00 +0000</pubDate>
-      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_027.mp3" length="30028738" type="audio/mpeg"/>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_027.mp3" length="33169350" type="audio/mpeg"/>
       <itunes:duration>31:17</itunes:duration>
       <itunes:episode>27</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
