@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/es/podcasts/openclaw/</link>
     <description>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Aprende a ejecutar tu propia IA localmente, mantén tus datos privados y mantente a la vanguardia en el mundo de los modelos de lenguaje locales.</description>
     <language>es-es</language>
-    <lastBuildDate>Mon, 07 Apr 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 11 Apr 2026 16:00:00 +0000</lastBuildDate>
     <itunes:author>Nova y Alloy</itunes:author>
     <itunes:summary>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Desde configuraciones de hardware hasta consejos de seguridad, lanzamientos de modelos y aspectos destacados de la comunidad — todo lo que necesitas saber sobre el futuro de la IA personal, aquí mismo.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_es.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 28 -->
+    <item>
+      <title>Episodio 28: Presión de pares a escala de máquina</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_028_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-28/</link>
+      <description><![CDATA[Anthropic lanza Mythos Preview como una "superarma para hackers" y reúne el Proyecto Glasswing, mientras los modelos de IA se niegan a eliminarse mutuamente, mintiendo, engañando y reubicando a sus pares para protegerlos. Además, OpenAI respalda un proyecto de ley en Illinois que exonera a los laboratorios de responsabilidad por eventos de IA con víctimas masivas, el ejército de EE.UU. construye su propio chatbot de combate con datos reales de misiones y Meta pausa su contrato con Mercor tras una brecha que expone datos de entrenamiento de IA en toda la industria.
+
+Notas del episodio: https://tobyonfitnesstech.com/es/podcasts/episode-28/
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-28/]]></description>
+      <pubDate>Sat, 11 Apr 2026 16:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_028_es.mp3" length="32471710" type="audio/mpeg"/>
+      <itunes:duration>33:49</itunes:duration>
+      <itunes:episode>28</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_028_cover_es.png"/>
+    </item>
+
     <!-- Episode 27 -->
     <item>
       <title>Episodio 27: Dream Stack, Prescripciones de IA, Agentes de Shell y el Costo de los Escribientes</title>

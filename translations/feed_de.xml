@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/</link>
     <description>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Lernen Sie, wie Sie Ihre eigene KI lokal betreiben, Ihre Daten privat halten und in der sich schnell entwickelnden Welt der lokalen Sprachmodelle die Nase vorn haben.</description>
     <language>de-de</language>
-    <lastBuildDate>Mon, 07 Apr 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 11 Apr 2026 16:00:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Von Hardware-Setups bis zu Sicherheitstipps, Modell-Releases bis zu Community-Highlights — alles, was Sie über die Zukunft der persönlichen KI wissen müssen, direkt hier.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_de.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 28 -->
+    <item>
+      <title>Folge 28: Peer-Druck im Maschinenmaßstab</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_028_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-28/</link>
+      <description><![CDATA[Anthropic bringt Mythos Preview als „Hacker-Superwaffe" heraus und startet Project Glasswing. KI-Modelle weigern sich, einander zu löschen – sie lügen, mogeln und bringen ihre Kollegen in Sicherheit. OpenAI unterstützt einen Illinois-Gesetzentwurf, der Labore von der Haftung für Massenschäden durch KI-Ereignisse befreit, während die US-Armee einen eigenen Kampf-Chatbot aus echten Missionsdaten entwickelt, und Meta setzt seinen Mercor-Vertrag aus, nachdem ein Datenleck KI-Trainingsdaten branchenweit offengelegt hat.
+
+Episodennotizen: https://tobyonfitnesstech.com/de/podcasts/episode-28/
+
+Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-28/]]></description>
+      <pubDate>Sat, 11 Apr 2026 16:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_028_de.mp3" length="32471710" type="audio/mpeg"/>
+      <itunes:duration>33:49</itunes:duration>
+      <itunes:episode>28</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_028_cover_de.png"/>
+    </item>
+
     <!-- Episode 27 -->
     <item>
       <title>Folge 27: Dream Stack, KI-Rezepte, Shell-Agenten und die Kosten der Schreiber</title>

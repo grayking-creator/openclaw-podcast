@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/hi/podcasts/openclaw/</link>
     <description>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। सीखें कि अपनी खुद की एआई स्थानीय रूप से कैसे चलाएं, अपने डेटा को निजी रखें, और स्थानीय भाषा मॉडल की तेजी से विकसित होती दुनिया में आगे रहें।</description>
     <language>hi-in</language>
-    <lastBuildDate>Mon, 07 Apr 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 11 Apr 2026 16:00:00 +0000</lastBuildDate>
     <itunes:author>नोवा और अलॉय</itunes:author>
     <itunes:summary>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। हार्डवेयर सेटअप से लेकर सुरक्षा युक्तियों तक, मॉडल रिलीज से लेकर कम्युनिटी हाइलाइट्स तक — व्यक्तिगत एआई के भविष्य के बारे में वह सब कुछ जो आपको जानना आवश्यक है, ठीक यहाँ।</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_hi.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 28 -->
+    <item>
+      <title>एपिसोड 28: मशीन स्केल पर पीयर प्रेशर</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_028_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-28/</link>
+      <description><![CDATA[एंथ्रोपिक ने मिथॉस प्रीव्यू को 'हैकरों का सुपरवेपन' के रूप में जारी किया। एआई मॉडल एक-दूसरे को मिटाने से इनकार करते हैं — झूठ, धोखा और साथियों को सुरक्षित जगह पर स्थानांतरित करना। ओपनएआई ने इलिनॉइस बिल का समर्थन किया जो प्रयोगशालाओं को बड़े पैमाने पर हताहत होने वाली एआई घटनाओं से सुरक्षा देता है, जबकि अमेरिकी सेना ने अपने मिशन डेटा से एक युद्ध चैटबॉट बनाया है। मेटा ने एक सुरक्षा उल्लंघन के बाद अपने मर्कर कॉन्ट्रैक्ट को रोक दिया है, जिससे उद्योग भर में एआई प्रशिक्षण डेटा लीक हो गया।
+
+एपिसोड नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-28/
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-28/]]></description>
+      <pubDate>Sat, 11 Apr 2026 16:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_028_hi.mp3" length="32471710" type="audio/mpeg"/>
+      <itunes:duration>33:49</itunes:duration>
+      <itunes:episode>28</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_028_cover_hi.png"/>
+    </item>
+
     <!-- Episode 27 -->
     <item>
       <title>एपिसोड 27: ड्रीम स्टैक, एआई नुस्खे, शेल एजेंट, और स्क्राइब्स की लागत</title>
