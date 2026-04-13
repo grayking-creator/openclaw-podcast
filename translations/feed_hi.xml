@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/hi/podcasts/openclaw/</link>
     <description>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। सीखें कि अपनी खुद की एआई स्थानीय रूप से कैसे चलाएं, अपने डेटा को निजी रखें, और स्थानीय भाषा मॉडल की तेजी से विकसित होती दुनिया में आगे रहें।</description>
     <language>hi-in</language>
-    <lastBuildDate>Sat, 11 Apr 2026 16:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 12 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>नोवा और अलॉय</itunes:author>
     <itunes:summary>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। हार्डवेयर सेटअप से लेकर सुरक्षा युक्तियों तक, मॉडल रिलीज से लेकर कम्युनिटी हाइलाइट्स तक — व्यक्तिगत एआई के भविष्य के बारे में वह सब कुछ जो आपको जानना आवश्यक है, ठीक यहाँ।</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_hi.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 29 -->
+    <item>
+      <title>एपिसोड 29: क्लो टैक्स, कोर्टरूम्स, और नया AI स्टैक</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_029_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-29/</link>
+      <description><![CDATA[OpenClaw 2026.4.11 आयातित मेमोरी और संरचित मीडिया रिप्लाई को गहरा करता है, एंथ्रोपिक एक प्राइसिंग बदलाव के बाद अस्थायी रूप से OpenClaw के क्रिएटर को लॉक आउट करता है, OpenAI पर ChatGPT-प्रेरित भ्रम को लेकर मुकदमा चलाया जाता है, Google जेमिनी को सिमुलेशन इंजन में बदल देता है, और Google और इंटेल हमें याद दिलाते हैं कि AI अभी भी बोरिंग इन्फ्रास्ट्रक्चर पर चलती है, वाइब्स पर नहीं।
+
+एपिसोड नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-29/
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-29/]]></description>
+      <pubDate>Sat, 12 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_029_hi.mp3" length="28875589" type="audio/mpeg"/>
+      <itunes:duration>30:04</itunes:duration>
+      <itunes:episode>29</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_029_cover_hi.png"/>
+    </item>
+
     <!-- Episode 28 -->
     <item>
       <title>एपिसोड 28: मशीन स्केल पर पीयर प्रेशर</title>

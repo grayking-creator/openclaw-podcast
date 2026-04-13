@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/es/podcasts/openclaw/</link>
     <description>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Aprende a ejecutar tu propia IA localmente, mantén tus datos privados y mantente a la vanguardia en el mundo de los modelos de lenguaje locales.</description>
     <language>es-es</language>
-    <lastBuildDate>Sat, 11 Apr 2026 16:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 12 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova y Alloy</itunes:author>
     <itunes:summary>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Desde configuraciones de hardware hasta consejos de seguridad, lanzamientos de modelos y aspectos destacados de la comunidad — todo lo que necesitas saber sobre el futuro de la IA personal, aquí mismo.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_es.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 29 -->
+    <item>
+      <title>Episodio 29: Impuesto Garra, Salas de Tribunal y la Nueva Pila de IA</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_029_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-29/</link>
+      <description><![CDATA[OpenClaw lanza una versión que convierte los chats importados en parte del sistema de soñación. Anthropic bloquea brevemente al creador de OpenClaw justo después de un cambio en los precios de terceros. OpenAI enfrenta una demanda por supuesta escalada de delirios de acecho por parte de ChatGPT tras advertencias internas de seguridad.
+
+Notas del episodio: https://tobyonfitnesstech.com/es/podcasts/episode-29/
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-29/]]></description>
+      <pubDate>Sat, 12 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_029_es.mp3" length="36115896" type="audio/mpeg"/>
+      <itunes:duration>37:37</itunes:duration>
+      <itunes:episode>29</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_029_cover_es.png"/>
+    </item>
+
     <!-- Episode 28 -->
     <item>
       <title>Episodio 28: Presión de pares a escala de máquina</title>
