@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/</link>
     <description>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Lernen Sie, wie Sie Ihre eigene KI lokal betreiben, Ihre Daten privat halten und in der sich schnell entwickelnden Welt der lokalen Sprachmodelle die Nase vorn haben.</description>
     <language>de-de</language>
-    <lastBuildDate>Sat, 12 Apr 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 14 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Von Hardware-Setups bis zu Sicherheitstipps, Modell-Releases bis zu Community-Highlights — alles, was Sie über die Zukunft der persönlichen KI wissen müssen, direkt hier.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_de.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 30 -->
+    <item>
+      <title>Folge 30: Erst Erinnerung, dann Maschinen</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_030_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-30/</link>
+      <description><![CDATA[OpenClaw veröffentlicht ein Update, das Erinnerungsabruf vor der Hauptantwort ermöglicht. OpenAI rotiert MacOS-Zertifikate nach einem Lieferketten-Schreck. Anthropic macht Claude Cowork zur Enterprise-Bereitstellungsplattform. SoftBank startet ein Unternehmen für "physische KI". Und Metas neuer Gesundheits-Chatbot verlangt rohe medizinische Daten, die er sich nicht verdient hat.
+
+Episodennotizen: https://tobyonfitnesstech.com/de/podcasts/episode-30/
+
+Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-30/]]></description>
+      <pubDate>Tue, 14 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_030_de.mp3" length="36744506" type="audio/mpeg"/>
+      <itunes:duration>38:16</itunes:duration>
+      <itunes:episode>30</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_030_cover_de.png"/>
+    </item>
+
     <!-- Episode 29 -->
     <item>
       <title>Folge 29: Krallensteuer, Gerichtssäle und der neue KI-Stack</title>

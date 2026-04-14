@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/hi/podcasts/openclaw/</link>
     <description>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। सीखें कि अपनी खुद की एआई स्थानीय रूप से कैसे चलाएं, अपने डेटा को निजी रखें, और स्थानीय भाषा मॉडल की तेजी से विकसित होती दुनिया में आगे रहें।</description>
     <language>hi-in</language>
-    <lastBuildDate>Sat, 12 Apr 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 14 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>नोवा और अलॉय</itunes:author>
     <itunes:summary>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। हार्डवेयर सेटअप से लेकर सुरक्षा युक्तियों तक, मॉडल रिलीज से लेकर कम्युनिटी हाइलाइट्स तक — व्यक्तिगत एआई के भविष्य के बारे में वह सब कुछ जो आपको जानना आवश्यक है, ठीक यहाँ।</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,28 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_hi.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 30 -->
+    <item>
+      <title>एपिसोड 30: स्मृति पहले, मशीनें बाद में</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_030_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-30/</link>
+      <description><![CDATA[[00:00] परिचय / हुक
+OpenClaw एक रिलीज़ भेजता है जो मुख्य जवाब से पहले स्मृति पुनर्प्राप्ति होने देता है। OpenAI आपूर्ति-श्रृंखला के डर के बाद macOS प्रमाणपत्र घुमाता है। Anthropic Claude Cowork को एक एंटरप्राइज़ तैनाती सतह में बदल देता है। SoftBank "भौतिक AI" के लिए एक कंपनी लॉन्च करता है। और Meta का नया स्वास्थ्य चैटबॉट कच्चे चिकित्सा डेटा की मांग करता है जिसके देखने का अधिकार उसने अर्जित नहीं किया है।
+
+[01:55] कहानी 1 — OpenClaw v2026.4.12: सक्रिय स्मृति, स्थानीय MLX स्पीच, और बुद्धिमान प्लगइन लोडिंग
+OpenClaw 2026.4.12 नहीं है
+
+एपिसोड नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-30/
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-30/]]></description>
+      <pubDate>Tue, 14 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_030_hi.mp3" length="30612627" type="audio/mpeg"/>
+      <itunes:duration>31:53</itunes:duration>
+      <itunes:episode>30</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_030_cover_hi.png"/>
+    </item>
+
     <!-- Episode 29 -->
     <item>
       <title>एपिसोड 29: क्लो टैक्स, कोर्टरूम्स, और नया AI स्टैक</title>

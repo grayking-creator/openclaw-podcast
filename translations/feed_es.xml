@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/es/podcasts/openclaw/</link>
     <description>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Aprende a ejecutar tu propia IA localmente, mantén tus datos privados y mantente a la vanguardia en el mundo de los modelos de lenguaje locales.</description>
     <language>es-es</language>
-    <lastBuildDate>Sat, 12 Apr 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 14 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova y Alloy</itunes:author>
     <itunes:summary>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Desde configuraciones de hardware hasta consejos de seguridad, lanzamientos de modelos y aspectos destacados de la comunidad — todo lo que necesitas saber sobre el futuro de la IA personal, aquí mismo.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_es.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 30 -->
+    <item>
+      <title>Episodio 30: Memoria primero, Máquinas después</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_030_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-30/</link>
+      <description><![CDATA[OpenClaw lanza una actualización que recupera el contexto justo antes de que respondas, mejorando la memoria activa. OpenAI renueva certificados en macOS tras un incidente en la cadena de suministro, mientras Anthropic convierte a Claude Cowork en una superficie de control empresarial. SoftBank apuesta a nivel nacional por la IA física y Meta presenta un chatbot de salud que exige datos médicos sin ganarse la confianza de los usuarios.
+
+Notas del episodio: https://tobyonfitnesstech.com/es/podcasts/episode-30/
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-30/]]></description>
+      <pubDate>Tue, 14 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_030_es.mp3" length="34750841" type="audio/mpeg"/>
+      <itunes:duration>36:11</itunes:duration>
+      <itunes:episode>30</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_030_cover_es.png"/>
+    </item>
+
     <!-- Episode 29 -->
     <item>
       <title>Episodio 29: Impuesto Garra, Salas de Tribunal y la Nueva Pila de IA</title>
