@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/es/podcasts/openclaw/</link>
     <description>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Aprende a ejecutar tu propia IA localmente, mantén tus datos privados y mantente a la vanguardia en el mundo de los modelos de lenguaje locales.</description>
     <language>es-es</language>
-    <lastBuildDate>Tue, 14 Apr 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 15 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova y Alloy</itunes:author>
     <itunes:summary>Actualizaciones diarias sobre la revolución de los agentes de IA OpenClaw. Desde configuraciones de hardware hasta consejos de seguridad, lanzamientos de modelos y aspectos destacados de la comunidad — todo lo que necesitas saber sobre el futuro de la IA personal, aquí mismo.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_es.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 31 -->
+    <item>
+      <title>Episodio 31: Todo lo Agéntico</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_031_es.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-31/</link>
+      <description><![CDATA[OpenClaw mejora su runtime y refuerza el soporte para GPT-5.4, mientras Chrome convierte los prompts en herramientas reutilizables con un clic. DeepMind avanza en el razonamiento incorporado de los robots, NVIDIA lanza una familia de modelos de IA cuántica, IBM sostiene que la defensa cibernética debe ser autónoma, y Meta y Broadcom profundizan su colaboración en silicio personalizado.
+
+Notas del episodio: https://tobyonfitnesstech.com/es/podcasts/episode-31/
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-31/]]></description>
+      <pubDate>Wed, 15 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_031_es.mp3" length="35117809" type="audio/mpeg"/>
+      <itunes:duration>36:34</itunes:duration>
+      <itunes:episode>31</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_031_cover_es.png"/>
+    </item>
+
     <!-- Episode 30 -->
     <item>
       <title>Episodio 30: Memoria primero, Máquinas después</title>

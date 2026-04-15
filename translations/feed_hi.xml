@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/hi/podcasts/openclaw/</link>
     <description>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। सीखें कि अपनी खुद की एआई स्थानीय रूप से कैसे चलाएं, अपने डेटा को निजी रखें, और स्थानीय भाषा मॉडल की तेजी से विकसित होती दुनिया में आगे रहें।</description>
     <language>hi-in</language>
-    <lastBuildDate>Tue, 14 Apr 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 15 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>नोवा और अलॉय</itunes:author>
     <itunes:summary>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। हार्डवेयर सेटअप से लेकर सुरक्षा युक्तियों तक, मॉडल रिलीज से लेकर कम्युनिटी हाइलाइट्स तक — व्यक्तिगत एआई के भविष्य के बारे में वह सब कुछ जो आपको जानना आवश्यक है, ठीक यहाँ।</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,24 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_hi.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 31 -->
+    <item>
+      <title>एपिसोड 31: एजेंटिक हर चीज़</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_031_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-31/</link>
+      <description><![CDATA[OpenClaw 2026.4.14 अपने runtime को और मजबूत बनाता है और Chrome prompts को पुन: प्रयोज्य एक-क्लिक टूल में बदल देता है। DeepMind robots की embodied reasoning में सुधार करता है, NVIDIA अपना quantum AI स्टैक खोलता है, IBM कहता है कि साइबर रक्षा स्वायत्त होनी चाहिए, और Meta तथा Broadcom custom silicon पर और अधिक दांव लगाते हैं।
+
+एपिसोड नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-31/
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-31/]]></description>
+      <pubDate>Wed, 15 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_031_hi.mp3" length="26772836" type="audio/mpeg"/>
+      <itunes:duration>27:53</itunes:duration>
+      <itunes:episode>31</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_031_cover_hi.png"/>
+    </item>
+
     <!-- Episode 30 -->
     <item>
       <title>एपिसोड 30: स्मृति पहले, मशीनें बाद में</title>
