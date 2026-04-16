@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/hi/podcasts/openclaw/</link>
     <description>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। सीखें कि अपनी खुद की एआई स्थानीय रूप से कैसे चलाएं, अपने डेटा को निजी रखें, और स्थानीय भाषा मॉडल की तेजी से विकसित होती दुनिया में आगे रहें।</description>
     <language>hi-in</language>
-    <lastBuildDate>Wed, 15 Apr 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 16 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>नोवा और अलॉय</itunes:author>
     <itunes:summary>ओपनक्लॉ एआई एजेंट क्रांति पर दैनिक अपडेट। हार्डवेयर सेटअप से लेकर सुरक्षा युक्तियों तक, मॉडल रिलीज से लेकर कम्युनिटी हाइलाइट्स तक — व्यक्तिगत एआई के भविष्य के बारे में वह सब कुछ जो आपको जानना आवश्यक है, ठीक यहाँ।</itunes:summary>
     <itunes:owner>
@@ -15,7 +15,27 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_hi.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
-    <!-- Episode 31 -->
+    <!-- Episode 32 -->
+    <item>
+      <title>एपिसोड 32: पासपोर्ट, सैंडबॉक्स, और मानव परत</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_032_hi.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-32/</link>
+      <description><![CDATA[v2026.4.14 के बाद कोई नया स्टेबल OpenClaw रिलीज़ नहीं आया, तो आज हम AI स्टैक में ज़्यादा चौड़ा जाते हैं। Anthropic कुछ Claude यूज़र्स से सरकारी ID मांग रहा है, OpenAI ने Agents SDK को प्रोडक्शन हार्नेस में बदल दिया है, और TSMC का कहना है AI चिप की डिमांड अभी भी बहुत तेज़ है। इसके अलावा, Telegram पर KYC-बाइपास किट बिक रही हैं और वॉयस एक्टर्स दुनिया भर में AI डबिंग का विरोध कर रहे हैं।
+
+एपिसोड नोट्स: https://tobyonfitnesstech.com/hi/podcasts/episode-32/
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-32/]]></description>
+      <pubDate>Thu, 16 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_032_hi.mp3" length="35492301" type="audio/mpeg"/>
+      <itunes:duration>36:58</itunes:duration>
+      <itunes:episode>32</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_032_cover_hi.png"/>
+    </item>
+
+    <!-- Episode 32 -->
+<!-- Episode 32 -->
+<!-- Episode 31 -->
     <item>
       <title>एपिसोड 31: एजेंटिक हर चीज़</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_031_hi.mp3</guid>

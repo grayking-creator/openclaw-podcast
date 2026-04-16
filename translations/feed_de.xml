@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/</link>
     <description>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Lernen Sie, wie Sie Ihre eigene KI lokal betreiben, Ihre Daten privat halten und in der sich schnell entwickelnden Welt der lokalen Sprachmodelle die Nase vorn haben.</description>
     <language>de-de</language>
-    <lastBuildDate>Wed, 15 Apr 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 16 Apr 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Tägliche Updates zur OpenClaw-KI-Agenten-Revolution. Von Hardware-Setups bis zu Sicherheitstipps, Modell-Releases bis zu Community-Highlights — alles, was Sie über die Zukunft der persönlichen KI wissen müssen, direkt hier.</itunes:summary>
     <itunes:owner>
@@ -15,7 +15,27 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_de.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
-    <!-- Episode 31 -->
+    <!-- Episode 32 -->
+    <item>
+      <title>Folge 32: Pässe, Sandkästen und die menschliche Schicht</title>
+      <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_032_de.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-32/</link>
+      <description><![CDATA[Nach dem letzten stabilen OpenClaw-Release v2026.4.14 werfen wir heute einen breiteren Blick auf die KI-Landschaft: Anthropic beginnt, von bestimmten Claude-Nutzern einen Lichtbildausweis zu verlangen, OpenAI wandelt sein Agents SDK in eine produktionsreife Umgebung um, TSMC meldet weiterhin robusten Bedarf an KI-Chips, und auf Telegram werden KYC‑Umgehungs‑Kits gehandelt. Parallel dazu kämpfen Synchronsprecher weltweit gegen KI‑Dubbing, das lokale Darbietungen in generische synthetische Masse verwandeln könnte.
+
+Episodennotizen: https://tobyonfitnesstech.com/de/podcasts/episode-32/
+
+Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-32/]]></description>
+      <pubDate>Thu, 16 Apr 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_032_de.mp3" length="38016774" type="audio/mpeg"/>
+      <itunes:duration>39:35</itunes:duration>
+      <itunes:episode>32</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_032_cover_de.png"/>
+    </item>
+
+    <!-- Episode 32 -->
+<!-- Episode 32 -->
+<!-- Episode 31 -->
     <item>
       <title>Folge 31: Agentisches Alles</title>
       <guid isPermaLink="false">https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio/episode_031_de.mp3</guid>
