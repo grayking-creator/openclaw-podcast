@@ -21,7 +21,6 @@ COVER_URL_BASE="https://clawdassistant85-netizen.github.io/openclaw-podcast-audi
 
 AUDIO_SRC="$PODCAST_DIR/audio/episode_${EPNUM}.mp3"
 CDN_AUDIO_DST="$CDN_DIR/audio/episode_${EPNUM}.mp3"
-LATEST_AUDIO_DST="$CDN_DIR/audio/latest.mp3"
 
 echo "=== Publishing Episode $EP (episode_$EPNUM) ==="
 
@@ -33,9 +32,7 @@ if [ ! -f "$AUDIO_SRC" ]; then
   exit 1
 fi
 cp "$AUDIO_SRC" "$CDN_AUDIO_DST"
-cp "$AUDIO_SRC" "$LATEST_AUDIO_DST"
 echo "  ✅ Episode audio synced to $CDN_AUDIO_DST"
-echo "  ✅ Stable latest link synced to $LATEST_AUDIO_DST"
 
 # ── Step 2: Cover art copy (the thing that keeps getting missed) ──────────────
 COVER_SRC="$PODCAST_DIR/images/episode_${EPNUM}_cover.png"
@@ -101,7 +98,7 @@ git diff --cached --quiet && echo "  ℹ️  Nothing new to commit in podcast re
 echo ""
 echo "[ 5/6 ] Pushing CDN repo (canonical + latest audio, cover)..."
 cd "$CDN_DIR"
-git add "audio/episode_${EPNUM}.mp3" "audio/latest.mp3" "episode_${EPNUM}_cover.png"
+git add "audio/episode_${EPNUM}.mp3" "episode_${EPNUM}_cover.png"
 git diff --cached --quiet && echo "  ℹ️  Nothing new to commit in CDN repo" || \
   (git commit -m "EP$EP: sync canonical audio + latest link + cover" && git push && echo "  ✅ CDN repo pushed")
 
@@ -115,8 +112,15 @@ echo ""
 echo "[ website ] Pushing website..."
 cd "$WORKSPACE/websiteBuilder"
 git add -A
-git diff --cached --quiet && echo "  ℹ️  Nothing new to commit in website repo" || \
-  (git commit -m "EP$EP: cover art + website update" && git push && echo "  ✅ Website pushed")
+if git diff --cached --quiet; then
+  git commit --allow-empty -m "EP$EP: trigger website deploy"
+  git push
+  echo "  ✅ Website deploy triggered (empty commit)"
+else
+  git commit -m "EP$EP: cover art + website update"
+  git push
+  echo "  ✅ Website pushed"
+fi
 
 echo ""
 echo "=== ✅ Episode $EP publish complete ==="
@@ -126,5 +130,4 @@ echo "  Website: https://tobyonfitnesstech.com/podcasts/openclaw/"
 echo ""
 echo "Discord / build-log links:"
 echo "  Episode audio: ${AUDIO_URL_BASE}/episode_${EPNUM}.mp3"
-echo "  Latest audio:  ${AUDIO_URL_BASE}/latest.mp3"
 echo "  Cover art:     ${COVER_URL_BASE}/episode_${EPNUM}_cover.png"

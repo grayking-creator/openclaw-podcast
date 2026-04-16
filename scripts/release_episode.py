@@ -13,6 +13,7 @@ Usage:
 """
 
 import os, sys, json, re, shutil, subprocess, asyncio, math, argparse, time
+from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).parent
@@ -48,9 +49,32 @@ ALL_PHASES = ["setup", "translate", "tts", "covers", "feeds", "qc", "youtube", "
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+BUILD_LOG_CHANNEL_ID = "1485243812442804327"
+
 def log(msg, indent=0):
     prefix = "  " * indent
     print(f"{prefix}{msg}", flush=True)
+
+def build_log(msg, ep_num=None):
+    """Post a short status line to #build-log on Discord. Fire-and-forget — never raises."""
+    import urllib.request, urllib.error
+    try:
+        token = load_env_key("DISCORD_BOT_TOKEN")
+        prefix = f"EP{ep_num:03d} " if ep_num is not None else ""
+        body = json.dumps({"content": f"{prefix}{msg}"}).encode()
+        req = urllib.request.Request(
+            f"https://discord.com/api/v10/channels/{BUILD_LOG_CHANNEL_ID}/messages",
+            data=body, method="POST",
+            headers={
+                "Authorization": f"Bot {token}",
+                "Content-Type": "application/json",
+                "User-Agent": "DiscordBot (https://github.com/openclaw/openclaw, 1.0)",
+            }
+        )
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+    except Exception:
+        pass  # never block the pipeline over a log post
 
 def run(cmd, cwd=None, check=True):
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
@@ -203,13 +227,60 @@ def translate_text_chunked(text, lang, chunk_type="transcript"):
 
 # ── Cover generation ──────────────────────────────────────────────────────────
 
-def generate_translated_cover(ep_num, lang, meta):
-    """Render a translated cover image for the episode using same visual as EN."""
+def generate_en_cover(ep_num):
+    """Generate EN cover art from show notes title — LLM picks cover lines."""
+    ep_str = f"{ep_num:03d}"
+    notes = (PODCAST_DIR / f"show_notes_episode_{ep_str}.md").read_text()
+    title_m = re.search(r"^## Episode Title\s*\n\*\*(.+?)\*\*", notes, re.MULTILINE)
+    title = title_m.group(1).strip() if title_m else f"Episode {ep_num}"
+    tag_m = re.search(r"^## Tagline\s*\n(.+?)(?=\n\n|\n##)", notes, re.MULTILINE | re.DOTALL)
+    tagline = (tag_m.group(1).strip() if tag_m else "").split(".")[0][:60]
+
+    # Extract cover lines from title structure: split on commas and "and"
+    # e.g. "Claw Tax, Courtrooms, and the New AI Stack" → ["CLAW TAX", "COURTROOMS", "THE NEW AI STACK"]
+    def extract_cover_lines(t):
+        # Strip episode number prefix if present (e.g. "Episode 29: ...")
+        t = re.sub(r'^Episode\s+\d+:\s*', '', t, flags=re.IGNORECASE)
+        # Split on ", and ", ", ", " and "
+        parts = re.split(r',\s*(?:and\s+)?|\s+and\s+', t)
+        # Clean filler words from each part, uppercase
+        cleaned = []
+        for p in parts:
+            p = p.strip().upper()
+            # Drop short filler-only parts
+            if p and p not in ("THE", "A", "AN", "AND", "OR", "BUT", "IN", "OF"):
+                cleaned.append(p)
+        return cleaned
+
+    concepts = extract_cover_lines(title)
+    if len(concepts) >= 2:
+        line1 = concepts[0]
+        line2 = concepts[1]
+    elif len(concepts) == 1:
+        words = concepts[0].split()
+        mid = max(1, len(words) // 2)
+        line1 = " ".join(words[:mid])
+        line2 = " ".join(words[mid:])
+    else:
+        words = title.upper().split()
+        mid = max(1, len(words) // 2)
+        line1 = " ".join(words[:mid])
+        line2 = " ".join(words[mid:])
+
+    meta = {"cover_line1": line1, "cover_line2": line2, "cover_tagline": tagline}
+
+    out_path = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
+    return generate_translated_cover(ep_num, "de", meta, out_path=out_path)
+
+
+def generate_translated_cover(ep_num, lang, meta, out_path=None):
+    """Render a cover image for the episode. Pass out_path to override default filename."""
     from PIL import Image, ImageDraw, ImageFilter, ImageFont
     import random
 
     W, H = 1400, 1400
-    out_path = PODCAST_DIR / "images" / f"episode_{ep_num:03d}_cover_{lang}.png"
+    if out_path is None:
+        out_path = PODCAST_DIR / "images" / f"episode_{ep_num:03d}_cover_{lang}.png"
 
     # Read EN cover script to extract visual parameters (colors etc.)
     # We rebuild the design from scratch matching EP's style
@@ -234,12 +305,23 @@ def generate_translated_cover(ep_num, lang, meta):
     img = Image.new("RGBA", (W, H), BLACK + (255,))
     d = ImageDraw.Draw(img)
 
-    # Background gradient
+    # Background gradient — saturated enough to read on screen, hue cycles per episode
+    _bg_palettes = [
+        ((20, 45, 110), (2, 3, 8)),    # 0: steel blue
+        ((24, 10,  4),  (8, 3, 1)),    # 1: dark rust  ← EP029 approved look
+        ((4,  45, 45),  (2, 8, 8)),    # 2: deep teal
+        ((30, 8,  55),  (6, 2, 12)),   # 3: dark purple
+        ((6,  40, 12),  (2, 8, 4)),    # 4: deep green
+        ((45, 20,  4),  (10, 6, 2)),   # 5: ember orange
+        ((8,  12, 70),  (2, 3, 14)),   # 6: deep indigo
+        ((28, 28,  6),  (8, 8, 2)),    # 7: dark gold
+    ]
+    _top, _bot = _bg_palettes[ep_num % len(_bg_palettes)]
     for y in range(H):
         t = y / (H - 1)
-        r = int(BLACK[0] + 6 * t)
-        g = int(BLACK[1] + 12 * t)
-        b = int(BLACK[2] + 20 * t)
+        r = int(_top[0] * (1 - t) + _bot[0] * t)
+        g = int(_top[1] * (1 - t) + _bot[1] * t)
+        b = int(_top[2] * (1 - t) + _bot[2] * t)
         d.line([(0, y), (W, y)], fill=(r, g, b, 255))
 
     def blur_overlay(draw_fn, blur=18):
@@ -248,46 +330,58 @@ def generate_translated_cover(ep_num, lang, meta):
         draw_fn(ld)
         return layer.filter(ImageFilter.GaussianBlur(blur))
 
-    # Strata lines (geological cross-section)
-    random.seed(ep_num)
-    strata = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(strata)
-    strata_defs = [
-        (120, 3, TEAL, 45), (185, 2, STEEL_LIGHT, 35), (240, 4, BLUE, 40),
-        (310, 2, STEEL_LIGHT, 30), (370, 3, AMBER, 35), (420, 2, TEAL, 30),
-        (480, 5, BLUE, 45), (530, 2, STEEL_LIGHT, 25), (590, 3, AMBER, 40),
-        (640, 2, TEAL, 30), (700, 4, BLUE, 35), (760, 2, AMBER, 30),
-        (820, 3, TEAL, 35), (870, 2, STEEL_LIGHT, 25),
-    ]
-    for y_center, thickness, color, alpha in strata_defs:
-        pts = []
-        for x in range(0, W + 20, 20):
-            wave = math.sin(x * 0.008 + y_center * 0.01) * 8
-            wave += math.sin(x * 0.003 - y_center * 0.02) * 12
-            pts.append((x, y_center + wave))
-        for i in range(len(pts) - 1):
-            sd.line([pts[i], pts[i+1]], fill=color + (alpha,), width=thickness)
-    img = Image.alpha_composite(img, strata.filter(ImageFilter.GaussianBlur(12)))
-    img = Image.alpha_composite(img, strata.filter(ImageFilter.GaussianBlur(0.8)))
-    d = ImageDraw.Draw(img)
+    # Per-episode bespoke middle art — try episode_art/episode_NNN_art.py first
+    _art_mod = None
+    _art_path = SCRIPTS_DIR / "episode_art" / f"episode_{ep_num:03d}_art.py"
+    if _art_path.exists():
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(f"episode_{ep_num:03d}_art", _art_path)
+        _art_mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_art_mod)
 
-    # Depth markers
-    markers = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    mkd = ImageDraw.Draw(markers)
-    for y in range(80, 900, 60):
-        tick_len = 25 if y % 180 == 0 else 12
-        mkd.line([(40, y), (40+tick_len, y)], fill=STEEL_LIGHT+(50,), width=1)
-        mkd.line([(W-40, y), (W-40-tick_len, y)], fill=STEEL_LIGHT+(50,), width=1)
-    mkd.line([(40, 80), (40, 880)], fill=STEEL_LIGHT+(35,), width=1)
-    mkd.line([(W-40, 80), (W-40, 880)], fill=STEEL_LIGHT+(35,), width=1)
-    img = Image.alpha_composite(img, markers)
+    if _art_mod is not None:
+        img = _art_mod.draw_art(img, W, H)
+        d = ImageDraw.Draw(img)
+    else:
+        # Fallback: strata geological cross-section
+        random.seed(ep_num)
+        strata = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        sd = ImageDraw.Draw(strata)
+        strata_defs = [
+            (120, 3, TEAL, 45), (185, 2, STEEL_LIGHT, 35), (240, 4, BLUE, 40),
+            (310, 2, STEEL_LIGHT, 30), (370, 3, AMBER, 35), (420, 2, TEAL, 30),
+            (480, 5, BLUE, 45), (530, 2, STEEL_LIGHT, 25), (590, 3, AMBER, 40),
+            (640, 2, TEAL, 30), (700, 4, BLUE, 35), (760, 2, AMBER, 30),
+            (820, 3, TEAL, 35), (870, 2, STEEL_LIGHT, 25),
+        ]
+        for y_center, thickness, color, alpha in strata_defs:
+            pts = []
+            for x in range(0, W + 20, 20):
+                wave = math.sin(x * 0.008 + y_center * 0.01) * 8
+                wave += math.sin(x * 0.003 - y_center * 0.02) * 12
+                pts.append((x, y_center + wave))
+            for i in range(len(pts) - 1):
+                sd.line([pts[i], pts[i+1]], fill=color + (alpha,), width=thickness)
+        img = Image.alpha_composite(img, strata.filter(ImageFilter.GaussianBlur(12)))
+        img = Image.alpha_composite(img, strata.filter(ImageFilter.GaussianBlur(0.8)))
 
-    # Ambient glow
-    for center, color in [((700, 400), BLUE), ((700, 600), AMBER), ((700, 300), TEAL)]:
-        g = blur_overlay(
-            lambda ld, c=center, col=color: ld.ellipse(
-                [(c[0]-500, c[1]-200), (c[0]+500, c[1]+200)], fill=col+(7,)), blur=110)
-        img = Image.alpha_composite(img, g)
+        markers = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        mkd = ImageDraw.Draw(markers)
+        for y in range(80, 900, 60):
+            tick_len = 25 if y % 180 == 0 else 12
+            mkd.line([(40, y), (40+tick_len, y)], fill=STEEL_LIGHT+(50,), width=1)
+            mkd.line([(W-40, y), (W-40-tick_len, y)], fill=STEEL_LIGHT+(50,), width=1)
+        mkd.line([(40, 80), (40, 880)], fill=STEEL_LIGHT+(35,), width=1)
+        mkd.line([(W-40, 80), (W-40, 880)], fill=STEEL_LIGHT+(35,), width=1)
+        img = Image.alpha_composite(img, markers)
+
+        for center, color in [((700, 400), BLUE), ((700, 600), AMBER), ((700, 300), TEAL)]:
+            g = blur_overlay(
+                lambda ld, c=center, col=color: ld.ellipse(
+                    [(c[0]-500, c[1]-200), (c[0]+500, c[1]+200)], fill=col+(7,)), blur=110)
+            img = Image.alpha_composite(img, g)
+
+        d = ImageDraw.Draw(img)
 
     # Fonts
     font_path_bold = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
@@ -390,24 +484,32 @@ def phase_setup(ep_num, state):
     log("[ SETUP ] Checking prerequisites...")
     ep_str = f"{ep_num:03d}"
 
-    # Check EN audio
-    en_audio_src = PODCAST_DIR / "audio" / f"episode_{ep_str}_en.mp3"
+    # Check EN audio — accept canonical name or legacy _en / _approved_en suffixes
     en_audio_dst = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
-    if not en_audio_src.exists():
-        raise FileNotFoundError(f"Missing approved EN audio: {en_audio_src}")
-
-    # Canonicalize: episode_025_en.mp3 → episode_025.mp3
-    if not en_audio_dst.exists():
+    audio_candidates = [
+        en_audio_dst,
+        PODCAST_DIR / "audio" / f"episode_{ep_str}_en.mp3",
+        PODCAST_DIR / "audio" / f"episode_{ep_str}_approved_en.mp3",
+    ]
+    en_audio_src = next((p for p in audio_candidates if p.exists()), None)
+    if not en_audio_src:
+        raise FileNotFoundError(
+            f"Missing EN audio — tried: {', '.join(p.name for p in audio_candidates)}"
+        )
+    if en_audio_src != en_audio_dst:
         shutil.copy2(str(en_audio_src), str(en_audio_dst))
-        log(f"  ✅ Canonicalized audio: episode_{ep_str}.mp3")
+        log(f"  ✅ Canonicalized: {en_audio_src.name} → episode_{ep_str}.mp3")
     else:
-        log(f"  ✅ Canonical audio exists: episode_{ep_str}.mp3")
+        log(f"  ✅ Canonical audio: episode_{ep_str}.mp3")
 
-    # Check EN cover
+    # Check EN cover — generate if missing
     en_cover = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
     if not en_cover.exists():
-        raise FileNotFoundError(f"Missing EN cover: {en_cover}")
-    log(f"  ✅ EN cover exists")
+        log(f"  ℹ️  EN cover missing — generating from show notes...")
+        generate_en_cover(ep_num)
+        log(f"  ✅ EN cover generated")
+    else:
+        log(f"  ✅ EN cover exists")
 
     # Check show notes
     show_notes = PODCAST_DIR / f"show_notes_episode_{ep_str}.md"
@@ -516,6 +618,23 @@ def phase_covers(ep_num, state):
     ep_str = f"{ep_num:03d}"
     translations = state.get("translations", {})
 
+    # Auto-generate bespoke middle art module if not already present
+    art_mod_path = SCRIPTS_DIR / "episode_art" / f"episode_{ep_str}_art.py"
+    if not art_mod_path.exists():
+        log(f"  → No art module for EP{ep_str} — generating via Claude CLI...")
+        gen_script = SCRIPTS_DIR / "generate_episode_art.py"
+        result = subprocess.run(
+            ["python3", str(gen_script), str(ep_num)],
+            capture_output=False,
+            text=True,
+        )
+        if art_mod_path.exists():
+            log(f"  ✅ Art module generated: {art_mod_path.name}")
+        else:
+            log(f"  ⚠️  Art generation failed (exit {result.returncode}) — covers will use strata fallback")
+    else:
+        log(f"  ✅ Art module exists: {art_mod_path.name}")
+
     # Also copy EN cover to CDN
     en_cover_src = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
     en_cover_cdn = CDN_DIR / f"episode_{ep_str}_cover.png"
@@ -537,7 +656,10 @@ def phase_covers(ep_num, state):
         else:
             meta = translations.get(lang, {}).get("meta", {})
             if not meta:
-                raise ValueError(f"No translation metadata for {lang} — run translate phase first")
+                log(f"  ℹ️  No cached metadata for {lang} — fetching via Minimax...", indent=1)
+                meta = translate_metadata(ep_num, lang)
+                translations.setdefault(lang, {})["meta"] = meta
+                state["translations"] = translations
             log(f"  → Generating {lang.upper()} cover...")
             generate_translated_cover(ep_num, lang, meta)
             log(f"  ✅ {out_path.name}")
@@ -667,8 +789,10 @@ def phase_qc(ep_num, state):
 
 def phase_youtube(ep_num, state):
     log("[ YOUTUBE ] Uploading all 5 channels...")
+    venv_python = PODCAST_DIR / ".venv_shorts/bin/python3"
+    youtube_python = str(venv_python) if venv_python.exists() else sys.executable
     result = subprocess.run(
-        [sys.executable, str(SCRIPTS_DIR / "youtube_scheduled_upload.py"), str(ep_num)],
+        [youtube_python, str(SCRIPTS_DIR / "youtube_scheduled_upload.py"), str(ep_num)],
         cwd=str(PODCAST_DIR)
     )
     if result.returncode != 0:
@@ -686,10 +810,6 @@ def phase_cdn(ep_num, state):
         shutil.copy2(str(en_src), str(en_dst))
         log(f"  ✅ EN audio → CDN/audio/")
 
-    # Copy latest.mp3
-    latest_dst = CDN_DIR / "audio" / "latest.mp3"
-    shutil.copy2(str(en_src), str(latest_dst))
-    log(f"  ✅ latest.mp3 updated")
 
     # Copy translated audio
     cdn_trans_base = CDN_DIR / "translations"
@@ -712,7 +832,6 @@ def phase_cdn(ep_num, state):
     log(f"  Pushing CDN repo...")
     files_to_add = [
         f"audio/episode_{ep_str}.mp3",
-        f"audio/latest.mp3",
         f"episode_{ep_str}_cover.png",
     ]
     for lang in LANGS:
@@ -743,7 +862,7 @@ def phase_publish(ep_num, state):
         f"images/episode_{ep_str}_cover.png",
         f"show_notes_episode_{ep_str}.md",
         f"episodes/episode_{ep_str}_transcript.md",
-        f"episodes/episode_{ep_str}_transcript_nova.md",
+        # transcript_nova.md is gitignored (*_nova.md) — skip
         f"translations/feed_de.xml",
         f"translations/feed_es.xml",
         f"translations/feed_hi.xml",
@@ -779,7 +898,9 @@ def phase_publish(ep_num, state):
         subprocess.run([sys.executable, str(ws_script), "--skip-sync"],
                        capture_output=True, cwd=str(WORKSPACE_DIR))
 
-    # Push website
+    # Push website. The podcast archive pages are static and rebuild from feeds
+    # only when the website repo gets a push, so we still need a deploy trigger
+    # even when no tracked website files changed for this episode.
     result = run(["git", "status", "--porcelain"], cwd=str(WEBSITE_DIR))
     if result.stdout.strip():
         run(["git", "add", "-A"], cwd=str(WEBSITE_DIR))
@@ -791,7 +912,9 @@ def phase_publish(ep_num, state):
         else:
             log(f"  ℹ️  Website already up to date")
     else:
-        log(f"  ℹ️  Website no changes")
+        run(["git", "commit", "--allow-empty", "-m", f"EP{ep_num}: trigger website deploy"], cwd=str(WEBSITE_DIR))
+        run(["git", "push"], cwd=str(WEBSITE_DIR))
+        log(f"  ✅ Website deploy triggered (empty commit)")
 
     return state
 
@@ -807,8 +930,11 @@ def phase_discord(ep_num, state):
     def discord_request(method, path, body=None):
         url = f"https://discord.com/api/v10{path}"
         data = json.dumps(body).encode() if body else None
-        req = urllib.request.Request(url, data=data, method=method,
-            headers={"Authorization": f"Bot {DISCORD_TOKEN}", "Content-Type": "application/json"})
+        req = urllib.request.Request(url, data=data, method=method, headers={
+            "Authorization": f"Bot {DISCORD_TOKEN}",
+            "Content-Type": "application/json",
+            "User-Agent": "DiscordBot (https://github.com/openclaw/openclaw, 1.0)",
+        })
         try:
             with urllib.request.urlopen(req, timeout=15) as r:
                 return json.loads(r.read())
@@ -877,9 +1003,10 @@ def main():
     parser.add_argument("episode", type=int, help="Episode number (e.g. 25)")
     parser.add_argument("--from-phase", help=f"Start from phase: {', '.join(ALL_PHASES)}")
     parser.add_argument("--only-phase", help="Run only this phase")
+    _today = datetime.now(timezone.utc).strftime("%a, %d %b %Y 18:00:00 +0000")
     parser.add_argument("--pub-date",
-                        default=f"Mon, 07 Apr 2026 18:00:00 +0000",
-                        help="RSS pubDate string")
+                        default=_today,
+                        help="RSS pubDate string (default: today at 18:00 UTC)")
     parser.add_argument("--reset", action="store_true", help="Clear saved state and restart")
     args = parser.parse_args()
 
@@ -907,12 +1034,15 @@ def main():
     log(f"Phases: {', '.join(phases_to_run)}")
     log(f"{'='*60}\n")
 
+    build_log(f"🚀 Release pipeline started — phases: {', '.join(phases_to_run)}", ep_num)
+
     for phase in phases_to_run:
         if phase in completed and phase != "qc":
             log(f"[ {phase.upper()} ] Already completed, skipping")
             continue
 
         log(f"\n{'-'*60}")
+        build_log(f"⏳ [{phase.upper()}] starting…", ep_num)
         try:
             if phase == "feeds":
                 state = phase_feeds(ep_num, state, args.pub_date)
@@ -923,18 +1053,25 @@ def main():
             state["completed_phases"] = list(completed)
             save_state(ep_num, state)
             log(f"[ {phase.upper()} ] ✅ Complete")
+            build_log(f"✅ [{phase.upper()}] complete", ep_num)
 
         except Exception as e:
             log(f"[ {phase.upper()} ] ❌ FAILED: {e}")
+            build_log(f"❌ [{phase.upper()}] FAILED: {e}", ep_num)
             save_state(ep_num, state)
             sys.exit(1)
 
+    ep_str = f"{ep_num:03d}"
     log(f"\n{'='*60}")
     log(f"✅ EP{ep_num:03d} release complete!")
-    ep_str = f"{ep_num:03d}"
     log(f"  Feed: https://clawdassistant85-netizen.github.io/openclaw-podcast/feed.xml")
     log(f"  Audio: {CDN_BASE}/audio/episode_{ep_str}.mp3")
     log(f"  Website: https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/")
+    build_log(
+        f"🎙️ Release complete! "
+        f"<https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/>",
+        ep_num
+    )
     log(f"{'='*60}")
 
 if __name__ == "__main__":
