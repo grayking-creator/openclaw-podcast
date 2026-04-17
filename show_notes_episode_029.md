@@ -7,6 +7,9 @@
 ## Tagline
 OpenClaw 2026.4.11 deepens imported memory and structured media replies, Anthropic briefly locks out OpenClaw's creator after a pricing change, OpenAI faces a lawsuit over ChatGPT-fueled delusions, Google turns Gemini into a simulation engine, and Google plus Intel remind everyone that AI still depends on boring infrastructure.
 
+## Feed Description
+OpenClaw's April 11 release pulls imported chats into its memory system and sharpens multimodal replies. We also cover Anthropic's brief OpenClaw lockout, OpenAI's stalking-delusion lawsuit, Gemini's move into interactive simulations, and why Google plus Intel are a reminder that AI still runs on infrastructure.
+
 ## Story Slate
 
 1. **OpenClaw v2026.4.11 — Imported Memory, Structured Media, and Platform Fixes**  

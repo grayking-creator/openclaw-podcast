@@ -7,6 +7,9 @@
 ## Tagline
 OpenClaw ships a release that pulls the right context forward before you answer, OpenAI scrambles after a supply-chain scare, Anthropic turns Cowork into an enterprise control surface, SoftBank makes a national bet on physical AI, and Meta's new health chatbot reminds everyone that consumer AI still wants too much data and deserves too little trust.
 
+## Feed Description
+OpenClaw's latest release makes memory retrieval happen before the main reply and pushes more speech and model routing local. Then we dig into OpenAI's macOS certificate rotation, Anthropic turning Cowork into an admin surface, SoftBank's physical-AI bet, and Meta's overreaching health chatbot.
+
 ## Story Slate
 
 ### 1. **OpenClaw v2026.4.12 — Active Memory, Local Speech, and Plugin Hardening**

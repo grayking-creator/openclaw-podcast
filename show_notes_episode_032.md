@@ -7,6 +7,9 @@
 ## Tagline
 No new stable OpenClaw release landed since EP031, so today’s draft goes wider: Anthropic starts gating some Claude capabilities behind ID checks, OpenAI turns its Agents SDK into a real production harness, TSMC’s numbers say AI chip demand is still running hot, scammers are buying KYC bypass kits on Telegram, and voice actors worldwide are pushing back on AI dubbing before culture gets flattened into synthetic paste.
 
+## Feed Description
+A wider AI-stack episode: Anthropic starts gating some Claude features behind ID checks, OpenAI turns its Agents SDK into a real production harness, and TSMC's results say the AI buildout is still running hot. We also cover Telegram KYC-bypass markets and the global pushback against AI dubbing and voice cloning.
+
 ## Story Slate
 
 ### 1. **Anthropic Starts Checking IDs for Some Claude Capabilities**

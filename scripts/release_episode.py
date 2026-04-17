@@ -100,6 +100,36 @@ def load_env_key(name):
             return line.split("=", 1)[1].strip()
     return os.environ.get(name, "")
 
+def collapse_ws(text):
+    return re.sub(r"\s+", " ", text).strip()
+
+def extract_section(notes, heading):
+    pattern = rf"^## {re.escape(heading)}\s*\n(.+?)(?=\n## |\Z)"
+    match = re.search(pattern, notes, re.MULTILINE | re.DOTALL)
+    return match.group(1).strip() if match else ""
+
+def extract_episode_title(notes, ep_num):
+    title = re.search(r"^## Episode Title\s*\n\*\*(.+?)\*\*", notes, re.MULTILINE)
+    return title.group(1).strip() if title else f"Episode {ep_num}"
+
+def extract_tagline(notes):
+    return collapse_ws(extract_section(notes, "Tagline"))
+
+def extract_feed_description(notes):
+    feed_desc = collapse_ws(extract_section(notes, "Feed Description"))
+    if feed_desc:
+        return feed_desc
+
+    tagline = extract_tagline(notes)
+    if tagline:
+        return tagline
+
+    intro = re.search(r"```md\s*\n.*?\n\n(.+?)(?=\n\n\[|\n```)", notes, re.DOTALL)
+    if intro:
+        return collapse_ws(intro.group(1))
+
+    return ""
+
 # ── Minimax translation ───────────────────────────────────────────────────────
 
 def gemini_call(prompt, max_tokens=4000, retries=3):
@@ -138,14 +168,9 @@ def translate_metadata(ep_num, lang):
     notes = show_notes_path.read_text()
 
     # Extract title, tagline, description from show notes
-    title_m = re.search(r"^## Episode Title\s*\n\*\*(.+?)\*\*", notes, re.MULTILINE)
-    tag_m   = re.search(r"^## Tagline\s*\n(.+?)(?=\n\n|\n##)", notes, re.MULTILINE | re.DOTALL)
-    # Description: intro paragraph from Show Notes block
-    block_m = re.search(r"```md\s*\n.*?\n\n(.+?)(?=\n\n##)", notes, re.DOTALL)
-
-    en_title    = title_m.group(1).strip() if title_m else f"Episode {ep_num}"
-    en_tagline  = tag_m.group(1).strip()   if tag_m  else ""
-    en_desc     = block_m.group(1).strip() if block_m else en_tagline
+    en_title = extract_episode_title(notes, ep_num)
+    en_tagline = extract_tagline(notes)
+    en_desc = extract_feed_description(notes) or en_tagline or en_title
 
     # Cover text - extract from cover script if it exists, else derive from title
     cover_script = SCRIPTS_DIR / f"generate_episode_{ep_num:03d}_cover.py"
@@ -693,14 +718,11 @@ def phase_feeds(ep_num, state, pub_date):
 
     # Extract EN title from show notes
     notes = (PODCAST_DIR / f"show_notes_episode_{ep_str}.md").read_text()
-    title_m = re.search(r"^## Episode Title\s*\n\*\*(.+?)\*\*", notes, re.MULTILINE)
-    en_episode_title = title_m.group(1).strip() if title_m else f"Episode {ep_num}"
+    en_episode_title = extract_episode_title(notes, ep_num)
     en_title = f"Episode {ep_num}: {en_episode_title}"
 
-    # Extract EN description from show notes block
-    block_m = re.search(r"```md\s*\n.*?\n\n(.+?)(?=\n\n##)", notes, re.DOTALL)
-    en_desc = block_m.group(1).strip() if block_m else en_episode_title
-    en_desc += f"\n\nShow notes: {en_link}"
+    # Extract EN description from episode metadata
+    en_desc = extract_feed_description(notes) or en_episode_title
 
     en_size = state.get("audio_size")
     if not en_size:
@@ -741,8 +763,6 @@ def phase_feeds(ep_num, state, pub_date):
         lang_title = meta.get("title", f"{prefix} {ep_num}: {en_episode_title}")
         lang_desc_base = meta.get("description", en_desc)
         lang_link = LANG_LINKS[lang].format(ep=ep_num)
-        lang_cta = SHOW_NOTES_CTA.get(lang, "Show notes:")
-        lang_desc = f"{lang_desc_base}\n\n{lang_cta} {lang_link}"
 
         lang_audio_url = f"{CDN_BASE}/audio/episode_{ep_str}_{lang}.mp3"
         lang_cover_url = f"{CDN_BASE}/episode_{ep_str}_cover_{lang}.png"
@@ -765,7 +785,7 @@ def phase_feeds(ep_num, state, pub_date):
             str(feed_path),
             "--episode", str(ep_num),
             "--title", lang_title,
-            "--description", lang_desc,
+            "--description", lang_desc_base,
             "--pub-date", pub_date,
             "--audio-url", lang_audio_url,
             "--cover-url", lang_cover_url,

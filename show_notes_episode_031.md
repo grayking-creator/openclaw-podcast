@@ -7,6 +7,9 @@
 ## Tagline
 OpenClaw 2026.4.14 tightens GPT-5.4 support and channel safety, Chrome turns prompts into reusable one-click tools, DeepMind pushes robot reasoning forward, NVIDIA opens its quantum AI stack, IBM says cyber defense has to go autonomous, and Meta doubles down on custom silicon with Broadcom.
 
+## Feed Description
+OpenClaw v2026.4.14 tightens GPT-5.4 compatibility, channel safety, and runtime hardening. The rest of the episode tracks Chrome Skills, DeepMind's robot reasoning push, NVIDIA's open quantum AI models, IBM's autonomous cyber-defense play, and Meta's bigger silicon bet with Broadcom.
+
 ## Story Slate
 
 1. **OpenClaw v2026.4.14 — GPT-5.4 Forward-Compat, Channel Fixes, and Safer Runtime Edges**  
