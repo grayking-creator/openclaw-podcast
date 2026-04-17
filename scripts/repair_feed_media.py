@@ -150,7 +150,7 @@ def preferred_relative_path(current_url: str, local_path: Path, lang: str) -> st
 
 
 def preferred_public_url(rel_path: str, lang: str) -> str:
-    if lang == "hi" or rel_path in RAW_ONLY_RELATIVE_PATHS:
+    if lang != "en" or rel_path in RAW_ONLY_RELATIVE_PATHS:
         return f"{OP3_PREFIX}{RAW_AUDIO_BASE}{rel_path}"
     return f"{OP3_PREFIX}{PAGES_AUDIO_BASE}{rel_path}"
 
