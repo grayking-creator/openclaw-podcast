@@ -49,6 +49,7 @@ LANG_REPOS = {
     "pt": "clawdassistant85-netizen/openclaw-podcast-media-pt",
     "hi": "clawdassistant85-netizen/openclaw-podcast-media-hi",
 }
+TRANSLATED_AUDIO_PROXY_BASE = "https://openclaw-audio-proxy.tobypeters.workers.dev"
 
 FEED_PATHS = {
     "en": PODCAST_DIR / "feed.xml",
@@ -141,6 +142,13 @@ def release_asset_url(repo: str, tag: str, asset_name: str) -> str:
 
 def op3_wrap(url: str) -> str:
     return f"https://op3.dev/e/{url}"
+
+
+def translated_audio_proxy_direct_url(lang: str, episode: int) -> str:
+    return (
+        f"{TRANSLATED_AUDIO_PROXY_BASE}/audio/{lang}/"
+        f"episode_{episode:03d}.mp3"
+    )
 
 
 def unwrap_op3(url: str) -> str:
@@ -422,12 +430,18 @@ def rewrite_feed(inventory: FeedInventory) -> None:
 
         enclosure = item.find("enclosure")
         if enclosure is not None:
-            enclosure.set("url", op3_wrap(audio_direct))
+            if inventory.lang in TRANSLATED_LANGS:
+                enclosure.set(
+                    "url",
+                    op3_wrap(translated_audio_proxy_direct_url(inventory.lang, episode.episode)),
+                )
+            else:
+                enclosure.set("url", op3_wrap(audio_direct))
 
         guid = item.find("guid")
         if guid is None:
             guid = ET.SubElement(item, "guid", {"isPermaLink": "false"})
-        guid.text = audio_direct
+            guid.text = audio_direct
         guid.set("isPermaLink", "false")
 
         cover = item.find(f"{{{ITUNES_NS}}}image")

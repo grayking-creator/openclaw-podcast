@@ -49,7 +49,7 @@ def check_duplicate(content, episode_number):
 def build_item_block(args):
     """Build the XML <item> block for the new episode."""
     show_notes_line = f"\n\nShow notes: {args.link}" if args.link else ""
-    guid = args.audio_url  # Use raw audio URL as guid (no op3 prefix)
+    guid = args.guid or args.audio_url  # Keep guid stable when enclosure host changes
     enclosure_url = f"https://op3.dev/e/{args.audio_url}"
     length = args.length
 
@@ -77,6 +77,7 @@ def main():
     parser.add_argument("--description", required=True, help="Episode description")
     parser.add_argument("--pub-date", required=True, help="RFC 2822 publish date")
     parser.add_argument("--audio-url", required=True, help="Direct audio URL (no op3 prefix)")
+    parser.add_argument("--guid", help="Optional stable guid URL (no op3 prefix)")
     parser.add_argument("--cover-url", required=True, help="Cover art URL")
     parser.add_argument("--duration", required=True, help="Episode duration (MM:SS or HH:MM:SS)")
     parser.add_argument("--link", required=True, help="Episode show notes URL")

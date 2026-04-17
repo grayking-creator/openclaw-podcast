@@ -43,6 +43,7 @@ FEEDS = {
 
 ITUNES_NS = {"itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd"}
 OP3_PREFIX = "https://op3.dev/e/"
+TRANSLATED_AUDIO_PROXY_BASE = "https://openclaw-audio-proxy.tobypeters.workers.dev"
 PAGES_AUDIO_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/"
 RAW_AUDIO_BASE = (
     "https://raw.githubusercontent.com/"
@@ -150,6 +151,13 @@ def preferred_relative_path(current_url: str, local_path: Path, lang: str) -> st
 
 
 def preferred_public_url(rel_path: str, lang: str) -> str:
+    if lang in {"es", "de", "pt", "hi"}:
+        match = re.search(r"episode_(\d{3})", rel_path)
+        if match:
+            return (
+                f"{OP3_PREFIX}{TRANSLATED_AUDIO_PROXY_BASE}/audio/{lang}/"
+                f"episode_{match.group(1)}.mp3"
+            )
     if lang != "en" or rel_path in RAW_ONLY_RELATIVE_PATHS:
         return f"{OP3_PREFIX}{RAW_AUDIO_BASE}{rel_path}"
     return f"{OP3_PREFIX}{PAGES_AUDIO_BASE}{rel_path}"

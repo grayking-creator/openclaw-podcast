@@ -238,13 +238,53 @@ def extract_feed_description(notes):
 
     return ""
 
+def strip_title_prefix(title):
+    if ": " in title:
+        return title.split(": ", 1)[1].strip()
+    return title.strip()
+
+def fallback_cover_lines(title):
+    words = strip_title_prefix(title).split()
+    if not words:
+        return "", ""
+    if len(words) <= 4:
+        return " ".join(words).upper(), ""
+
+    split_at = max(2, min(4, len(words) // 2))
+    line1 = " ".join(words[:split_at]).upper()
+    line2 = " ".join(words[split_at:]).upper()
+    return line1, line2
+
+def normalize_translated_metadata(meta, ep_num, prefix, fallback_title, fallback_tagline):
+    normalized = dict(meta or {})
+    title = collapse_ws(normalized.get("title", "")) or f"{prefix} {ep_num}: {fallback_title}"
+    normalized["title"] = title
+    normalized["description"] = collapse_ws(normalized.get("description", "")) or fallback_tagline or fallback_title
+
+    line1 = collapse_ws(normalized.get("cover_line1", "")).upper()
+    line2 = collapse_ws(normalized.get("cover_line2", "")).upper()
+    if not line1:
+        line1, fallback_line2 = fallback_cover_lines(title)
+        if not line2:
+            line2 = fallback_line2
+    normalized["cover_line1"] = line1
+    normalized["cover_line2"] = line2
+
+    tagline = collapse_ws(normalized.get("cover_tagline", ""))
+    normalized["cover_tagline"] = tagline or strip_title_prefix(title)
+    return normalized
+
 # ── Minimax translation ───────────────────────────────────────────────────────
 
 def gemini_call(prompt, max_tokens=4000, retries=3):
     """Call Minimax M2.7, strip <think> blocks, return clean text. Retries on empty output."""
     import openai
     key = load_env_key("MINIMAX_API_KEY")
-    client = openai.OpenAI(base_url="https://api.minimaxi.chat/v1", api_key=key)
+    client = openai.OpenAI(
+        base_url="https://api.minimaxi.chat/v1",
+        api_key=key,
+        timeout=180.0,
+    )
     last_err = None
     for attempt in range(1, retries + 1):
         try:
@@ -318,7 +358,125 @@ Return JSON with these exact keys:
     json_m = re.search(r'\{[\s\S]*\}', raw)
     if not json_m:
         raise ValueError(f"No JSON in metadata translation for {lang}: {raw[:200]}")
-    return json.loads(json_m.group(0))
+    return normalize_translated_metadata(
+        json.loads(json_m.group(0)),
+        ep_num,
+        prefix,
+        en_title,
+        en_tagline or en_desc,
+    )
+
+TRANSCRIPT_SPEAKER_RE = re.compile(r"^\[(NOVA|ALLOY)\]:\s*(.+)$", re.DOTALL)
+TRANSCRIPT_LEAK_RE = re.compile(
+    r"(speaker tags exactly|do not translate|let me re-read|i(?:'|’)ll continue|"
+    r"i recognize the linguistic complexity|the current technological landscape|"
+    r"translate the following|output only the translated|keep \[nova\]|keep \[alloy\])",
+    re.IGNORECASE,
+)
+UNEXPECTED_SCRIPT_RE = {
+    "es": re.compile(r"[\u0400-\u04FF]"),
+    "de": re.compile(r"[\u0400-\u04FF]"),
+    "pt": re.compile(r"[\u0400-\u04FF]"),
+}
+
+def transcript_paragraphs(text):
+    return [p.strip() for p in text.split("\n\n") if p.strip()]
+
+def validate_language_scripts(text, lang, label):
+    pattern = UNEXPECTED_SCRIPT_RE.get(lang)
+    if not pattern:
+        return
+    if pattern.search(text):
+        raise ValueError(f"{label} contains unexpected script content for {lang.upper()}")
+
+def validate_transcript_chunk(chunk_paragraphs, translated_text):
+    expected_speakers = []
+    for paragraph in chunk_paragraphs:
+        match = TRANSCRIPT_SPEAKER_RE.match(paragraph)
+        if not match:
+            raise ValueError(f"Transcript paragraph missing speaker tag: {paragraph[:80]}")
+        expected_speakers.append(match.group(1))
+
+    translated_paragraphs = transcript_paragraphs(translated_text)
+    if len(translated_paragraphs) != len(chunk_paragraphs):
+        raise ValueError(
+            f"Translated paragraph count mismatch: expected {len(chunk_paragraphs)}, got {len(translated_paragraphs)}"
+        )
+
+    cleaned = []
+    for idx, (expected_speaker, paragraph) in enumerate(zip(expected_speakers, translated_paragraphs), start=1):
+        match = TRANSCRIPT_SPEAKER_RE.match(paragraph)
+        if not match:
+            raise ValueError(f"Translated paragraph {idx} missing speaker tag: {paragraph[:120]}")
+        speaker, body = match.groups()
+        body = collapse_ws(body)
+        if speaker != expected_speaker:
+            raise ValueError(
+                f"Translated paragraph {idx} speaker mismatch: expected [{expected_speaker}], got [{speaker}]"
+            )
+        if not body:
+            raise ValueError(f"Translated paragraph {idx} is empty")
+        if TRANSCRIPT_LEAK_RE.search(body):
+            raise ValueError(f"Translated paragraph {idx} contains prompt leakage: {body[:160]}")
+        cleaned.append(f"[{speaker}]: {body}")
+    return "\n\n".join(cleaned)
+
+def translate_transcript_paragraph(paragraph, lang_name):
+    match = TRANSCRIPT_SPEAKER_RE.match(paragraph)
+    if not match:
+        raise ValueError(f"Transcript paragraph missing speaker tag: {paragraph[:80]}")
+    speaker, body = match.groups()
+    body = body.strip()
+    if body == "...":
+        return f"[{speaker}]: ..."
+
+    prompt = (
+        f"Translate this single podcast transcript paragraph from English to {lang_name}.\n"
+        "Return ONLY the translated spoken content with no speaker tag, no commentary, and no quotation marks.\n"
+        "Keep product names unchanged: OpenClaw, Cursor, OpenSearch, KernelEvolve, Anthropic, Claude, Roblox, Salesforce, Adobe.\n\n"
+        f"English paragraph:\n{body}"
+    )
+
+    for attempt in range(1, 4):
+        translated = collapse_ws(gemini_call(prompt, max_tokens=1200))
+        if not translated:
+            continue
+        if TRANSCRIPT_LEAK_RE.search(translated):
+            log(f"      ⚠️  Paragraph fallback leaked prompt text (attempt {attempt}/3)", indent=3)
+            continue
+        if translated.startswith("[") and "]:" in translated:
+            translated = translated.split("]:", 1)[1].strip()
+        translated = translated.strip("\"' ")
+        if translated:
+            return f"[{speaker}]: {translated}"
+    raise RuntimeError(f"Failed to translate transcript paragraph cleanly for {lang_name}")
+
+def translate_transcript_chunk(chunk_paragraphs, lang_name):
+    chunk_text = "\n\n".join(chunk_paragraphs)
+    prompt = (
+        f"Translate this podcast transcript chunk from English to {lang_name}.\n"
+        "Rules:\n"
+        "- Preserve the exact number of paragraphs and the exact paragraph order\n"
+        "- Preserve the speaker tag at the start of every paragraph exactly as [NOVA]: or [ALLOY]:\n"
+        "- Keep product names unchanged: OpenClaw, Cursor, OpenSearch, KernelEvolve, Anthropic, Claude, Roblox, Salesforce, Adobe\n"
+        "- Translate all spoken content naturally for a conversational podcast\n"
+        "- Output ONLY the translated transcript chunk and nothing else\n\n"
+        "Transcript chunk:\n\n"
+        f"{chunk_text}"
+    )
+
+    last_error = None
+    for attempt in range(1, 3):
+        raw = gemini_call(prompt, max_tokens=10000)
+        try:
+            return validate_transcript_chunk(chunk_paragraphs, raw)
+        except Exception as exc:
+            last_error = exc
+            log(f"      ⚠️  Chunk validation failed (attempt {attempt}/2): {exc}", indent=3)
+
+    log("      ↳ Falling back to paragraph-by-paragraph transcript translation", indent=3)
+    translated = [translate_transcript_paragraph(paragraph, lang_name) for paragraph in chunk_paragraphs]
+    return "\n\n".join(translated)
 
 def translate_text_chunked(text, lang, chunk_type="transcript"):
     """Translate long text (transcript/show notes) in chunks via Minimax."""
@@ -341,17 +499,23 @@ def translate_text_chunked(text, lang, chunk_type="transcript"):
             "- Output ONLY the translated content, no commentary\n"
         ).format(lang_name=lang_name)
 
-    # Split into chunks of ~60 paragraphs
-    paragraphs = [p for p in text.split("\n\n") if p.strip()]
+    # Split into chunks; Hindi needs smaller transcript batches to avoid count drift.
+    paragraphs = transcript_paragraphs(text)
     chunk_size = 60
+    if chunk_type == "transcript" and lang == "hi":
+        chunk_size = 20
     chunks = [paragraphs[i:i+chunk_size] for i in range(0, len(paragraphs), chunk_size)]
 
     translated_chunks = []
     for i, chunk in enumerate(chunks):
-        chunk_text = "\n\n".join(chunk)
-        prompt = f"{system_note}\n\nTranslate the following:\n\n{chunk_text}"
         log(f"    Translating chunk {i+1}/{len(chunks)} ({len(chunk)} paragraphs)...", indent=2)
-        result = gemini_call(prompt, max_tokens=10000)
+        if chunk_type == "transcript":
+            result = translate_transcript_chunk(chunk, lang_name)
+        else:
+            chunk_text = "\n\n".join(chunk)
+            prompt = f"{system_note}\n\nTranslate the following:\n\n{chunk_text}"
+            result = gemini_call(prompt, max_tokens=10000)
+        validate_language_scripts(result, lang, f"{chunk_type} chunk {i+1}/{len(chunks)}")
         translated_chunks.append(result)
         if i < len(chunks) - 1:
             time.sleep(1)  # polite pause between chunks
@@ -641,12 +805,18 @@ def translated_release_audio_name(ep_num):
 def translated_release_cover_name(ep_num):
     return f"episode_{ep_num:03d}_cover.png"
 
-def translated_audio_direct_url(ep_num, lang):
+def translated_audio_release_direct_url(ep_num, lang):
     return media_releases.release_asset_url(
         translated_release_repo(lang),
         translated_release_tag(ep_num),
         translated_release_audio_name(ep_num),
     )
+
+def translated_audio_direct_url(ep_num, lang):
+    return media_releases.translated_audio_proxy_direct_url(lang, ep_num)
+
+def translated_audio_guid_url(ep_num, lang):
+    return translated_audio_release_direct_url(ep_num, lang)
 
 def translated_audio_url(ep_num, lang):
     return media_releases.op3_wrap(translated_audio_direct_url(ep_num, lang))
@@ -766,37 +936,50 @@ def phase_translate(ep_num, state):
     translations = state.get("translations", {})
 
     for lang in LANGS:
-        if lang in translations and translations[lang].get("done"):
+        lang_dir = PODCAST_DIR / "translations" / lang
+        lang_dir.mkdir(parents=True, exist_ok=True)
+        transcript_out = lang_dir / f"episode_{ep_str}_{lang}.md"
+        notes_out = lang_dir / f"show_notes_episode_{ep_str}_{lang}.md"
+        lang_state = translations.setdefault(lang, {})
+
+        if lang_state.get("done"):
             log(f"  ⏭  {lang.upper()} already translated, skipping")
             continue
 
+        if transcript_out.exists() and notes_out.exists():
+            log(f"  ⏭  {lang.upper()} translated files already exist, reusing", indent=1)
+            if not lang_state.get("meta"):
+                log(f"     Metadata...", indent=1)
+                lang_state["meta"] = translate_metadata(ep_num, lang)
+                log(f"     Title: {lang_state['meta'].get('title', '?')}", indent=1)
+            lang_state["done"] = True
+            state["translations"] = translations
+            save_state(ep_num, state)
+            continue
+
         log(f"  → {lang.upper()} ({LANG_NAMES[lang]})...")
-        lang_dir = PODCAST_DIR / "translations" / lang
-        lang_dir.mkdir(parents=True, exist_ok=True)
 
         # 1. Metadata
         log(f"     Metadata...", indent=1)
         meta = translate_metadata(ep_num, lang)
-        translations.setdefault(lang, {})
-        translations[lang]["meta"] = meta
+        lang_state["meta"] = meta
         log(f"     Title: {meta.get('title', '?')}", indent=1)
 
         # 2. Transcript
         log(f"     Transcript...", indent=1)
         translated_transcript = translate_text_chunked(transcript_text, lang, "transcript")
-        transcript_out = lang_dir / f"episode_{ep_str}_{lang}.md"
         transcript_out.write_text(translated_transcript)
         log(f"     ✅ Saved: {transcript_out.name}", indent=1)
 
         # 3. Show notes
         log(f"     Show notes...", indent=1)
         translated_notes = translate_text_chunked(show_notes_block, lang, "show_notes")
-        notes_out = lang_dir / f"show_notes_episode_{ep_str}_{lang}.md"
         notes_out.write_text(translated_notes)
         log(f"     ✅ Saved: {notes_out.name}", indent=1)
 
-        translations[lang]["done"] = True
+        lang_state["done"] = True
         state["translations"] = translations
+        save_state(ep_num, state)
 
     return state
 
@@ -836,6 +1019,9 @@ def phase_covers(ep_num, state):
     log("[ COVERS ] Generating translated cover art...")
     ep_str = f"{ep_num:03d}"
     translations = state.get("translations", {})
+    en_notes = (PODCAST_DIR / f"show_notes_episode_{ep_str}.md").read_text()
+    en_episode_title = extract_episode_title(en_notes, ep_num)
+    en_tagline = extract_tagline(en_notes) or extract_feed_description(en_notes)
 
     # Auto-generate bespoke middle art module if not already present
     art_mod_path = SCRIPTS_DIR / "episode_art" / f"episode_{ep_str}_art.py"
@@ -877,8 +1063,15 @@ def phase_covers(ep_num, state):
             if not meta:
                 log(f"  ℹ️  No cached metadata for {lang} — fetching via Minimax...", indent=1)
                 meta = translate_metadata(ep_num, lang)
-                translations.setdefault(lang, {})["meta"] = meta
-                state["translations"] = translations
+            meta = normalize_translated_metadata(
+                meta,
+                ep_num,
+                TITLE_PREFIXES[lang],
+                en_episode_title,
+                en_tagline,
+            )
+            translations.setdefault(lang, {})["meta"] = meta
+            state["translations"] = translations
             log(f"  → Generating {lang.upper()} cover...")
             generate_translated_cover(ep_num, lang, meta)
             log(f"  ✅ {out_path.name}")
@@ -971,7 +1164,7 @@ def phase_translated_feeds(ep_num, state, pub_date):
         lang_desc_base = meta.get("description", en_meta["description"])
         lang_link = LANG_LINKS[lang].format(ep=ep_num)
 
-        lang_audio_url = translated_audio_url(ep_num, lang)
+        lang_audio_url = translated_audio_direct_url(ep_num, lang)
         lang_cover_url = translated_cover_url(ep_num, lang)
 
         lang_size = lang_audio.stat().st_size
@@ -992,6 +1185,7 @@ def phase_translated_feeds(ep_num, state, pub_date):
             "--description", lang_desc_base,
             "--pub-date", pub_date,
             "--audio-url", lang_audio_url,
+            "--guid", translated_audio_guid_url(ep_num, lang),
             "--cover-url", lang_cover_url,
             "--duration", lang_duration,
             "--link", lang_link,

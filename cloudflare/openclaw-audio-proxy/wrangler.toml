@@ -1,0 +1,5 @@
+name = "openclaw-audio-proxy"
+main = "src/index.js"
+compatibility_date = "2026-04-17"
+account_id = "5b72ce28d5ef6f25f20b6a7426e2f6c0"
+workers_dev = true
