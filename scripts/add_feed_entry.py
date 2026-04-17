@@ -12,7 +12,7 @@ Usage:
     --cover-url "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/episode_024_cover.png" \\
     --duration "38:00" \\
     --link "https://tobyonfitnesstech.com/podcasts/episode-24/" \\
-    [--length 31000000]
+    --length 31682185
 
 This script:
   - Validates the feed XML before and after modification
@@ -51,7 +51,7 @@ def build_item_block(args):
     show_notes_line = f"\n\nShow notes: {args.link}" if args.link else ""
     guid = args.audio_url  # Use raw audio URL as guid (no op3 prefix)
     enclosure_url = f"https://op3.dev/e/{args.audio_url}"
-    length = args.length or "31000000"
+    length = args.length
 
     return f"""    <!-- Episode {args.episode} -->
     <item>
@@ -80,7 +80,7 @@ def main():
     parser.add_argument("--cover-url", required=True, help="Cover art URL")
     parser.add_argument("--duration", required=True, help="Episode duration (MM:SS or HH:MM:SS)")
     parser.add_argument("--link", required=True, help="Episode show notes URL")
-    parser.add_argument("--length", help="Audio file size in bytes (default: 31000000)")
+    parser.add_argument("--length", required=True, help="Audio file size in bytes")
     parser.add_argument("--dry-run", action="store_true", help="Print result without writing")
 
     args = parser.parse_args()

@@ -702,7 +702,9 @@ def phase_feeds(ep_num, state, pub_date):
     en_desc = block_m.group(1).strip() if block_m else en_episode_title
     en_desc += f"\n\nShow notes: {en_link}"
 
-    en_size = state.get("audio_size", 30000000)
+    en_size = state.get("audio_size")
+    if not en_size:
+        raise RuntimeError("Missing audio_size in pipeline state; refusing to emit a placeholder enclosure length")
 
     en_feed = PODCAST_DIR / "feed.xml"
     # Check if already in feed
@@ -812,21 +814,15 @@ def phase_cdn(ep_num, state):
 
 
     # Copy translated audio
-    cdn_trans_base = CDN_DIR / "translations"
     for lang in LANGS:
         lang_src = PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
-        # Primary: CDN/audio/episode_025_es.mp3 (checked by upload script)
+        # Canonical publish path for translated audio. Older episodes may still
+        # exist under CDN/translations/{lang}/ for feed backward compatibility,
+        # but new releases should not duplicate the same MP3 into both places.
         lang_dst_audio = CDN_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
         if lang_src.exists() and not lang_dst_audio.exists():
             shutil.copy2(str(lang_src), str(lang_dst_audio))
             log(f"  ✅ {lang.upper()} audio → CDN/audio/")
-
-        # Also put in CDN/translations/{lang}/
-        trans_dir = cdn_trans_base / lang
-        trans_dir.mkdir(parents=True, exist_ok=True)
-        lang_dst_trans = trans_dir / f"episode_{ep_str}_{lang}.mp3"
-        if lang_src.exists() and not lang_dst_trans.exists():
-            shutil.copy2(str(lang_src), str(lang_dst_trans))
 
     # Git commit + push CDN repo
     log(f"  Pushing CDN repo...")
