@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -154,6 +155,30 @@ def preferred_public_url(rel_path: str, lang: str) -> str:
     return f"{OP3_PREFIX}{PAGES_AUDIO_BASE}{rel_path}"
 
 
+def repo_blob_size_or_worktree(local_path: Path) -> int:
+    if not local_path.is_relative_to(AUDIO_REPO_DIR):
+        return local_path.stat().st_size
+
+    rel = local_path.relative_to(AUDIO_REPO_DIR).as_posix()
+    diff = subprocess.run(
+        ["git", "-C", str(AUDIO_REPO_DIR), "diff", "--quiet", "--", rel],
+        check=False,
+    )
+    if diff.returncode == 0:
+        return local_path.stat().st_size
+
+    head_size = subprocess.run(
+        ["git", "-C", str(AUDIO_REPO_DIR), "cat-file", "-s", f"HEAD:{rel}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if head_size.returncode == 0 and head_size.stdout.strip().isdigit():
+        return int(head_size.stdout.strip())
+
+    return local_path.stat().st_size
+
+
 def update_item_block(block: str, new_url: str, new_length: int) -> str:
     def repl(match: re.Match[str]) -> str:
         return f'{match.group(1)}{new_url}{match.group(2)}{new_length}{match.group(3)}'
@@ -196,7 +221,7 @@ def repair_feed(feed_key: str, dry_run: bool = False) -> int:
             continue
 
         new_url = preferred_public_url(rel_path, feed_key)
-        new_length = local_path.stat().st_size
+        new_length = repo_blob_size_or_worktree(local_path)
         if current_url == new_url and current_length == str(new_length):
             continue
 
