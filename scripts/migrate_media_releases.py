@@ -7,7 +7,8 @@ Features:
 - Initializes empty media repos with a README on `main`
 - Uploads show art plus all media referenced by the current feed files
 - Rewrites a single feed file to GitHub release asset URLs
-- Removes only one language's legacy audio files from the old audio repo
+- Removes legacy translated audio files from the old audio repo for one
+  translated language or all translated languages
 
 This script is designed to be idempotent. Re-running it will clobber existing
 release assets with the canonical local files.
@@ -36,6 +37,10 @@ PODCAST_DIR = WORKSPACE / "openclaw-podcast"
 LEGACY_AUDIO_DIR = WORKSPACE / "openclaw-podcast-audio"
 ITUNES_NS = "http://www.itunes.com/dtds/podcast-1.0.dtd"
 DOWNLOAD_CACHE_DIR = Path(tempfile.mkdtemp(prefix="openclaw-media-cache-"))
+ALL_LANGS = ("en", "es", "de", "pt", "hi")
+TRANSLATED_LANGS = ("es", "de", "pt", "hi")
+REMOVE_LEGACY_AUDIO_ALL = "all-translated"
+REMOVE_LEGACY_AUDIO_CHOICES = (*TRANSLATED_LANGS, REMOVE_LEGACY_AUDIO_ALL)
 
 LANG_REPOS = {
     "en": "clawdassistant85-netizen/openclaw-podcast-media-en",
@@ -434,25 +439,34 @@ def rewrite_feed(inventory: FeedInventory) -> None:
     tree.write(inventory.feed_path, encoding="utf-8", xml_declaration=True)
 
 
-def hi_legacy_audio_paths(feed_inventory: FeedInventory) -> list[Path]:
+def legacy_translated_audio_paths(lang: str) -> list[Path]:
+    if lang not in TRANSLATED_LANGS:
+        supported = ", ".join(TRANSLATED_LANGS)
+        raise RuntimeError(f"Legacy translated audio removal only supports: {supported}")
+
     paths: set[Path] = set()
-    for episode in feed_inventory.episodes:
-        paths.add(LEGACY_AUDIO_DIR / "audio" / f"episode_{episode.episode:03d}_hi.mp3")
-        paths.add(LEGACY_AUDIO_DIR / "translations" / "hi" / f"episode_{episode.episode:03d}_hi.mp3")
+    candidates = (
+        (LEGACY_AUDIO_DIR / "translations" / lang, f"episode_*_{lang}.mp3"),
+        (LEGACY_AUDIO_DIR / "audio", f"episode_*_{lang}.mp3"),
+    )
+    for directory, pattern in candidates:
+        if not directory.exists():
+            continue
+        paths.update(directory.glob(pattern))
+    return sorted(paths)
 
-    existing = []
-    for path in sorted(paths):
-        if path.exists():
-            existing.append(path)
-    return existing
+
+def remove_legacy_audio_paths(selection: str) -> list[Path]:
+    target_langs = TRANSLATED_LANGS if selection == REMOVE_LEGACY_AUDIO_ALL else (selection,)
+    paths: set[Path] = set()
+    for lang in target_langs:
+        paths.update(legacy_translated_audio_paths(lang))
+    return sorted(paths)
 
 
-def remove_legacy_audio(lang: str, feed_inventory: FeedInventory) -> list[Path]:
-    if lang != "hi":
-        raise RuntimeError("This migration flow only supports legacy removal for Hindi right now.")
-
+def remove_legacy_audio(selection: str) -> list[Path]:
     removed: list[Path] = []
-    for path in hi_legacy_audio_paths(feed_inventory):
+    for path in remove_legacy_audio_paths(selection):
         path.unlink()
         removed.append(path)
     return removed
@@ -467,23 +481,25 @@ def main() -> None:
     )
     parser.add_argument(
         "--rewrite-feed",
-        choices=["en", "es", "de", "pt", "hi"],
+        choices=ALL_LANGS,
         help="Rewrite one feed to release asset URLs.",
     )
     parser.add_argument(
         "--remove-legacy-audio",
-        choices=["hi"],
-        help="Remove only one language's legacy audio from the old audio repo.",
+        choices=REMOVE_LEGACY_AUDIO_CHOICES,
+        help="Remove legacy translated audio from the old audio repo for one language or all translated languages.",
     )
     args = parser.parse_args()
 
     if not (args.upload_all or args.rewrite_feed or args.remove_legacy_audio):
         parser.error("Choose at least one action.")
 
-    inventories = {lang: parse_feed_inventory(lang) for lang in LANG_REPOS}
+    inventories: dict[str, FeedInventory] = {}
+    if args.upload_all or args.rewrite_feed:
+        inventories = {lang: parse_feed_inventory(lang) for lang in ALL_LANGS}
 
     if args.upload_all:
-        for lang in ["en", "es", "de", "pt", "hi"]:
+        for lang in ALL_LANGS:
             upload_inventory(inventories[lang])
 
     if args.rewrite_feed:
@@ -491,7 +507,7 @@ def main() -> None:
         log(f"Rewrote {args.rewrite_feed.upper()} feed at {inventories[args.rewrite_feed].feed_path}")
 
     if args.remove_legacy_audio:
-        removed = remove_legacy_audio(args.remove_legacy_audio, inventories[args.remove_legacy_audio])
+        removed = remove_legacy_audio(args.remove_legacy_audio)
         for path in removed:
             log(f"Removed legacy audio: {path}")
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 OpenClaw Daily — Episode Release Pipeline
-From: approved EN audio (audio/episode_XXX_en.mp3) + EN thumbnail (images/episode_XXX_cover.png)
-To:   all 5 channels uploaded, feeds updated, CDN synced, website deployed.
+From: approved EN audio + cover from the pre-approval build flow
+To:   EN feed/site published immediately after approval, translations generated and
+      published after translated audio exists, and the EN video lane started early.
 
 Uses Minimax M2.7 API for all translations.
 
@@ -12,9 +13,21 @@ Usage:
   /opt/homebrew/bin/python3.14 scripts/release_episode.py 25 --pub-date "Mon, 07 Apr 2026 18:00:00 +0000"
 """
 
-import os, sys, json, re, shutil, subprocess, asyncio, math, argparse, time
+import argparse
+import asyncio
+import json
+import math
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+
+import migrate_media_releases as media_releases
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
@@ -45,7 +58,53 @@ LANG_LINKS = {
 }
 CDN_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio"
 
-ALL_PHASES = ["setup", "translate", "tts", "covers", "feeds", "qc", "youtube", "cdn", "publish", "discord"]
+SERIAL_PHASES = [
+    "setup",
+    "en-feed",
+    "en-publish",
+    "en-video",
+    "translate",
+    "tts",
+    "covers",
+    "translated-cdn",
+    "translated-feeds",
+    "qc",
+    "publish-translations",
+    "youtube",
+    "discord",
+]
+PHASE_ALIASES = {
+    "feeds": "en-feed",
+    "cdn": "translated-cdn",
+    "publish": "publish-translations",
+    "video": "en-video",
+}
+FULL_RELEASE_ORDER = [
+    "setup",
+    "en-feed",
+    "en-publish",
+    "en-video",
+    "translate",
+    "tts",
+    "covers",
+    "translated-cdn",
+    "translated-feeds",
+    "qc",
+    "publish-translations",
+    "youtube",
+    "discord",
+]
+TRANSLATION_LANE_ORDER = [
+    "translate",
+    "tts",
+    "covers",
+    "translated-cdn",
+    "translated-feeds",
+    "qc",
+    "publish-translations",
+]
+LEGACY_ONLY_PHASES = {"feeds", "cdn", "publish"}
+CLI_PHASE_CHOICES = SERIAL_PHASES + ["feeds", "cdn", "publish", "video"]
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,8 +135,8 @@ def build_log(msg, ep_num=None):
     except Exception:
         pass  # never block the pipeline over a log post
 
-def run(cmd, cwd=None, check=True):
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+def run(cmd, cwd=None, check=True, env=None):
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
     if check and result.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(str(c) for c in cmd)}\n{result.stderr}")
     return result
@@ -99,6 +158,55 @@ def load_env_key(name):
         if line.startswith(f"{name}="):
             return line.split("=", 1)[1].strip()
     return os.environ.get(name, "")
+
+def normalize_phase_name(name):
+    phase = (name or "").strip().lower()
+    return PHASE_ALIASES.get(phase, phase)
+
+def phase_completed(state, phase):
+    return phase in set(state.get("completed_phases", []))
+
+def mark_phase_complete(ep_num, state, phase):
+    completed = state.setdefault("completed_phases", [])
+    if phase not in completed:
+        completed.append(phase)
+    save_state(ep_num, state)
+
+def git_add_paths(repo_dir, paths):
+    ordered = []
+    seen = set()
+    for path in paths:
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        ordered.append(path)
+    if ordered:
+        run(["git", "add", "--"] + ordered, cwd=str(repo_dir))
+
+def ensure_website_cover(ep_num, lang=None):
+    ep_str = f"{ep_num:03d}"
+    if lang:
+        src = PODCAST_DIR / "images" / f"episode_{ep_str}_cover_{lang}.png"
+        dst = WEBSITE_PODCAST_IMG / f"episode_{ep_str}_cover_{lang}.png"
+    else:
+        src = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
+        dst = WEBSITE_PODCAST_IMG / f"episode_{ep_str}_cover.png"
+    if src.exists():
+        WEBSITE_PODCAST_IMG.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(src), str(dst))
+    return dst
+
+def git_commit_if_needed(repo_dir, message, env=None, extra_paths=None, allow_empty=False):
+    git_add_paths(repo_dir, list(extra_paths or []))
+    diff = run(["git", "diff", "--cached", "--quiet"], cwd=str(repo_dir), check=False)
+    if diff.returncode == 0 and not allow_empty:
+        return False
+    commit_cmd = ["git", "commit", "-m", message]
+    if allow_empty:
+        commit_cmd.insert(2, "--allow-empty")
+    run(commit_cmd, cwd=str(repo_dir), env=env)
+    run(["git", "push"], cwd=str(repo_dir))
+    return True
 
 def collapse_ws(text):
     return re.sub(r"\s+", " ", text).strip()
@@ -503,6 +611,92 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
     img.convert("RGB").save(str(out_path), "PNG")
     return out_path
 
+def get_en_release_metadata(ep_num, state):
+    ep_str = f"{ep_num:03d}"
+    notes = (PODCAST_DIR / f"show_notes_episode_{ep_str}.md").read_text()
+    en_episode_title = extract_episode_title(notes, ep_num)
+    en_title = f"Episode {ep_num}: {en_episode_title}"
+    en_desc = extract_feed_description(notes) or en_episode_title
+    duration = state.get("audio_duration", "33:00")
+    en_size = state.get("audio_size")
+    if not en_size:
+        raise RuntimeError("Missing audio_size in pipeline state; refusing to emit a placeholder enclosure length")
+    return {
+        "episode_title": en_episode_title,
+        "title": en_title,
+        "description": en_desc,
+        "duration": duration,
+        "size": en_size,
+    }
+
+def translated_release_tag(ep_num):
+    return f"ep{ep_num:03d}"
+
+def translated_release_repo(lang):
+    return media_releases.LANG_REPOS[lang]
+
+def translated_release_audio_name(ep_num):
+    return f"episode_{ep_num:03d}.mp3"
+
+def translated_release_cover_name(ep_num):
+    return f"episode_{ep_num:03d}_cover.png"
+
+def translated_audio_direct_url(ep_num, lang):
+    return media_releases.release_asset_url(
+        translated_release_repo(lang),
+        translated_release_tag(ep_num),
+        translated_release_audio_name(ep_num),
+    )
+
+def translated_audio_url(ep_num, lang):
+    return media_releases.op3_wrap(translated_audio_direct_url(ep_num, lang))
+
+def translated_cover_url(ep_num, lang):
+    return media_releases.release_asset_url(
+        translated_release_repo(lang),
+        translated_release_tag(ep_num),
+        translated_release_cover_name(ep_num),
+    )
+
+def upload_translated_release_assets(ep_num, lang):
+    ep_str = f"{ep_num:03d}"
+    audio_path = PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
+    cover_path = PODCAST_DIR / "images" / f"episode_{ep_str}_cover_{lang}.png"
+    if not audio_path.exists():
+        raise FileNotFoundError(f"Missing translated audio for {lang.upper()}: {audio_path}")
+    if not cover_path.exists():
+        raise FileNotFoundError(f"Missing translated cover for {lang.upper()}: {cover_path}")
+
+    repo = translated_release_repo(lang)
+    media_releases.ensure_repo_initialized(repo)
+    media_releases.ensure_release_with_assets(
+        repo,
+        translated_release_tag(ep_num),
+        f"EP{ep_str}",
+        {
+            translated_release_audio_name(ep_num): audio_path,
+            translated_release_cover_name(ep_num): cover_path,
+        },
+    )
+
+def deploy_website(ep_num, message, extra_paths):
+    log("  Building website...")
+
+    pushed = git_commit_if_needed(
+        WEBSITE_DIR,
+        message,
+        extra_paths=extra_paths,
+    )
+    if pushed:
+        log("  ✅ Website pushed")
+    else:
+        git_commit_if_needed(
+            WEBSITE_DIR,
+            f"EP{ep_num}: trigger website deploy",
+            allow_empty=True,
+        )
+        log("  ✅ Website deploy triggered (empty commit)")
+
 # ── Phase implementations ─────────────────────────────────────────────────────
 
 def phase_setup(ep_num, state):
@@ -695,38 +889,31 @@ def phase_covers(ep_num, state):
             shutil.copy2(str(out_path), str(web_cover))
             log(f"     → {web_cover.name} copied to website")
 
-        # Copy to CDN
-        cdn_cover = CDN_DIR / f"episode_{ep_str}_cover_{lang}.png"
-        if not cdn_cover.exists():
-            shutil.copy2(str(out_path), str(cdn_cover))
-            log(f"     → {cdn_cover.name} copied to CDN")
-
     return state
 
 def phase_feeds(ep_num, state, pub_date):
     log("[ FEEDS ] Adding feed entries...")
-    ep_str = f"{ep_num:03d}"
-    translations = state.get("translations", {})
-    duration = state.get("audio_duration", "33:00")
+    state = phase_en_feed(ep_num, state, pub_date)
+    state = phase_translated_feeds(ep_num, state, pub_date)
+    return state
 
+def phase_en_feed(ep_num, state, pub_date):
+    log("[ FEEDS / EN ] Adding EN feed entry...")
+    ep_str = f"{ep_num:03d}"
+    meta = get_en_release_metadata(ep_num, state)
     add_feed_script = str(SCRIPTS_DIR / "add_feed_entry.py")
+    review_audio = CDN_DIR / "audio" / f"episode_{ep_str}.mp3"
+    review_cover = CDN_DIR / f"episode_{ep_str}_cover.png"
+    if not review_audio.exists() or not review_cover.exists():
+        raise FileNotFoundError(
+            "Missing pre-approval CDN review assets. "
+            f"Expected {review_audio.name} and {review_cover.name} from build_episode.py"
+        )
 
     # EN feed
     en_audio_url = f"{CDN_BASE}/audio/episode_{ep_str}.mp3"
     en_cover_url = f"{CDN_BASE}/episode_{ep_str}_cover.png"
     en_link = f"https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/"
-
-    # Extract EN title from show notes
-    notes = (PODCAST_DIR / f"show_notes_episode_{ep_str}.md").read_text()
-    en_episode_title = extract_episode_title(notes, ep_num)
-    en_title = f"Episode {ep_num}: {en_episode_title}"
-
-    # Extract EN description from episode metadata
-    en_desc = extract_feed_description(notes) or en_episode_title
-
-    en_size = state.get("audio_size")
-    if not en_size:
-        raise RuntimeError("Missing audio_size in pipeline state; refusing to emit a placeholder enclosure length")
 
     en_feed = PODCAST_DIR / "feed.xml"
     # Check if already in feed
@@ -736,18 +923,27 @@ def phase_feeds(ep_num, state, pub_date):
             sys.executable, add_feed_script,
             str(en_feed),
             "--episode", str(ep_num),
-            "--title", en_title,
-            "--description", en_desc,
+            "--title", meta["title"],
+            "--description", meta["description"],
             "--pub-date", pub_date,
             "--audio-url", en_audio_url,
             "--cover-url", en_cover_url,
-            "--duration", duration,
+            "--duration", meta["duration"],
             "--link", en_link,
-            "--length", str(en_size),
+            "--length", str(meta["size"]),
         ])
         log(f"  ✅ EN feed updated")
     else:
         log(f"  ⏭  EN feed already has EP{ep_num}")
+
+    return state
+
+def phase_translated_feeds(ep_num, state, pub_date):
+    log("[ FEEDS / TRANSLATED ] Adding translated feed entries...")
+    ep_str = f"{ep_num:03d}"
+    translations = state.get("translations", {})
+    en_meta = get_en_release_metadata(ep_num, state)
+    add_feed_script = str(SCRIPTS_DIR / "add_feed_entry.py")
 
     # Translated feeds
     for lang in LANGS:
@@ -759,25 +955,33 @@ def phase_feeds(ep_num, state, pub_date):
             log(f"  ⏭  {lang.upper()} feed already has EP{ep_num}")
             continue
 
+        lang_audio = PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
+        if not lang_audio.exists():
+            raise FileNotFoundError(
+                f"Refusing to insert {lang.upper()} feed entry before translated audio exists: {lang_audio.name}"
+            )
+
         meta = translations.get(lang, {}).get("meta", {})
-        lang_title = meta.get("title", f"{prefix} {ep_num}: {en_episode_title}")
-        lang_desc_base = meta.get("description", en_desc)
+        if not meta:
+            log(f"  ℹ️  No cached metadata for {lang.upper()} — fetching...", indent=1)
+            meta = translate_metadata(ep_num, lang)
+            translations.setdefault(lang, {})["meta"] = meta
+            state["translations"] = translations
+        lang_title = meta.get("title", f"{prefix} {ep_num}: {en_meta['episode_title']}")
+        lang_desc_base = meta.get("description", en_meta["description"])
         lang_link = LANG_LINKS[lang].format(ep=ep_num)
 
-        lang_audio_url = f"{CDN_BASE}/audio/episode_{ep_str}_{lang}.mp3"
-        lang_cover_url = f"{CDN_BASE}/episode_{ep_str}_cover_{lang}.png"
+        lang_audio_url = translated_audio_url(ep_num, lang)
+        lang_cover_url = translated_cover_url(ep_num, lang)
 
-        # Get translated audio size
-        lang_audio = PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
-        lang_size = lang_audio.stat().st_size if lang_audio.exists() else en_size
+        lang_size = lang_audio.stat().st_size
 
         # For translated feed, duration comes from translated audio
-        lang_duration = duration
-        if lang_audio.exists():
-            try:
-                lang_duration = ffprobe_duration_str(lang_audio)
-            except Exception:
-                pass
+        lang_duration = en_meta["duration"]
+        try:
+            lang_duration = ffprobe_duration_str(lang_audio)
+        except Exception:
+            pass
 
         log(f"  → Adding {lang.upper()} feed entry...")
         run([
@@ -821,116 +1025,99 @@ def phase_youtube(ep_num, state):
         raise RuntimeError("YouTube upload failed")
     return state
 
-def phase_cdn(ep_num, state):
-    log("[ CDN ] Syncing audio to CDN repo and pushing...")
-    ep_str = f"{ep_num:03d}"
-
-    # Copy EN audio to CDN audio dir
-    en_src = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
-    en_dst = CDN_DIR / "audio" / f"episode_{ep_str}.mp3"
-    if not en_dst.exists():
-        shutil.copy2(str(en_src), str(en_dst))
-        log(f"  ✅ EN audio → CDN/audio/")
-
-
-    # Copy translated audio
-    for lang in LANGS:
-        lang_src = PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
-        # Canonical publish path for translated audio. Older episodes may still
-        # exist under CDN/translations/{lang}/ for feed backward compatibility,
-        # but new releases should not duplicate the same MP3 into both places.
-        lang_dst_audio = CDN_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
-        if lang_src.exists() and not lang_dst_audio.exists():
-            shutil.copy2(str(lang_src), str(lang_dst_audio))
-            log(f"  ✅ {lang.upper()} audio → CDN/audio/")
-
-    # Git commit + push CDN repo
-    log(f"  Pushing CDN repo...")
-    files_to_add = [
-        f"audio/episode_{ep_str}.mp3",
-        f"episode_{ep_str}_cover.png",
-    ]
-    for lang in LANGS:
-        files_to_add += [
-            f"audio/episode_{ep_str}_{lang}.mp3",
-            f"episode_{ep_str}_cover_{lang}.png",
-        ]
-    # Only add files that exist
-    existing = [f for f in files_to_add if (CDN_DIR / f).exists()]
-    run(["git", "add", "--"] + existing, cwd=str(CDN_DIR))
-    result = run(["git", "diff", "--cached", "--quiet"], cwd=str(CDN_DIR), check=False)
+def phase_en_video(ep_num, state):
+    log("[ EN VIDEO ] Starting EN FLUX/video lane...")
+    build_script = SCRIPTS_DIR / "build_youtube_episode_videos.py"
+    if not build_script.exists():
+        log("  ℹ️  build_youtube_episode_videos.py not found — skipping EN video lane")
+        return state
+    result = subprocess.run(
+        [sys.executable, str(build_script), str(ep_num), "--lang", "en"],
+        cwd=str(PODCAST_DIR),
+        capture_output=True,
+        text=True,
+    )
+    if result.stdout.strip():
+        print(result.stdout.strip())
     if result.returncode != 0:
-        run(["git", "commit", "-m", f"EP{ep_num}: audio + covers"], cwd=str(CDN_DIR))
-        run(["git", "push"], cwd=str(CDN_DIR))
-        log(f"  ✅ CDN repo pushed")
-    else:
-        log(f"  ℹ️  CDN repo already up to date")
+        raise RuntimeError(
+            "EN video lane failed\n"
+            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
+    return state
+
+def phase_cdn(ep_num, state):
+    log("[ CDN ] Syncing translated media release assets...")
+    return phase_translated_cdn(ep_num, state)
+
+def phase_translated_cdn(ep_num, state):
+    log("[ CDN / TRANSLATED ] Uploading translated audio + covers to media release repos...")
+    for lang in LANGS:
+        upload_translated_release_assets(ep_num, lang)
+        log(f"  ✅ {lang.upper()} media release updated")
 
     return state
 
 def phase_publish(ep_num, state):
     log("[ PUBLISH ] Pushing podcast repo + website...")
-    ep_str = f"{ep_num:03d}"
+    state = phase_publish_en(ep_num, state)
+    state = phase_publish_translations(ep_num, state)
+    return state
 
-    # Stage podcast repo files
+def push_podcast_stage(ep_num, stage, commit_message):
+    existing = [f for f in stage if (PODCAST_DIR / f).exists()]
+    git_add_paths(PODCAST_DIR, existing)
+    result = run(["git", "diff", "--cached", "--quiet"], cwd=str(PODCAST_DIR), check=False)
+    if result.returncode != 0:
+        env = {**os.environ, "FEED_APPROVED": "1"}
+        run(["git", "commit", "-m", commit_message], cwd=str(PODCAST_DIR), env=env)
+        run(["git", "push"], cwd=str(PODCAST_DIR))
+        log(f"  ✅ Podcast repo pushed")
+    else:
+        log(f"  ℹ️  Podcast repo already up to date")
+
+def phase_publish_en(ep_num, state):
+    log("[ PUBLISH / EN ] Pushing EN podcast + website...")
+    ep_str = f"{ep_num:03d}"
+    ensure_website_cover(ep_num)
+
     stage = [
         f"feed.xml",
         f"images/episode_{ep_str}_cover.png",
         f"show_notes_episode_{ep_str}.md",
         f"episodes/episode_{ep_str}_transcript.md",
-        # transcript_nova.md is gitignored (*_nova.md) — skip
+    ]
+    push_podcast_stage(ep_num, stage, f"EP{ep_num}: publish EN episode_{ep_str}")
+    deploy_website(
+        ep_num,
+        f"EP{ep_num}: EN cover art + website update",
+        [f"frontend/public/images/podcast/episode_{ep_str}_cover.png"],
+    )
+
+    return state
+
+def phase_publish_translations(ep_num, state):
+    log("[ PUBLISH / TRANSLATED ] Pushing translated podcast + website...")
+    ep_str = f"{ep_num:03d}"
+    stage = [
         f"translations/feed_de.xml",
         f"translations/feed_es.xml",
         f"translations/feed_hi.xml",
         f"translations/feed_pt.xml",
     ]
     for lang in LANGS:
+        ensure_website_cover(ep_num, lang)
         stage += [
             f"images/episode_{ep_str}_cover_{lang}.png",
             f"translations/{lang}/episode_{ep_str}_{lang}.md",
             f"translations/{lang}/show_notes_episode_{ep_str}_{lang}.md",
         ]
-
-    existing = [f for f in stage if (PODCAST_DIR / f).exists()]
-    run(["git", "add", "--"] + existing, cwd=str(PODCAST_DIR))
-    result = run(["git", "diff", "--cached", "--quiet"], cwd=str(PODCAST_DIR), check=False)
-    if result.returncode != 0:
-        env = {**os.environ, "FEED_APPROVED": "1"}
-        result2 = subprocess.run(
-            ["git", "commit", "-m", f"EP{ep_num}: publish episode_{ep_str}"],
-            cwd=str(PODCAST_DIR), env=env, capture_output=True, text=True
-        )
-        if result2.returncode != 0:
-            raise RuntimeError(f"git commit failed:\n{result2.stderr}")
-        run(["git", "push"], cwd=str(PODCAST_DIR))
-        log(f"  ✅ Podcast repo pushed")
-    else:
-        log(f"  ℹ️  Podcast repo already up to date")
-
-    # Update website
-    log(f"  Building website...")
-    ws_script = WORKSPACE_DIR / "scripts/update_website_training_data.py"
-    if ws_script.exists():
-        subprocess.run([sys.executable, str(ws_script), "--skip-sync"],
-                       capture_output=True, cwd=str(WORKSPACE_DIR))
-
-    # Push website. The podcast archive pages are static and rebuild from feeds
-    # only when the website repo gets a push, so we still need a deploy trigger
-    # even when no tracked website files changed for this episode.
-    result = run(["git", "status", "--porcelain"], cwd=str(WEBSITE_DIR))
-    if result.stdout.strip():
-        run(["git", "add", "-A"], cwd=str(WEBSITE_DIR))
-        result2 = run(["git", "diff", "--cached", "--quiet"], cwd=str(WEBSITE_DIR), check=False)
-        if result2.returncode != 0:
-            run(["git", "commit", "-m", f"EP{ep_num}: cover art + website update"], cwd=str(WEBSITE_DIR))
-            run(["git", "push"], cwd=str(WEBSITE_DIR))
-            log(f"  ✅ Website pushed")
-        else:
-            log(f"  ℹ️  Website already up to date")
-    else:
-        run(["git", "commit", "--allow-empty", "-m", f"EP{ep_num}: trigger website deploy"], cwd=str(WEBSITE_DIR))
-        run(["git", "push"], cwd=str(WEBSITE_DIR))
-        log(f"  ✅ Website deploy triggered (empty commit)")
+    push_podcast_stage(ep_num, stage, f"EP{ep_num}: publish translated episode_{ep_str}")
+    deploy_website(
+        ep_num,
+        f"EP{ep_num}: translated cover art + website update",
+        [f"frontend/public/images/podcast/episode_{ep_str}_cover_{lang}.png" for lang in LANGS],
+    )
 
     return state
 
@@ -1002,22 +1189,55 @@ def save_state(ep_num, state):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 PHASE_FNS = {
-    "setup":     phase_setup,
+    "setup": phase_setup,
+    "en-feed": phase_en_feed,
+    "en-publish": phase_publish_en,
+    "en-video": phase_en_video,
     "translate": phase_translate,
-    "tts":       phase_tts,
-    "covers":    phase_covers,
-    "feeds":     None,   # needs pub_date arg
-    "qc":        phase_qc,
-    "youtube":   phase_youtube,
-    "cdn":       phase_cdn,
-    "publish":   phase_publish,
-    "discord":   phase_discord,
+    "tts": phase_tts,
+    "covers": phase_covers,
+    "translated-cdn": phase_translated_cdn,
+    "translated-feeds": phase_translated_feeds,
+    "qc": phase_qc,
+    "publish-translations": phase_publish_translations,
+    "youtube": phase_youtube,
+    "discord": phase_discord,
+    # Backward-compatible wrappers
+    "feeds": phase_feeds,
+    "cdn": phase_cdn,
+    "publish": phase_publish,
 }
+
+PUB_DATE_PHASES = {"feeds", "en-feed", "translated-feeds"}
+
+def resolve_only_phase(name):
+    raw = (name or "").strip().lower()
+    if raw in LEGACY_ONLY_PHASES:
+        return raw
+    return normalize_phase_name(raw)
+
+def resolve_from_phase(name):
+    phase = normalize_phase_name(name)
+    if phase not in FULL_RELEASE_ORDER:
+        raise ValueError(
+            f"Unknown phase '{name}'. Valid phases: {', '.join(CLI_PHASE_CHOICES)}"
+        )
+    return phase
+
+def run_named_phase(phase, ep_num, state, pub_date):
+    fn = PHASE_FNS.get(phase)
+    if fn is None:
+        raise ValueError(
+            f"Unknown phase '{phase}'. Valid phases: {', '.join(CLI_PHASE_CHOICES)}"
+        )
+    if phase in PUB_DATE_PHASES:
+        return fn(ep_num, state, pub_date)
+    return fn(ep_num, state)
 
 def main():
     parser = argparse.ArgumentParser(description="OpenClaw episode release pipeline")
     parser.add_argument("episode", type=int, help="Episode number (e.g. 25)")
-    parser.add_argument("--from-phase", help=f"Start from phase: {', '.join(ALL_PHASES)}")
+    parser.add_argument("--from-phase", help=f"Start from phase: {', '.join(CLI_PHASE_CHOICES)}")
     parser.add_argument("--only-phase", help="Run only this phase")
     _today = datetime.now(timezone.utc).strftime("%a, %d %b %Y 18:00:00 +0000")
     parser.add_argument("--pub-date",
@@ -1038,12 +1258,13 @@ def main():
 
     # Determine which phases to run
     if args.only_phase:
-        phases_to_run = [args.only_phase]
+        phases_to_run = [resolve_only_phase(args.only_phase)]
     elif args.from_phase:
-        idx = ALL_PHASES.index(args.from_phase)
-        phases_to_run = ALL_PHASES[idx:]
+        start_phase = resolve_from_phase(args.from_phase)
+        idx = FULL_RELEASE_ORDER.index(start_phase)
+        phases_to_run = FULL_RELEASE_ORDER[idx:]
     else:
-        phases_to_run = ALL_PHASES
+        phases_to_run = FULL_RELEASE_ORDER
 
     log(f"\n{'='*60}")
     log(f"OpenClaw Daily — EP{ep_num:03d} Release Pipeline")
@@ -1060,10 +1281,7 @@ def main():
         log(f"\n{'-'*60}")
         build_log(f"⏳ [{phase.upper()}] starting…", ep_num)
         try:
-            if phase == "feeds":
-                state = phase_feeds(ep_num, state, args.pub_date)
-            else:
-                state = PHASE_FNS[phase](ep_num, state)
+            state = run_named_phase(phase, ep_num, state, args.pub_date)
 
             completed.add(phase)
             state["completed_phases"] = list(completed)
