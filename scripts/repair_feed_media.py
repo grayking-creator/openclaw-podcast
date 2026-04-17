@@ -155,6 +155,36 @@ def preferred_public_url(rel_path: str, lang: str) -> str:
     return f"{OP3_PREFIX}{PAGES_AUDIO_BASE}{rel_path}"
 
 
+def canonical_relative_path_for_episode(lang: str, episode: int) -> str | None:
+    ep = f"{episode:03d}"
+    candidate_rels = []
+
+    if lang == "en":
+        candidate_rels.extend(
+            [
+                f"audio/episode_{ep}.mp3",
+                f"episode_{ep}.mp3",
+                f"audio/episode_{ep}_full.mp3",
+                f"audio/episode_{ep}_full_v2.mp3",
+            ]
+        )
+    else:
+        candidate_rels.extend(
+            [
+                f"audio/episode_{ep}_{lang}.mp3",
+                f"translations/{lang}/episode_{ep}_{lang}.mp3",
+                f"episode_{ep}_{lang}.mp3",
+            ]
+        )
+
+    search_roots = [AUDIO_REPO_DIR, PODCAST_DIR, ARCHIVE_AUDIO_DIR]
+    for rel in candidate_rels:
+        for root in search_roots:
+            if (root / rel).exists():
+                return rel
+    return None
+
+
 def repo_blob_size_or_worktree(local_path: Path) -> int:
     if not local_path.is_relative_to(AUDIO_REPO_DIR):
         return local_path.stat().st_size
@@ -212,11 +242,31 @@ def repair_feed(feed_key: str, dry_run: bool = False) -> int:
         episode_text = item.findtext("itunes:episode", namespaces=ITUNES_NS)
         current_url = enclosure.attrib.get("url", "")
         current_length = enclosure.attrib.get("length", "")
-        local_path = resolve_local_path(current_url, feed_key)
-        if local_path is None:
-            continue
+        rel_path = None
+        local_path = None
 
-        rel_path = preferred_relative_path(current_url, local_path, feed_key)
+        if episode_text:
+            expected_rel = canonical_relative_path_for_episode(feed_key, int(episode_text))
+            if expected_rel:
+                current_ep_match = re.search(r"episode_(\d{3})", current_url)
+                current_ep = int(current_ep_match.group(1)) if current_ep_match else None
+                current_lang_match = re.search(r"episode_\d{3}(?:_([a-z]{2}))?\.mp3", current_url)
+                current_lang = current_lang_match.group(1) if current_lang_match else None
+                if current_ep != int(episode_text) or (
+                    feed_key != "en" and current_lang not in {feed_key}
+                ):
+                    rel_path = expected_rel
+                    local_path = (
+                        AUDIO_REPO_DIR / rel_path
+                        if (AUDIO_REPO_DIR / rel_path).exists()
+                        else PODCAST_DIR / rel_path
+                    )
+
+        if rel_path is None:
+            local_path = resolve_local_path(current_url, feed_key)
+            if local_path is None:
+                continue
+            rel_path = preferred_relative_path(current_url, local_path, feed_key)
         if rel_path is None:
             continue
 
