@@ -3,6 +3,8 @@
 Build localized Ken Burns YouTube videos from the crossfire-series episode master.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import re
@@ -66,11 +68,22 @@ def load_release_state(episode: int) -> dict:
     return {}
 
 
+def release_state_path(episode: int) -> Path:
+    return SCRIPTS_DIR / f"release_ep{episode:03d}_state.json"
+
+
 def get_audio_path(episode: int, lang: str) -> Path:
     ep_str = f"{episode:03d}"
     if lang == "en":
         return PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
     return PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
+
+
+def translated_show_notes_path(episode: int, lang: str) -> Path | None:
+    if lang == "en":
+        return PODCAST_DIR / f"show_notes_episode_{episode:03d}.md"
+    path = PODCAST_DIR / "translations" / lang / f"show_notes_episode_{episode:03d}_{lang}.md"
+    return path if path.exists() else None
 
 
 def get_episode_date(episode: int) -> datetime.date:
@@ -129,6 +142,34 @@ def get_output_paths(episode: int, lang: str) -> tuple[Path, Path]:
     final_video = outputs_dir / f"openclaw{episode}_kb_publish_{lang}.mp4"
     overlay_png = outputs_dir / f"openclaw{episode}_burnin_overlay_{lang}.png"
     return final_video, overlay_png
+
+
+def latest_input_mtime(episode: int, lang: str, cfg: dict, audio_path: Path) -> float:
+    mtimes = [audio_path.stat().st_mtime]
+
+    config_path = VIDEO_ROOT / f"ep{episode}" / "config.json"
+    if config_path.exists():
+        mtimes.append(config_path.stat().st_mtime)
+
+    state_path = release_state_path(episode)
+    if state_path.exists():
+        mtimes.append(state_path.stat().st_mtime)
+
+    show_notes = translated_show_notes_path(episode, lang)
+    if show_notes and show_notes.exists():
+        mtimes.append(show_notes.stat().st_mtime)
+
+    kb_silent = VIDEO_ROOT / cfg["paths"]["kb_silent"]
+    if kb_silent.exists():
+        mtimes.append(kb_silent.stat().st_mtime)
+
+    for script_path in (
+        VIDEO_ROOT / "shared" / "apply_burnins.py",
+    ):
+        if script_path.exists():
+            mtimes.append(script_path.stat().st_mtime)
+
+    return max(mtimes)
 
 
 def ensure_silent_master(episode: int, cfg: dict) -> Path:
@@ -257,7 +298,8 @@ def build_lang_video(episode: int, lang: str, cfg: dict, state: dict, force: boo
 
     silent_master = ensure_silent_master(episode, cfg)
     final_video, overlay_png = get_output_paths(episode, lang)
-    if final_video.exists() and not force and final_video.stat().st_mtime >= audio_path.stat().st_mtime:
+    required_mtime = latest_input_mtime(episode, lang, cfg, audio_path)
+    if final_video.exists() and not force and final_video.stat().st_mtime >= required_mtime:
         return final_video
 
     temp_clean = final_video.with_name(f"{final_video.stem}__clean.mp4")
