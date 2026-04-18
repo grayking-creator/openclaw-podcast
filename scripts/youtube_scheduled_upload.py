@@ -28,6 +28,147 @@ PODCAST_DIR = SCRIPTS_DIR.parent
 CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio"
 IMAGES_DIR = PODCAST_DIR / "images"
 SHARED_DIR = Path.home() / "clawd/shared"
+VIDEO_ROOT = Path.home() / ".openclaw/workspace/video-workspace/crossfire-series"
+VIDEO_BUILD_SCRIPT = SCRIPTS_DIR / "build_youtube_episode_videos.py"
+
+YOUTUBE_COPY = {
+    "en": {
+        "topics": "In this episode:",
+        "show_notes": "Full show notes and source links:",
+        "listen": "Listen on your favorite podcast app:",
+        "chapters": "Chapters:",
+        "default_desc": "Daily AI news and sharp analysis on infrastructure, product strategy, and policy.",
+        "hashtags": ["#OpenClawDaily", "#AIPodcast", "#ArtificialIntelligence"],
+    },
+    "es": {
+        "topics": "En este episodio:",
+        "show_notes": "Notas completas y enlaces fuente:",
+        "listen": "Escucha el podcast completo:",
+        "chapters": "Capítulos:",
+        "default_desc": "Noticias diarias de IA con análisis claro sobre infraestructura, producto y política.",
+        "hashtags": ["#OpenClawDaily", "#PodcastIA", "#InteligenciaArtificial"],
+    },
+    "de": {
+        "topics": "Heute im Podcast:",
+        "show_notes": "Vollständige Shownotes und Quellen:",
+        "listen": "Den Podcast vollständig hören:",
+        "chapters": "Kapitel:",
+        "default_desc": "Tägliche KI-News mit klarer Analyse zu Infrastruktur, Produktstrategie und Politik.",
+        "hashtags": ["#OpenClawDaily", "#KIPodcast", "#KuenstlicheIntelligenz"],
+    },
+    "pt": {
+        "topics": "Neste episódio:",
+        "show_notes": "Notas completas e links das fontes:",
+        "listen": "Ouça o podcast completo:",
+        "chapters": "Capítulos:",
+        "default_desc": "Notícias diárias de IA com análise clara sobre infraestrutura, produto e política.",
+        "hashtags": ["#OpenClawDaily", "#PodcastIA", "#InteligenciaArtificial"],
+    },
+    "hi": {
+        "topics": "आज के विषय:",
+        "show_notes": "पूरा शो नोट्स और स्रोत लिंक:",
+        "listen": "पूरा पॉडकास्ट सुनें:",
+        "chapters": "चैप्टर्स:",
+        "default_desc": "रोज़ का AI न्यूज़ और साफ़ विश्लेषण: इंफ्रास्ट्रक्चर, प्रोडक्ट और पॉलिसी।",
+        "hashtags": ["#OpenClawDaily", "#AIPodcast", "#HindiPodcast"],
+    },
+}
+
+BASE_TAGS = {
+    "en": [
+        "openclaw",
+        "openclaw daily",
+        "openclaw podcast",
+        "daily ai news",
+        "ai infrastructure",
+        "ai podcast",
+        "ai news",
+        "artificial intelligence",
+        "tech podcast",
+    ],
+    "es": [
+        "openclaw",
+        "openclaw daily",
+        "podcast openclaw",
+        "noticias diarias ia",
+        "infraestructura ia",
+        "podcast ia",
+        "noticias ia",
+        "inteligencia artificial",
+        "podcast tecnologia",
+    ],
+    "de": [
+        "openclaw",
+        "openclaw daily",
+        "openclaw podcast",
+        "tägliche ki news",
+        "ki infrastruktur",
+        "ki podcast",
+        "ki news",
+        "künstliche intelligenz",
+        "tech podcast deutsch",
+    ],
+    "pt": [
+        "openclaw",
+        "openclaw daily",
+        "podcast openclaw",
+        "noticias diarias ia",
+        "infraestrutura ia",
+        "podcast ia",
+        "noticias ia",
+        "inteligência artificial",
+        "podcast tecnologia",
+    ],
+    "hi": [
+        "openclaw",
+        "openclaw daily",
+        "openclaw podcast",
+        "daily ai news",
+        "एआई न्यूज़",
+        "ai podcast",
+        "ai hindi",
+        "हिंदी पॉडकास्ट",
+        "कृत्रिम बुद्धिमत्ता",
+    ],
+}
+
+TOPIC_TAG_RULES = [
+    (["anthropic", "claude"], {
+        "en": ["anthropic", "claude ai"],
+        "es": ["anthropic", "claude ai"],
+        "de": ["anthropic", "claude ai"],
+        "pt": ["anthropic", "claude ai"],
+        "hi": ["anthropic", "claude ai"],
+    }),
+    (["openai", "agents sdk", "agent"], {
+        "en": ["openai", "openai agents sdk", "ai agents"],
+        "es": ["openai", "agents sdk", "agentes ia"],
+        "de": ["openai", "agents sdk", "ki agenten"],
+        "pt": ["openai", "agents sdk", "agentes ia"],
+        "hi": ["openai", "agents sdk", "ai agents"],
+    }),
+    (["tsmc", "chip", "foundry", "fundición", "gießerei", "fundição"], {
+        "en": ["tsmc", "ai chips", "semiconductor news"],
+        "es": ["tsmc", "chips ia", "semiconductores"],
+        "de": ["tsmc", "ki chips", "halbleiter"],
+        "pt": ["tsmc", "chips ia", "semicondutores"],
+        "hi": ["tsmc", "ai chips", "semiconductor news"],
+    }),
+    (["kyc", "telegram", "identity", "identidad", "identität", "identidade"], {
+        "en": ["kyc", "telegram", "digital identity"],
+        "es": ["kyc", "telegram", "identidad digital"],
+        "de": ["kyc", "telegram", "digitale identität"],
+        "pt": ["kyc", "telegram", "identidade digital"],
+        "hi": ["kyc", "telegram", "digital identity"],
+    }),
+    (["voice", "dubbing", "doblaje", "synchron", "dublagem", "वॉयस"], {
+        "en": ["ai dubbing", "voice actors", "voice cloning"],
+        "es": ["doblaje ia", "actores de voz", "clonacion de voz"],
+        "de": ["ki synchronisation", "synchronsprecher", "stimmklonen"],
+        "pt": ["dublagem ia", "atores de voz", "clonagem de voz"],
+        "hi": ["ai dubbing", "voice actors", "voice cloning"],
+    }),
+]
 
 # Episode metadata (titles per language)
 # Will be loaded from feed XML or hardcoded for known episodes
@@ -127,8 +268,32 @@ def get_cover_path(ep_num, lang):
     en_cover = IMAGES_DIR / f"episode_{ep_str}_cover.png"
     if en_cover.exists():
         return en_cover
-    
+
     return None
+
+
+def get_publish_video_path(ep_num, lang):
+    return VIDEO_ROOT / f"build/ep{ep_num}" / "outputs" / f"openclaw{ep_num}_kb_publish_{lang}.mp4"
+
+
+def episode_has_video_pipeline(ep_num):
+    return (VIDEO_ROOT / f"ep{ep_num}").exists() and VIDEO_BUILD_SCRIPT.exists()
+
+
+def build_publish_videos(ep_num):
+    result = subprocess.run(
+        [sys.executable, str(VIDEO_BUILD_SCRIPT), str(ep_num)],
+        cwd=str(PODCAST_DIR),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Localized publish video build failed for EP{ep_num:03d}\n"
+            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
+    if result.stdout.strip():
+        print(result.stdout.strip())
 
 def get_episode_title(ep_num, lang):
     """Get episode title from translation feed or EN feed."""
@@ -222,6 +387,106 @@ def get_show_notes_url(ep_num, lang):
     }
     prefix = lang_prefix.get(lang, "")
     return f"https://tobyonfitnesstech.com{prefix}/podcasts/episode-{ep_num}/"
+
+
+def get_show_notes_path(ep_num, lang):
+    ep_str = f"{ep_num:03d}"
+    if lang == "en":
+        return PODCAST_DIR / f"show_notes_episode_{ep_str}.md"
+    return PODCAST_DIR / "translations" / lang / f"show_notes_episode_{ep_str}_{lang}.md"
+
+
+def get_story_titles(ep_num, lang, limit=5):
+    path = get_show_notes_path(ep_num, lang)
+    if not path.exists():
+        return []
+
+    titles = []
+    for raw_line in path.read_text().splitlines():
+        line = raw_line.strip()
+        match = re.match(r"^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.+)$", line)
+        if not match:
+            continue
+        timestamp, heading = match.groups()
+        if timestamp == "00:00":
+            continue
+        if "—" in heading:
+            heading = heading.split("—", 1)[1].strip()
+        elif "-" in heading:
+            heading = heading.split("-", 1)[1].strip()
+        heading = heading.strip(" -*")
+        if not heading:
+            continue
+        titles.append(heading)
+        if len(titles) >= limit:
+            break
+    return titles
+
+
+def build_youtube_description(ep_num, lang):
+    copy = YOUTUBE_COPY.get(lang, YOUTUBE_COPY["en"])
+    title = get_episode_title(ep_num, lang)
+    header = f"EP{ep_num:03d} | {title}"
+    show_notes_url = get_show_notes_url(ep_num, lang)
+    stories = get_story_titles(ep_num, lang)
+    chapters = get_episode_chapters(ep_num)
+
+    lines = [header, "", copy["default_desc"]]
+    if stories:
+        lines.extend(["", copy["topics"]])
+        lines.extend([f"- {story}" for story in stories])
+
+    lines.extend([
+        "",
+        f"{copy['show_notes']} {show_notes_url}",
+        f"{copy['listen']} https://tobyonfitnesstech.com/podcasts/",
+    ])
+
+    if chapters:
+        lines.extend(["", copy["chapters"], chapters])
+
+    hashtag_line = " ".join(copy.get("hashtags", []))
+    if hashtag_line:
+        lines.extend(["", hashtag_line])
+
+    result = "\n".join(lines).strip()
+    return result[:5000]
+
+
+def build_youtube_tags(ep_num, lang):
+    text_parts = [
+        get_episode_title(ep_num, lang) or "",
+        get_episode_description(ep_num, lang) or "",
+        *get_story_titles(ep_num, lang),
+    ]
+    haystack = " ".join(text_parts).lower()
+    tags = list(BASE_TAGS.get(lang, BASE_TAGS["en"]))
+
+    for keywords, lang_tags in TOPIC_TAG_RULES:
+        if any(keyword in haystack for keyword in keywords):
+            tags.extend(lang_tags.get(lang, lang_tags["en"]))
+
+    tags.extend([f"episode {ep_num}", f"ep {ep_num}", f"ep{ep_num:03d}"])
+
+    deduped = []
+    seen = set()
+    total_chars = 0
+    for tag in tags:
+        clean = " ".join(tag.split()).strip()
+        if not clean:
+            continue
+        key = clean.lower()
+        if key in seen:
+            continue
+        projected = total_chars + len(clean)
+        if deduped:
+            projected += 1
+        if projected > 460:
+            break
+        deduped.append(clean)
+        seen.add(key)
+        total_chars = projected
+    return deduped
 
 def render_mp4(cover_path, audio_path, output_path):
     """Render MP4 from cover + audio."""
@@ -344,7 +609,9 @@ def upload_to_youtube(token_path, title, description, tags, video_path, expected
         creds = Credentials.from_authorized_user_info(json.load(f))
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
-    
+        with open(token_path, "w") as f:
+            f.write(creds.to_json())
+
     yt = build("youtube", "v3", credentials=creds)
 
     # Hard pre-upload gate.
@@ -400,6 +667,10 @@ def main():
     except Exception:
         channel_state = {}
     ep_state = channel_state.get(ep_str, {})
+    use_video_pipeline = episode_has_video_pipeline(ep_num)
+    if use_video_pipeline:
+        print("Preparing localized publish videos from crossfire-series master...")
+        build_publish_videos(ep_num)
 
     for lang, config in CHANNEL_CONFIG.items():
         # Skip if this channel already confirmed uploaded for this episode
@@ -417,13 +688,6 @@ def main():
             continue
         print(f"  Audio: {audio.name}")
         
-        # Get cover
-        cover = get_cover_path(ep_num, lang)
-        if not cover:
-            print(f"  ❌ No cover art found")
-            continue
-        print(f"  Cover: {cover.name}")
-        
         # Get title + description
         title = get_episode_title(ep_num, lang)
         if lang != "en" and config["suffix"] not in title:
@@ -431,43 +695,45 @@ def main():
         # YouTube title limit is 100 characters
         if len(title) > 100:
             title = title[:97] + "..."
-        desc = get_episode_description(ep_num, lang)
-        if not desc:
-            desc = f"OpenClaw Daily Episode {ep_num}"
-
-        # Build show notes deep link (language-aware)
-        show_notes_url = get_show_notes_url(ep_num, lang)
-        desc += f"\n\n📖 Full show notes & links: {show_notes_url}"
-        desc += f"\n🎙️ Subscribe on your favourite podcast app: https://tobyonfitnesstech.com/podcasts/"
-
-        # Add chapter markers (parsed from EN show notes — timestamps are universal)
-        chapters = get_episode_chapters(ep_num)
-        if chapters:
-            desc += f"\n\n─── CHAPTERS ───\n{chapters}"
-
-        desc += f"\n\n---\nWebsite: https://tobyonfitnesstech.com"
+        desc = build_youtube_description(ep_num, lang)
         
         print(f"  Title: {title[:80]}...")
         
-        # Render MP4
-        mp4_path = Path(f"/tmp/ep{ep_str}_{lang}.mp4")
-        print(f"  Rendering MP4...")
-        try:
-            render_mp4(cover, audio, mp4_path)
-        except Exception as e:
-            print(f"  ❌ MP4 render failed: {e}")
-            continue
+        mp4_path = None
+        publish_video = get_publish_video_path(ep_num, lang)
+        if publish_video.exists():
+            print(f"  Video: {publish_video.name}")
+            upload_video = publish_video
+        else:
+            if use_video_pipeline:
+                raise RuntimeError(
+                    f"Expected localized publish video for {lang.upper()} but none was created: {publish_video}"
+                )
+            cover = get_cover_path(ep_num, lang)
+            if not cover:
+                print(f"  ❌ No cover art found")
+                continue
+            print(f"  Cover: {cover.name}")
+
+            mp4_path = Path(f"/tmp/ep{ep_str}_{lang}.mp4")
+            print(f"  Rendering MP4...")
+            try:
+                render_mp4(cover, audio, mp4_path)
+            except Exception as e:
+                print(f"  ❌ MP4 render failed: {e}")
+                continue
+            upload_video = mp4_path
         
         # Upload
         print(f"  Uploading...")
-        tags = ["openclaw", "AI podcast", "OpenClaw Daily", f"episode {ep_num}"]
+        tags = build_youtube_tags(ep_num, lang)
         try:
             vid_id = upload_to_youtube(
                 config["token"],
                 title,
                 desc,
                 tags,
-                mp4_path,
+                upload_video,
                 config["expected_channel"],
                 episode_number=ep_num,
             )

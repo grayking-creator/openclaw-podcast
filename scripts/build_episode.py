@@ -11,7 +11,7 @@ Runs everything needed before ARIA posts review assets to Discord:
   6. Copy audio + cover to CDN repo.
   7. Post review URLs to Discord episode channel, then stop for approval.
 
-Does NOT proceed to site/feed publish, translations, or YouTube — that's release_episode.py after approval.
+Does NOT proceed to site/feed publish, translations, or YouTube — that's release_episode_approved.py after approval.
 
 Usage:
     python3 scripts/build_episode.py 29

@@ -10,6 +10,7 @@ import json
 import re
 import subprocess
 import sys
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -112,9 +113,33 @@ def strip_title_prefix(title: str) -> str:
     return title.strip()
 
 
+OVERLAY_TEXT_TRANSLATIONS = str.maketrans(
+    {
+        "\u00a0": " ",
+        "\u2010": "-",
+        "\u2011": "-",
+        "\u2012": "-",
+        "\u2013": "-",
+        "\u2014": "-",
+        "\u2015": "-",
+        "\u2212": "-",
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+    }
+)
+
+
+def sanitize_overlay_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKC", text)
+    normalized = normalized.translate(OVERLAY_TEXT_TRANSLATIONS)
+    return re.sub(r"[\u200b-\u200f\u2060\ufeff]", "", normalized)
+
+
 def get_display_title(episode: int, lang: str, cfg: dict, state: dict) -> str:
     if lang == "en":
-        return cfg["title"].strip()
+        return sanitize_overlay_text(cfg["title"].strip())
 
     meta_title = (
         state.get("translations", {})
@@ -124,14 +149,14 @@ def get_display_title(episode: int, lang: str, cfg: dict, state: dict) -> str:
         .strip()
     )
     if meta_title:
-        return strip_title_prefix(meta_title)
+        return sanitize_overlay_text(strip_title_prefix(meta_title))
 
     show_notes = PODCAST_DIR / "translations" / lang / f"show_notes_episode_{episode:03d}_{lang}.md"
     if show_notes.exists():
         content = show_notes.read_text()
         title_match = re.search(r"^## Episode Title\s*\n\*\*(.+?)\*\*", content, re.MULTILINE)
         if title_match:
-            return title_match.group(1).strip()
+            return sanitize_overlay_text(title_match.group(1).strip())
 
     raise RuntimeError(f"Missing translated title metadata for {lang.upper()} EP{episode:03d}")
 
@@ -304,8 +329,8 @@ def build_lang_video(episode: int, lang: str, cfg: dict, state: dict, force: boo
 
     temp_clean = final_video.with_name(f"{final_video.stem}__clean.mp4")
     title = get_display_title(episode, lang, cfg, state)
-    subtitle = format_date_for_lang(lang, get_episode_date(episode))
-    show_name = SHOW_NAMES[lang]
+    subtitle = sanitize_overlay_text(format_date_for_lang(lang, get_episode_date(episode)))
+    show_name = sanitize_overlay_text(SHOW_NAMES[lang])
 
     mux_audio(silent_master, audio_path, temp_clean)
     apply_burnins(
