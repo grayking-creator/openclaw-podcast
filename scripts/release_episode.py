@@ -700,10 +700,12 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
     try:
         font_show  = ImageFont.truetype(font_path_bold, 46)
         font_ep    = ImageFont.truetype(font_path_bold, 68)
-        font_title = ImageFont.truetype(title_font_path, 100 if is_hindi else 118)
+        base_title_size = 100 if is_hindi else 118
+        font_title = ImageFont.truetype(title_font_path, base_title_size)
         font_sub   = ImageFont.truetype(font_path_reg, 28 if is_hindi else 30)
     except Exception:
         font_show = font_ep = font_title = font_sub = ImageFont.load_default()
+        base_title_size = 118
 
     md = ImageDraw.Draw(img)
 
@@ -712,6 +714,22 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
     line1     = meta.get("cover_line1", "").upper()
     line2     = meta.get("cover_line2", "").upper()
     tagline   = meta.get("cover_tagline", "")
+
+    def fit_font(text_value, start_size, min_size=56, max_width=W-110):
+        if not text_value:
+            return font_title
+        if not hasattr(ImageFont, "truetype"):
+            return font_title
+        size = start_size
+        while size >= min_size:
+            candidate = ImageFont.truetype(title_font_path, size)
+            if md.textlength(text_value, font=candidate) <= max_width:
+                return candidate
+            size -= 4
+        return ImageFont.truetype(title_font_path, min_size)
+
+    font_title_l1 = fit_font(line1, base_title_size)
+    font_title_l2 = fit_font(line2, base_title_size)
 
     # "OPENCLAW DAILY" top
     sw = md.textlength(SHOW_TEXT, font=font_show)
@@ -736,22 +754,22 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
     md = ImageDraw.Draw(img)
 
     # Line 1 — white with teal glow
-    l1w = md.textlength(line1, font=font_title)
-    md.text(((W-l1w)/2+3, 988), line1, font=font_title, fill=(0, 0, 0, 160))
+    l1w = md.textlength(line1, font=font_title_l1)
+    md.text(((W-l1w)/2+3, 988), line1, font=font_title_l1, fill=(0, 0, 0, 160))
     tg1 = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(tg1).text(((W-l1w)/2, 985), line1, font=font_title, fill=TEAL+(50,))
+    ImageDraw.Draw(tg1).text(((W-l1w)/2, 985), line1, font=font_title_l1, fill=TEAL+(50,))
     img = Image.alpha_composite(img, tg1.filter(ImageFilter.GaussianBlur(14)))
     md = ImageDraw.Draw(img)
-    md.text(((W-l1w)/2, 985), line1, font=font_title, fill=WHITE+(255,))
+    md.text(((W-l1w)/2, 985), line1, font=font_title_l1, fill=WHITE+(255,))
 
     # Line 2 — amber glow
-    l2w = md.textlength(line2, font=font_title)
-    md.text(((W-l2w)/2+4, 1118), line2, font=font_title, fill=(0, 0, 0, 170))
+    l2w = md.textlength(line2, font=font_title_l2)
+    md.text(((W-l2w)/2+4, 1118), line2, font=font_title_l2, fill=(0, 0, 0, 170))
     tg2 = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(tg2).text(((W-l2w)/2, 1115), line2, font=font_title, fill=AMBER+(80,))
+    ImageDraw.Draw(tg2).text(((W-l2w)/2, 1115), line2, font=font_title_l2, fill=AMBER+(80,))
     img = Image.alpha_composite(img, tg2.filter(ImageFilter.GaussianBlur(16)))
     md = ImageDraw.Draw(img)
-    md.text(((W-l2w)/2, 1115), line2, font=font_title, fill=AMBER_BRIGHT+(255,))
+    md.text(((W-l2w)/2, 1115), line2, font=font_title_l2, fill=AMBER_BRIGHT+(255,))
 
     # Tagline
     tw = md.textlength(tagline, font=font_sub)
