@@ -70,6 +70,16 @@ def run(cmd):
     subprocess.run(cmd, check=True)
 
 
+def ffprobe_duration(path: Path) -> float:
+    result = subprocess.run(
+        ["/opt/homebrew/bin/ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return float(result.stdout.strip())
+
+
 def episode_source_dir(episode: int) -> Path:
     canonical = VIDEO_ROOT / "openclaw-daily" / f"ep{episode}"
     legacy = VIDEO_ROOT / f"ep{episode}"
@@ -234,8 +244,6 @@ def latest_input_mtime(episode: int, lang: str, cfg: dict, audio_path: Path) -> 
 
 def ensure_silent_master(episode: int, cfg: dict) -> Path:
     kb_silent = VIDEO_ROOT / cfg["paths"]["kb_silent"]
-    if kb_silent.exists():
-        return kb_silent
 
     filelist = episode_build_dir(episode) / "assets" / "kb_clips" / "filelist.txt"
     if not filelist.exists():
@@ -248,6 +256,14 @@ def ensure_silent_master(episode: int, cfg: dict) -> Path:
             )
         if not filelist.exists():
             raise FileNotFoundError(f"Missing Ken Burns clip filelist: {filelist}")
+
+    expected_scenes = int(cfg.get("scene_count") or 0)
+    lines = [line.strip() for line in filelist.read_text().splitlines() if line.strip()]
+    actual_scenes = len(lines)
+    if expected_scenes and actual_scenes != expected_scenes:
+        raise RuntimeError(
+            f"Ken Burns clip count mismatch for EP{episode:03d}: expected {expected_scenes}, got {actual_scenes}. Filelist: {filelist}"
+        )
 
     kb_silent.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -293,6 +309,12 @@ def ensure_silent_master(episode: int, cfg: dict) -> Path:
 
 
 def mux_audio(silent_video: Path, audio: Path, output_video: Path):
+    video_duration = ffprobe_duration(silent_video)
+    audio_duration = ffprobe_duration(audio)
+    if audio_duration - video_duration > 2.0:
+        raise RuntimeError(
+            f"Refusing to mux truncated video: video={video_duration:.2f}s audio={audio_duration:.2f}s source={silent_video}"
+        )
     run([
         FFMPEG,
         "-y",
