@@ -286,6 +286,7 @@ def gemini_call(prompt, max_tokens=4000, retries=3):
         timeout=180.0,
     )
     last_err = None
+    last_raw = None
     for attempt in range(1, retries + 1):
         try:
             r = client.chat.completions.create(
@@ -294,17 +295,23 @@ def gemini_call(prompt, max_tokens=4000, retries=3):
                 max_tokens=max_tokens,
             )
             raw = r.choices[0].message.content or ""
+            last_raw = raw
             clean = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
             if clean:
                 return clean
-            # Empty response — retry
+            last_err = f"empty response (raw_len={len(raw)})"
             log(f"    ⚠️  Empty response (attempt {attempt}/{retries}), retrying...", indent=2)
             time.sleep(3 * attempt)
         except Exception as e:
             last_err = e
             log(f"    ⚠️  API error (attempt {attempt}/{retries}): {e}", indent=2)
             time.sleep(5 * attempt)
-    raise RuntimeError(f"Minimax API failed after {retries} attempts. Last error: {last_err}")
+    raw_note = ""
+    if isinstance(last_raw, str) and last_raw:
+        preview = last_raw[:200].replace("
+", " ")
+        raw_note = f" Raw preview: {preview!r}"
+    raise RuntimeError(f"Minimax API failed after {retries} attempts. Last error: {last_err}.{raw_note}")
 
 def translate_metadata(ep_num, lang):
     """Returns dict: title, description, cover_line1, cover_line2, cover_tagline."""
