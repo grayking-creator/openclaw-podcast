@@ -308,8 +308,7 @@ def gemini_call(prompt, max_tokens=4000, retries=3):
             time.sleep(5 * attempt)
     raw_note = ""
     if isinstance(last_raw, str) and last_raw:
-        preview = last_raw[:200].replace("
-", " ")
+        preview = last_raw[:200].replace("\n", " ")
         raw_note = f" Raw preview: {preview!r}"
     raise RuntimeError(f"Minimax API failed after {retries} attempts. Last error: {last_err}.{raw_note}")
 
