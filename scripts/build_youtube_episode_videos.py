@@ -16,7 +16,20 @@ from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
-VIDEO_ROOT = Path.home() / ".openclaw/workspace/video-workspace/crossfire-series"
+
+
+def resolve_video_root() -> Path:
+    candidates = [
+        Path.home() / ".openclaw/workspace/video-workspace/flux-videos",
+        Path.home() / ".openclaw/workspace/video-workspace/crossfire-series",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+    return candidates[-1]
+
+
+VIDEO_ROOT = resolve_video_root()
 VIDEO_PYTHON = VIDEO_ROOT / ".venv" / "bin" / "python3"
 FFMPEG = "/opt/homebrew/bin/ffmpeg"
 LANGS = ["en", "es", "de", "pt", "hi"]
@@ -57,8 +70,30 @@ def run(cmd):
     subprocess.run(cmd, check=True)
 
 
+def episode_source_dir(episode: int) -> Path:
+    canonical = VIDEO_ROOT / "openclaw-daily" / f"ep{episode}"
+    legacy = VIDEO_ROOT / f"ep{episode}"
+    if canonical.exists():
+        return canonical
+    if legacy.exists():
+        return legacy
+    return canonical
+
+
+def episode_build_dir(episode: int) -> Path:
+    canonical = VIDEO_ROOT / "build" / "openclaw-daily" / f"ep{episode}"
+    legacy = VIDEO_ROOT / "build" / f"ep{episode}"
+    if canonical.exists() or episode_source_dir(episode).parent.name == "openclaw-daily":
+        return canonical
+    return legacy
+
+
+def episode_config_path(episode: int) -> Path:
+    return episode_source_dir(episode) / "config.json"
+
+
 def load_video_config(episode: int) -> dict:
-    with open(VIDEO_ROOT / f"ep{episode}" / "config.json") as f:
+    with open(episode_config_path(episode)) as f:
         return json.load(f)
 
 
@@ -162,7 +197,7 @@ def get_display_title(episode: int, lang: str, cfg: dict, state: dict) -> str:
 
 
 def get_output_paths(episode: int, lang: str) -> tuple[Path, Path]:
-    outputs_dir = VIDEO_ROOT / f"build/ep{episode}" / "outputs"
+    outputs_dir = episode_build_dir(episode) / "outputs"
     outputs_dir.mkdir(parents=True, exist_ok=True)
     final_video = outputs_dir / f"openclaw{episode}_kb_publish_{lang}.mp4"
     overlay_png = outputs_dir / f"openclaw{episode}_burnin_overlay_{lang}.png"
@@ -172,7 +207,7 @@ def get_output_paths(episode: int, lang: str) -> tuple[Path, Path]:
 def latest_input_mtime(episode: int, lang: str, cfg: dict, audio_path: Path) -> float:
     mtimes = [audio_path.stat().st_mtime]
 
-    config_path = VIDEO_ROOT / f"ep{episode}" / "config.json"
+    config_path = episode_config_path(episode)
     if config_path.exists():
         mtimes.append(config_path.stat().st_mtime)
 
@@ -202,9 +237,17 @@ def ensure_silent_master(episode: int, cfg: dict) -> Path:
     if kb_silent.exists():
         return kb_silent
 
-    filelist = VIDEO_ROOT / f"build/ep{episode}" / "assets" / "kb_clips" / "filelist.txt"
+    filelist = episode_build_dir(episode) / "assets" / "kb_clips" / "filelist.txt"
     if not filelist.exists():
-        raise FileNotFoundError(f"Missing Ken Burns clip filelist: {filelist}")
+        run_pipeline = VIDEO_ROOT / "shared" / "run_pipeline.py"
+        if run_pipeline.exists():
+            subprocess.run(
+                [str(VIDEO_PYTHON) if VIDEO_PYTHON.exists() else sys.executable, str(run_pipeline), "--episode", str(episode), "--stage", "kenburns"],
+                check=True,
+                cwd=str(VIDEO_ROOT),
+            )
+        if not filelist.exists():
+            raise FileNotFoundError(f"Missing Ken Burns clip filelist: {filelist}")
 
     kb_silent.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -292,6 +335,8 @@ def apply_burnins(
         str(VIDEO_ROOT / "shared" / "apply_burnins.py"),
         "--episode",
         str(episode),
+        "--config",
+        str(episode_config_path(episode)),
         "--input",
         str(input_video),
         "--output",
