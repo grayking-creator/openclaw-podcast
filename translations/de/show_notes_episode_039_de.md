@@ -1,4 +1,4 @@
-OPENCLAW DAILY — EPISODE 040 — 25. April 2026
+OPENCLAW DAILY — EPISODE 039 — 25. April 2026
 
 [00:00] INTRO / HOOK
 OpenClaw v2026.4.23 ist die neueste stabile Version, und da v2026.4.22, v2026.4.21 und v2026.4.20 bereits in den aktuellen Episodennotizen behandelt wurden, ist v2026.4.23 der einzige gültige Versionsblock am Anfang von EP039.

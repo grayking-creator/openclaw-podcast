@@ -1,4 +1,4 @@
-OPENCLAW DAILY — EPISODE 040 — 25 अप्रैल, 2026
+OPENCLAW DAILY — EPISODE 039 — 25 अप्रैल, 2026
 
 [00:00] परिचय / हुक
 

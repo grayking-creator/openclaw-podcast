@@ -1,4 +1,4 @@
-OPENCLAW DAILY — EPISODE 040 — 25 de abril de 2026
+OPENCLAW DAILY — EPISODE 039 — 25 de abril de 2026
 
 [00:00] INTRO / GANCHO
 OpenClaw v2026.4.23 es la versión estable más reciente, y debido a que v2026.4.22,
