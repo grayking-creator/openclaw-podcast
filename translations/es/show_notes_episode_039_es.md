@@ -3,7 +3,7 @@ OPENCLAW DAILY — EPISODE 040 — 25 de abril de 2026
 [00:00] INTRO / GANCHO
 OpenClaw v2026.4.23 es la versión estable más reciente, y debido a que v2026.4.22,
 v2026.4.21 y v2026.4.20 ya fueron cubiertas en las notas del episodio reciente,
-v2026.4.23 es el único bloque de release válido al inicio del EP040.
+v2026.4.23 es el único bloque de release válido al inicio del EP039.
 
 Y esta vale la pena ocupar el primer lugar.
 Facilita sustancialmente la generación de imágenes en OpenAI Codex OAuth y

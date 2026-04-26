@@ -1,17 +1,17 @@
-# EP040 — OpenClaw v2026.4.23, Anthropic’s Google Deal, DeepSeek V4, and the Vercel Spillover
+# EP039 — OpenClaw v2026.4.23, Anthropic’s Google Deal, DeepSeek V4, and the Vercel Spillover
 **OpenClaw Daily** | April 25, 2026 | ~42–48 min
 
 ## Release Coverage Check
 - Stable GitHub releases checked: `v2026.4.23`, `v2026.4.22`, `v2026.4.21`, `v2026.4.20`
 - Covered in the last 5 episode notes: `v2026.4.22`, `v2026.4.21`, `v2026.4.20`, `v2026.4.15`, `v2026.4.14`, `v2026.4.12`, `v2026.4.11`
 - Latest contiguous uncovered stable block from the newest stable release: `v2026.4.23`
-- Result: **OpenClaw release coverage is included in EP040 for v2026.4.23**
+- Result: **OpenClaw release coverage is included in EP039 for v2026.4.23**
 
 ## Episode Title
 **OpenClaw v2026.4.23, Anthropic’s Google Deal, DeepSeek V4, and the Vercel Spillover**
 
 ## Tagline
-OpenClaw v2026.4.23 earns the front of the episode with a real workflow-heavy update: image generation gets easier across Codex OAuth and OpenRouter, subagents can inherit context when needed, long media jobs get per-call timeouts, and Codex/media handling gets cleaner. Then EP040 turns to Google’s new Anthropic commitment, DeepSeek’s huge open-weight preview, and the widening operator lesson from Vercel’s breach update.
+OpenClaw v2026.4.23 earns the front of the episode with a real workflow-heavy update: image generation gets easier across Codex OAuth and OpenRouter, subagents can inherit context when needed, long media jobs get per-call timeouts, and Codex/media handling gets cleaner. Then EP039 turns to Google’s new Anthropic commitment, DeepSeek’s huge open-weight preview, and the widening operator lesson from Vercel’s breach update.
 
 ## Feed Description
 OpenClaw v2026.4.23 is the lead story and it deserves to be. The release materially improves image generation and reference-image editing across OpenAI Codex OAuth and OpenRouter, expands `image_generate` controls, adds optional forked transcript inheritance for `sessions_spawn`, introduces per-call `timeoutMs` for long generation tools, tunes local embedding context sizing, and tightens a long list of Codex, media, webchat, and security behaviors that operators actually feel. After the release deep dive, the episode shifts to Google’s planned Anthropic investment and compute expansion, DeepSeek’s V4 preview as a cheaper giant open-weight challenger, and Vercel’s warning that its customer-data incident may predate the breach it first disclosed.
@@ -37,7 +37,7 @@ OPENCLAW DAILY — EPISODE 040 — April 25, 2026
 [00:00] INTRO / HOOK
 OpenClaw v2026.4.23 is the latest stable release, and because v2026.4.22,
 v2026.4.21, and v2026.4.20 were already covered in the recent episode notes,
-v2026.4.23 is the only valid release block at the front of EP040.
+v2026.4.23 is the only valid release block at the front of EP039.
 
 And this one is worth the front spot.
 It makes image generation materially easier across OpenAI Codex OAuth and
