@@ -11,6 +11,7 @@ PODCAST_DIR=/Users/tobyglennpeters/.openclaw/workspace/openclaw-podcast
 DONE_FILE="${SCRIPT_DIR}/youtube_uploaded.txt"
 SYNC_SCRIPT="${SCRIPT_DIR}/sync_uploaded_from_youtube.py"
 SHOW_NOTES_QC="${SCRIPT_DIR}/check_show_notes.py"
+POST_DRAFT_DISCORD="${SCRIPT_DIR}/post_show_notes_draft_discord.py"
 
 # Sync against the live YouTube channel before picking the next episode.
 if [ -f "$SYNC_SCRIPT" ]; then
@@ -47,7 +48,7 @@ fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] show_notes_research: targeting EP${NEXT_EP_PAD} (last released: EP${_LAST_EP})" >> "$BUILD_LOG"
 
-/opt/homebrew/bin/openclaw agent --agent main --message "Draft show notes for EP${NEXT_EP_PAD} of OpenClaw Daily and post them to Discord. Do NOT send any Telegram messages at any point.
+/opt/homebrew/bin/openclaw agent --agent main --message "Draft show notes for EP${NEXT_EP_PAD} of OpenClaw Daily. Do NOT send any Telegram messages and do NOT post to Discord; the shell script will post the saved draft after QC.
 
 STEP 0 — Draft collision check: Check if ${DRAFT_PATH} already exists. If it does:
   1. Append this line to /tmp/show_notes_build.log: '[HOLD] EP${NEXT_EP_PAD} draft already exists; decision required'
@@ -90,7 +91,7 @@ STEP 4B — Run:
   python3 ${SHOW_NOTES_QC} ${DRAFT_PATH}
 If it fails, fix the draft until it passes before posting anything to Discord.
 
-STEP 5 — Discord only: Guild ID 1475905694145318944. Create channel openclaw-ep${NEXT_EP_PAD} if it doesn't exist (topic: EP ${NEXT_EP_PAD} — [title] | Research Draft). Post full show notes starting with '─── EP${NEXT_EP_PAD} Research Draft ───' and ending with '→ Reply here to approve transcript generation.' No other notifications." \
+STEP 5 — Stop after STEP 4B. Do not create Discord channels and do not post messages. The shell wrapper will upload the Markdown draft as an attachment after QC passes." \
   >> /tmp/show_notes_research.log 2>&1
 
 EXIT_CODE=$?
@@ -122,5 +123,14 @@ Build log: ${BUILD_LOG}"
   /opt/homebrew/bin/openclaw message send --channel discord --target "$ALERTS_CHANNEL" --message "$MSG" >> "$BUILD_LOG" 2>&1
 
 else
+  if ! python3 "$POST_DRAFT_DISCORD" "$_NEXT_EP" --file "$DRAFT_PATH" >> "$BUILD_LOG" 2>&1; then
+    MSG="❌ EP${NEXT_EP_PAD} research FAILED — Discord draft attachment upload failed
+Draft exists: show_notes_episode_${NEXT_EP_PAD}.md
+Poster: python3 ${POST_DRAFT_DISCORD} ${_NEXT_EP} --file ${DRAFT_PATH}
+Build log: ${BUILD_LOG}"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] FAIL EP${NEXT_EP_PAD}: Discord draft upload failed" >> "$BUILD_LOG"
+    /opt/homebrew/bin/openclaw message send --channel discord --target "$ALERTS_CHANNEL" --message "$MSG" >> "$BUILD_LOG" 2>&1
+    exit 1
+  fi
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] OK EP${NEXT_EP_PAD}: show notes written and posted to Discord" >> "$BUILD_LOG"
 fi
