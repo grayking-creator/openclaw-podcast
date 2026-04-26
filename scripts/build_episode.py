@@ -663,9 +663,13 @@ def main():
     duration = get_audio_duration(audio_path)
     audio_url = f"{CDN_BASE}/audio/episode_{ep_str}.mp3"
     cover_url = f"{CDN_BASE}/episode_{ep_str}_cover.png"
+    # Discord aggressively caches image embeds by URL. Use the CDN commit as a
+    # cache-busting query string for Discord-facing cover links so the thumbnail
+    # shown in the review message always matches the asset just pushed.
+    cover_review_url = f"{cover_url}?v={cdn_commit[:7]}"
     log(f"\n{'='*60}")
     log(f"✅ EP{ep_str} build complete")
-    log(f"   Cover: {cover_url}")
+    log(f"   Cover: {cover_review_url}")
     log(f"   Audio: {audio_url}")
     log(f"   Review only: website/feed publish waits for approval")
     log(f"   Duration: {duration}")
@@ -674,27 +678,27 @@ def main():
     if args.skip_verify:
         post_build_log(
             f"⚠️ EP{ep_str} CDN pushed — URLs UNVERIFIED because --skip-verify was set | "
-            f"{duration} | #openclaw-ep{ep_str} | {cover_url} | {audio_url}"
+            f"{duration} | #openclaw-ep{ep_str} | {cover_review_url} | {audio_url}"
         )
         if args.skip_discord:
             log(f"\n(--skip-discord --skip-verify) UNVERIFIED URLs for #{f'openclaw-ep{ep_str}'}:")
-            log(f"  Cover: {cover_url}")
+            log(f"  Cover: {cover_review_url}")
             log(f"  Audio: {audio_url}")
         else:
-            post_discord_listen(ep_num, duration, audio_url, cover_url=cover_url, verified=False)
+            post_discord_listen(ep_num, duration, audio_url, cover_url=cover_review_url, verified=False)
     else:
         post_build_log(
             f"⏳ EP{ep_str} CDN pushed — URLs UNVERIFIED, waiting for GitHub Pages | "
-            f"{duration} | #openclaw-ep{ep_str} | {cover_url} | {audio_url}"
+            f"{duration} | #openclaw-ep{ep_str} | {cover_review_url} | {audio_url}"
         )
         verify_published_urls(ep_num, audio_url, cover_url, commit_sha=cdn_commit)
         if args.skip_discord:
             log(f"\n(--skip-discord) VERIFIED URLs for #{f'openclaw-ep{ep_str}'}:")
-            log(f"  Cover: {cover_url}")
+            log(f"  Cover: {cover_review_url}")
             log(f"  Audio: {audio_url}")
         else:
-            post_discord_listen(ep_num, duration, audio_url, cover_url=cover_url, verified=True)
-            post_build_log(f"✅ EP{ep_str} done — review URLs verified live | {duration} | #openclaw-ep{ep_str} | {cover_url} | {audio_url}")
+            post_discord_listen(ep_num, duration, audio_url, cover_url=cover_review_url, verified=True)
+            post_build_log(f"✅ EP{ep_str} done — review URLs verified live | {duration} | #openclaw-ep{ep_str} | {cover_review_url} | {audio_url}")
 
     log(f"\n⛔ STOP — wait for Toby's ✅ in Discord before running:")
     log(f"   python3 scripts/release_episode_approved.py {ep_num} --pub-date \"...\"")
