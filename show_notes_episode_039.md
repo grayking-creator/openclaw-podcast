@@ -32,7 +32,7 @@ Vercel now says some customer accounts showed evidence of compromise that predat
 
 ## Show Notes
 ```md
-OPENCLAW DAILY — EPISODE 040 — April 25, 2026
+OPENCLAW DAILY — EPISODE 039 — April 25, 2026
 
 [00:00] INTRO / HOOK
 OpenClaw v2026.4.23 is the latest stable release, and because v2026.4.22,
