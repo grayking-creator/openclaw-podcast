@@ -255,6 +255,17 @@ def fallback_cover_lines(title):
     line2 = " ".join(words[split_at:]).upper()
     return line1, line2
 
+
+def derive_cover_lines_from_title(title):
+    title = collapse_ws(strip_title_prefix(title).replace("—", ",").replace("–", ","))
+    parts = [collapse_ws(part) for part in title.split(",") if collapse_ws(part)]
+    if len(parts) >= 2:
+        line1 = parts[0].upper()
+        line2 = parts[1].upper()
+        return line1, line2
+    return fallback_cover_lines(title)
+
+
 def normalize_translated_metadata(meta, ep_num, prefix, fallback_title, fallback_tagline):
     normalized = dict(meta or {})
     title = collapse_ws(normalized.get("title", "")) or f"{prefix} {ep_num}: {fallback_title}"
@@ -263,10 +274,13 @@ def normalize_translated_metadata(meta, ep_num, prefix, fallback_title, fallback
 
     line1 = collapse_ws(normalized.get("cover_line1", "")).upper()
     line2 = collapse_ws(normalized.get("cover_line2", "")).upper()
-    if not line1:
-        line1, fallback_line2 = fallback_cover_lines(title)
+    generic_line1 = line1 in {"OPENCLAW", "OPENCLAW DAILY", "ओपनक्लॉ"}
+    if not line1 or generic_line1 or not line2:
+        derived_line1, derived_line2 = derive_cover_lines_from_title(title)
+        if not line1 or generic_line1:
+            line1 = derived_line1
         if not line2:
-            line2 = fallback_line2
+            line2 = derived_line2
     normalized["cover_line1"] = line1
     normalized["cover_line2"] = line2
 
@@ -276,25 +290,34 @@ def normalize_translated_metadata(meta, ep_num, prefix, fallback_title, fallback
 
 # ── Minimax translation ───────────────────────────────────────────────────────
 
-def gemini_call(prompt, max_tokens=4000, retries=3):
-    """Call Minimax M2.7, strip <think> blocks, return clean text. Retries on empty output."""
+_MINIMAX_WALL_TIMEOUT = 180  # hard wall-clock cap per attempt
+
+def _minimax_call(prompt, max_tokens=4000, retries=3):
     import openai
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
     key = load_env_key("MINIMAX_API_KEY")
-    client = openai.OpenAI(
-        base_url="https://api.minimaxi.chat/v1",
-        api_key=key,
-        timeout=180.0,
-    )
+    client = openai.OpenAI(base_url="https://api.minimaxi.chat/v1", api_key=key, timeout=_MINIMAX_WALL_TIMEOUT)
     last_err = None
     last_raw = None
+
+    def _call():
+        r = client.chat.completions.create(
+            model="MiniMax-M2.7",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            extra_body={"reasoning_split": True},
+        )
+        # With reasoning_split=True, content is clean translation only (no <think> tags)
+        return r.choices[0].message.content or ""
+
     for attempt in range(1, retries + 1):
         try:
-            r = client.chat.completions.create(
-                model="MiniMax-M2.7",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-            )
-            raw = r.choices[0].message.content or ""
+            with ThreadPoolExecutor(max_workers=1) as ex:
+                future = ex.submit(_call)
+                try:
+                    raw = future.result(timeout=_MINIMAX_WALL_TIMEOUT)
+                except FutureTimeout:
+                    raise TimeoutError(f"wall-clock timeout after {_MINIMAX_WALL_TIMEOUT}s")
             last_raw = raw
             clean = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
             if clean:
@@ -304,13 +327,114 @@ def gemini_call(prompt, max_tokens=4000, retries=3):
             time.sleep(3 * attempt)
         except Exception as e:
             last_err = e
-            log(f"    ⚠️  API error (attempt {attempt}/{retries}): {e}", indent=2)
+            log(f"    ⚠️  Minimax error (attempt {attempt}/{retries}): {e}", indent=2)
             time.sleep(5 * attempt)
     raw_note = ""
     if isinstance(last_raw, str) and last_raw:
         preview = last_raw[:200].replace("\n", " ")
         raw_note = f" Raw preview: {preview!r}"
     raise RuntimeError(f"Minimax API failed after {retries} attempts. Last error: {last_err}.{raw_note}")
+
+
+def _local_claude_call(prompt, max_tokens=4000):
+    """Call the local OpenClaw Claude gateway at 18792 (always available, no quota)."""
+    import urllib.request, json as _json
+    payload = _json.dumps({
+        "model": "claude-code",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+    }).encode()
+    req = urllib.request.Request(
+        "http://127.0.0.1:18792/v1/chat/completions",
+        data=payload,
+        headers={"Content-Type": "application/json", "Authorization": "Bearer none"},
+    )
+    with urllib.request.urlopen(req, timeout=600) as resp:
+        data = _json.loads(resp.read())
+    return data["choices"][0]["message"]["content"].strip()
+
+
+def _nvidia_gateway_call(prompt, max_tokens=4000):
+    """Call NVIDIA DeepSeek V3.2 via local gateway — non-OpenAI, non-Anthropic fallback."""
+    import urllib.request, json as _json
+    payload = _json.dumps({
+        "model": "nvidia/deepseek-ai/deepseek-v3.2",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+    }).encode()
+    req = urllib.request.Request(
+        "http://127.0.0.1:18792/v1/chat/completions",
+        data=payload,
+        headers={"Content-Type": "application/json", "Authorization": "Bearer none"},
+    )
+    with urllib.request.urlopen(req, timeout=480) as resp:
+        data = _json.loads(resp.read())
+    return data["choices"][0]["message"]["content"].strip()
+
+
+def _mistral_call(prompt, max_tokens=4000):
+    """Call Mistral large via API — reliable multilingual fallback."""
+    import urllib.request, json as _json
+    key = load_env_key("MISTRAL_API_KEY")
+    if not key:
+        raise RuntimeError("MISTRAL_API_KEY not configured")
+    payload = _json.dumps({
+        "model": "mistral-large-latest",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.mistral.ai/v1/chat/completions",
+        data=payload,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
+    )
+    with urllib.request.urlopen(req, timeout=300) as resp:
+        data = _json.loads(resp.read())
+    return data["choices"][0]["message"]["content"].strip()
+
+
+def gemini_call(prompt, max_tokens=4000, retries=3):
+    """Translation backend chain: Minimax×3 → Gemini×1 → Mistral → NVIDIA DeepSeek V3.2."""
+    # 1. Minimax M2.7 — up to `retries` attempts (default 3)
+    try:
+        return _minimax_call(prompt, max_tokens, retries)
+    except RuntimeError as minimax_err:
+        log(f"    ⚠️  Minimax exhausted ({minimax_err}), trying Gemini...", indent=2)
+
+    # 2. Gemini — primary key only (fallback key has project-level 403)
+    from google import genai
+    last_gemini_err = None
+    key = load_env_key("GEMINI_API_KEY")
+    if key:
+        try:
+            client = genai.Client(api_key=key)
+            r = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config={"max_output_tokens": max_tokens},
+            )
+            return r.text.strip()
+        except Exception as e:
+            log(f"    ⚠️  Gemini GEMINI_API_KEY/gemini-2.5-flash failed: {e}", indent=2)
+            last_gemini_err = e
+
+    # 3. Mistral large (256k context, strong multilingual)
+    log("    ⚠️  Gemini exhausted, trying Mistral large...", indent=2)
+    try:
+        return _mistral_call(prompt, max_tokens)
+    except Exception as mistral_err:
+        log(f"    ⚠️  Mistral failed: {mistral_err}", indent=2)
+
+    # 4. NVIDIA DeepSeek V3.2 via local gateway (non-OpenAI, non-Anthropic)
+    log("    ⚠️  Mistral exhausted, trying NVIDIA DeepSeek V3.2...", indent=2)
+    try:
+        return _nvidia_gateway_call(prompt, max_tokens)
+    except Exception as nvidia_err:
+        raise RuntimeError(
+            f"All translation backends exhausted. "
+            f"Minimax failed, Gemini failed ({last_gemini_err}), "
+            f"Mistral failed, NVIDIA failed ({nvidia_err})"
+        ) from nvidia_err
 
 def translate_metadata(ep_num, lang):
     """Returns dict: title, description, cover_line1, cover_line2, cover_tagline."""
@@ -334,8 +458,9 @@ def translate_metadata(ep_num, lang):
         l1m = re.search(r'LINE1\s*=\s*["\'](.+?)["\']', cs)
         l2m = re.search(r'LINE2\s*=\s*["\'](.+?)["\']', cs)
         ctm = re.search(r'TAG_LINE\s*=\s*["\'](.+?)["\']', cs)
-        line1 = l1m.group(1) if l1m else en_title.upper().split()[0]
-        line2 = l2m.group(1) if l2m else ""
+        derived_line1, derived_line2 = derive_cover_lines_from_title(en_title)
+        line1 = l1m.group(1) if l1m else derived_line1
+        line2 = l2m.group(1) if l2m else derived_line2
         cover_tag = ctm.group(1) if ctm else en_tagline
 
     prompt = f"""Translate this podcast episode metadata from English to {lang_name}.
@@ -473,7 +598,7 @@ def translate_transcript_chunk(chunk_paragraphs, lang_name):
 
     last_error = None
     for attempt in range(1, 3):
-        raw = gemini_call(prompt, max_tokens=10000)
+        raw = gemini_call(prompt, max_tokens=16000)
         try:
             return validate_transcript_chunk(chunk_paragraphs, raw)
         except Exception as exc:
@@ -505,23 +630,39 @@ def translate_text_chunked(text, lang, chunk_type="transcript"):
             "- Output ONLY the translated content, no commentary\n"
         ).format(lang_name=lang_name)
 
-    # Split into chunks; Hindi needs smaller transcript batches to avoid count drift.
+    # 20-paragraph chunks for most languages; 10 for Hindi — Devanagari generates
+    # significantly more output tokens, causing Minimax to consistently exceed the
+    # 180s wall-clock timeout at 20 paragraphs.
     paragraphs = transcript_paragraphs(text)
-    chunk_size = 60
-    if chunk_type == "transcript" and lang == "hi":
-        chunk_size = 20
+    chunk_size = 10 if lang == "hi" else 20
     chunks = [paragraphs[i:i+chunk_size] for i in range(0, len(paragraphs), chunk_size)]
 
     translated_chunks = []
     for i, chunk in enumerate(chunks):
         log(f"    Translating chunk {i+1}/{len(chunks)} ({len(chunk)} paragraphs)...", indent=2)
-        if chunk_type == "transcript":
-            result = translate_transcript_chunk(chunk, lang_name)
-        else:
-            chunk_text = "\n\n".join(chunk)
-            prompt = f"{system_note}\n\nTranslate the following:\n\n{chunk_text}"
-            result = gemini_call(prompt, max_tokens=10000)
-        validate_language_scripts(result, lang, f"{chunk_type} chunk {i+1}/{len(chunks)}")
+        result = None
+        last_error = None
+        for attempt in range(1, 4):
+            try:
+                if chunk_type == "transcript":
+                    result = translate_transcript_chunk(chunk, lang_name)
+                else:
+                    chunk_text = "\n\n".join(chunk)
+                    prompt = f"{system_note}\n\nTranslate the following:\n\n{chunk_text}"
+                    result = gemini_call(prompt, max_tokens=16000)
+                validate_language_scripts(result, lang, f"{chunk_type} chunk {i+1}/{len(chunks)}")
+                break
+            except Exception as exc:
+                last_error = exc
+                if attempt >= 3:
+                    raise
+                log(
+                    f"      ⚠️  Chunk {i+1}/{len(chunks)} retry {attempt}/3 after validation failure: {exc}",
+                    indent=3,
+                )
+                time.sleep(2 * attempt)
+        if result is None and last_error is not None:
+            raise last_error
         translated_chunks.append(result)
         if i < len(chunks) - 1:
             time.sleep(1)  # polite pause between chunks
@@ -690,6 +831,7 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
     font_path_bold = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
     font_path_reg  = "/System/Library/Fonts/Supplemental/Arial.ttf"
     hi_font_paths  = [
+        "/System/Library/Fonts/Supplemental/Devanagari Sangam MN.ttc",
         "/System/Library/Fonts/Supplemental/ITFDevanagari.ttc",
         "/System/Library/Fonts/DevanagariMT.ttc",
         "/System/Library/Fonts/Supplemental/DevanagariMT.ttc",
@@ -708,7 +850,7 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
         font_ep    = ImageFont.truetype(font_path_bold, 68)
         base_title_size = 100 if is_hindi else 118
         font_title = ImageFont.truetype(title_font_path, base_title_size)
-        font_sub   = ImageFont.truetype(font_path_reg, 28 if is_hindi else 30)
+        font_sub   = ImageFont.truetype(title_font_path if is_hindi else font_path_reg, 28 if is_hindi else 30)
     except Exception:
         font_show = font_ep = font_title = font_sub = ImageFont.load_default()
         base_title_size = 118
@@ -717,9 +859,16 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
 
     SHOW_TEXT = "OPENCLAW DAILY"
     EP_TEXT   = f"EP{ep_num:03d}"
-    line1     = meta.get("cover_line1", "").upper()
-    line2     = meta.get("cover_line2", "").upper()
-    tagline   = meta.get("cover_tagline", "")
+    line1     = collapse_ws(meta.get("cover_line1", "")).upper()
+    line2     = collapse_ws(meta.get("cover_line2", "")).upper()
+    tagline   = collapse_ws(meta.get("cover_tagline", ""))
+    generic_line1 = line1 in {"OPENCLAW", "OPENCLAW DAILY", "ओपनक्लॉ"}
+    if not line1 or generic_line1 or not line2:
+        derived_line1, derived_line2 = derive_cover_lines_from_title(meta.get("title", ""))
+        if not line1 or generic_line1:
+            line1 = derived_line1 or line1
+        if not line2:
+            line2 = derived_line2 or line2
 
     def fit_font(text_value, start_size, min_size=56, max_width=W-110):
         if not text_value:
@@ -778,14 +927,41 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
     md.text(((W-l2w)/2, 1115), line2, font=font_title_l2, fill=AMBER_BRIGHT+(255,))
 
     # Tagline
-    tw = md.textlength(tagline, font=font_sub)
-    if tw > W - 80:  # wrap if too long
-        # Simple truncate with ellipsis
-        while md.textlength(tagline + "...", font=font_sub) > W - 80 and tagline:
-            tagline = tagline[:-1]
-        tagline += "..."
-        tw = md.textlength(tagline, font=font_sub)
-    md.text(((W-tw)/2, 1305), tagline, font=font_sub, fill=AMBER_BRIGHT+(120,))
+    def wrap_text(text_value, font, max_width):
+        words = text_value.split()
+        if not words:
+            return []
+        lines = []
+        current = words[0]
+        for word in words[1:]:
+            candidate = f"{current} {word}"
+            if md.textlength(candidate, font=font) <= max_width:
+                current = candidate
+            else:
+                lines.append(current)
+                current = word
+        lines.append(current)
+        return lines
+
+    def fit_tagline(text_value, start_size, min_size=22, max_lines=2, max_width=W-120):
+        size = start_size
+        while size >= min_size:
+            candidate_font = ImageFont.truetype(title_font_path if is_hindi else font_path_reg, size)
+            wrapped = wrap_text(text_value, candidate_font, max_width)
+            if wrapped and len(wrapped) <= max_lines:
+                return candidate_font, wrapped
+            size -= 2
+        candidate_font = ImageFont.truetype(title_font_path if is_hindi else font_path_reg, min_size)
+        wrapped = wrap_text(text_value, candidate_font, W-120)
+        return candidate_font, wrapped[:2]
+
+    if tagline:
+        font_tagline, tagline_lines = fit_tagline(tagline, 28 if is_hindi else 30)
+        y = 1260 if len(tagline_lines) == 1 else 1238
+        line_gap = 34 if is_hindi else 32
+        for idx, line in enumerate(tagline_lines):
+            tw = md.textlength(line, font=font_tagline)
+            md.text(((W-tw)/2, y + idx * line_gap), line, font=font_tagline, fill=AMBER_BRIGHT+(120,))
 
     # Vignette
     vig = Image.new("L", (W, H), 0)
@@ -852,6 +1028,82 @@ def translated_cover_url(ep_num, lang):
         translated_release_cover_name(ep_num),
     )
 
+
+def cover_stale_against_art(cover_path, art_path):
+    if not cover_path.exists() or not art_path.exists():
+        return False
+    return cover_path.stat().st_mtime < art_path.stat().st_mtime
+
+
+def sync_if_newer(src_path, dst_path):
+    dst_path.parent.mkdir(parents=True, exist_ok=True)
+    if (
+        not dst_path.exists()
+        or src_path.stat().st_mtime > dst_path.stat().st_mtime
+        or src_path.stat().st_size != dst_path.stat().st_size
+    ):
+        shutil.copy2(str(src_path), str(dst_path))
+        return True
+    return False
+
+
+def ensure_bespoke_art_module(ep_num, force=False):
+    ep_str = f"{ep_num:03d}"
+    art_mod_path = SCRIPTS_DIR / "episode_art" / f"episode_{ep_str}_art.py"
+    if art_mod_path.exists() and not force:
+        log(f"  ✅ Art module ready: {art_mod_path.name}")
+        return art_mod_path
+
+    if force and art_mod_path.exists():
+        log(f"  ♻️  Regenerating art module: {art_mod_path.name}")
+    else:
+        log(f"  → Generating bespoke art module for EP{ep_str}...")
+
+    gen_script = SCRIPTS_DIR / "generate_episode_art.py"
+    result = subprocess.run(
+        ["python3", str(gen_script), str(ep_num)],
+        capture_output=False,
+        text=True,
+    )
+    if result.returncode != 0 or not art_mod_path.exists():
+        raise RuntimeError(
+            f"Bespoke art module generation failed for EP{ep_str}; refusing to continue with fallback cover art."
+        )
+
+    log(f"  ✅ Art module ready: {art_mod_path.name}")
+    return art_mod_path
+
+
+def assert_feed_sequence(feed_path, ep_num):
+    if ep_num <= 0 or not feed_path.exists():
+        return
+    feed_text = feed_path.read_text()
+    existing = {int(m) for m in re.findall(r"<itunes:episode>(\d+)</itunes:episode>", feed_text)}
+    if not existing or ep_num in existing:
+        return
+    expected = 0
+    while expected in existing:
+        expected += 1
+    if ep_num != expected:
+        expected_str = f"{expected:03d}"
+        prior_draft = PODCAST_DIR / f"show_notes_episode_{expected_str}.md"
+        draft_hint = (
+            f"\nUnreleased prior draft exists: {prior_draft.name}"
+            if prior_draft.exists()
+            else ""
+        )
+        raise RuntimeError(
+            f"Refusing to publish EP{ep_num:03d}: {feed_path.name} expects EP{expected:03d} next."
+            f"{draft_hint}\n"
+            "Choose one recovery path before publishing:\n"
+            f"1. Keep the prior stories: merge EP{expected_str}'s Story Slate into the episode you meant to publish, "
+            "then publish the next expected episode number.\n"
+            f"   Helper: python3 scripts/resolve_episode_gap.py prepare-merge --prior {expected} --target {ep_num}\n"
+            f"2. Replace the prior stories: archive EP{expected_str}'s draft/assets and reuse EP{expected_str} "
+            "for the new story slate, regenerating transcript, audio, cover, translations, and YouTube assets from that replacement.\n"
+            f"   Helper: python3 scripts/resolve_episode_gap.py archive {expected} --reason 'replaced before transcript generation'"
+        )
+
 def upload_translated_release_assets(ep_num, lang):
     ep_str = f"{ep_num:03d}"
     audio_path = PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
@@ -915,12 +1167,18 @@ def phase_setup(ep_num, state):
     else:
         log(f"  ✅ Canonical audio: episode_{ep_str}.mp3")
 
-    # Check EN cover — generate if missing
+    art_mod_path = ensure_bespoke_art_module(ep_num)
+
+    # Check EN cover — generate if missing or stale versus newer bespoke art
     en_cover = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
     if not en_cover.exists():
         log(f"  ℹ️  EN cover missing — generating from show notes...")
         generate_en_cover(ep_num)
         log(f"  ✅ EN cover generated")
+    elif cover_stale_against_art(en_cover, art_mod_path):
+        log(f"  ♻️  EN cover is older than {art_mod_path.name} — re-rendering")
+        generate_en_cover(ep_num)
+        log(f"  ✅ EN cover refreshed")
     else:
         log(f"  ✅ EN cover exists")
 
@@ -945,7 +1203,9 @@ def phase_setup(ep_num, state):
 
     return state
 
-def phase_translate(ep_num, state):
+def phase_translate(ep_num, state, langs=None):
+    """Translate episode content. Pass langs=[...] to translate only specific languages."""
+    target_langs = langs if langs is not None else LANGS
     log("[ TRANSLATE ] Generating translations via Minimax M2.7...")
     ep_str = f"{ep_num:03d}"
     transcript_path = PODCAST_DIR / "episodes" / f"episode_{ep_str}_transcript_nova.md"
@@ -959,7 +1219,7 @@ def phase_translate(ep_num, state):
 
     translations = state.get("translations", {})
 
-    for lang in LANGS:
+    for lang in target_langs:
         lang_dir = PODCAST_DIR / "translations" / lang
         lang_dir.mkdir(parents=True, exist_ok=True)
         transcript_out = lang_dir / f"episode_{ep_str}_{lang}.md"
@@ -1047,40 +1307,28 @@ def phase_covers(ep_num, state):
     en_episode_title = extract_episode_title(en_notes, ep_num)
     en_tagline = extract_tagline(en_notes) or extract_feed_description(en_notes)
 
-    # Auto-generate bespoke middle art module if not already present
-    art_mod_path = SCRIPTS_DIR / "episode_art" / f"episode_{ep_str}_art.py"
-    if not art_mod_path.exists():
-        log(f"  → No art module for EP{ep_str} — generating via Claude CLI...")
-        gen_script = SCRIPTS_DIR / "generate_episode_art.py"
-        result = subprocess.run(
-            ["python3", str(gen_script), str(ep_num)],
-            capture_output=False,
-            text=True,
-        )
-        if art_mod_path.exists():
-            log(f"  ✅ Art module generated: {art_mod_path.name}")
-        else:
-            log(f"  ⚠️  Art generation failed (exit {result.returncode}) — covers will use strata fallback")
-    else:
-        log(f"  ✅ Art module exists: {art_mod_path.name}")
+    # Bespoke art is a required prerequisite for all cover generation.
+    art_mod_path = ensure_bespoke_art_module(ep_num)
 
     # Also copy EN cover to CDN
     en_cover_src = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
     en_cover_cdn = CDN_DIR / f"episode_{ep_str}_cover.png"
-    if not en_cover_cdn.exists():
-        shutil.copy2(str(en_cover_src), str(en_cover_cdn))
+    if cover_stale_against_art(en_cover_src, art_mod_path):
+        log(f"  ♻️  EN cover is older than {art_mod_path.name} — re-rendering")
+        generate_en_cover(ep_num)
+    if sync_if_newer(en_cover_src, en_cover_cdn):
         log(f"  ✅ EN cover → CDN")
 
     # Copy EN cover to website
     WEBSITE_PODCAST_IMG.mkdir(parents=True, exist_ok=True)
     en_cover_web = WEBSITE_PODCAST_IMG / f"episode_{ep_str}_cover.png"
-    if not en_cover_web.exists():
-        shutil.copy2(str(en_cover_src), str(en_cover_web))
+    if sync_if_newer(en_cover_src, en_cover_web):
         log(f"  ✅ EN cover → website")
 
     for lang in LANGS:
         out_path = PODCAST_DIR / "images" / f"episode_{ep_str}_cover_{lang}.png"
-        if out_path.exists():
+        needs_refresh = cover_stale_against_art(out_path, art_mod_path)
+        if out_path.exists() and not needs_refresh:
             log(f"  ⏭  {lang.upper()} cover exists, skipping")
         else:
             meta = translations.get(lang, {}).get("meta", {})
@@ -1096,14 +1344,16 @@ def phase_covers(ep_num, state):
             )
             translations.setdefault(lang, {})["meta"] = meta
             state["translations"] = translations
-            log(f"  → Generating {lang.upper()} cover...")
+            if needs_refresh:
+                log(f"  ♻️  {lang.upper()} cover is older than {art_mod_path.name} — re-rendering")
+            else:
+                log(f"  → Generating {lang.upper()} cover...")
             generate_translated_cover(ep_num, lang, meta)
             log(f"  ✅ {out_path.name}")
 
         # Copy to website
         web_cover = WEBSITE_PODCAST_IMG / f"episode_{ep_str}_cover_{lang}.png"
-        if not web_cover.exists():
-            shutil.copy2(str(out_path), str(web_cover))
+        if sync_if_newer(out_path, web_cover):
             log(f"     → {web_cover.name} copied to website")
 
     return state
@@ -1133,6 +1383,7 @@ def phase_en_feed(ep_num, state, pub_date):
     en_link = f"https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/"
 
     en_feed = PODCAST_DIR / "feed.xml"
+    assert_feed_sequence(en_feed, ep_num)
     # Check if already in feed
     if f"<itunes:episode>{ep_num}</itunes:episode>" not in en_feed.read_text():
         log(f"  → Adding EN feed entry...")
@@ -1155,7 +1406,7 @@ def phase_en_feed(ep_num, state, pub_date):
 
     return state
 
-def phase_translated_feeds(ep_num, state, pub_date):
+def phase_translated_feeds(ep_num, state, pub_date, langs=None):
     log("[ FEEDS / TRANSLATED ] Adding translated feed entries...")
     ep_str = f"{ep_num:03d}"
     translations = state.get("translations", {})
@@ -1163,7 +1414,7 @@ def phase_translated_feeds(ep_num, state, pub_date):
     add_feed_script = str(SCRIPTS_DIR / "add_feed_entry.py")
 
     # Translated feeds
-    for lang in LANGS:
+    for lang in (langs if langs is not None else LANGS):
         feed_path = PODCAST_DIR / "translations" / f"feed_{lang}.xml"
         feed_text = feed_path.read_text()
         prefix = TITLE_PREFIXES[lang]
@@ -1235,8 +1486,9 @@ def phase_youtube(ep_num, state):
     log("[ YOUTUBE ] Uploading all 5 channels...")
     venv_python = PODCAST_DIR / ".venv_shorts/bin/python3"
     youtube_python = str(venv_python) if venv_python.exists() else sys.executable
+    video_mode = str(state.get("youtube_video_mode", "static")).strip().lower() or "static"
     result = subprocess.run(
-        [youtube_python, str(SCRIPTS_DIR / "youtube_scheduled_upload.py"), str(ep_num)],
+        [youtube_python, str(SCRIPTS_DIR / "youtube_scheduled_upload.py"), str(ep_num), "--video-mode", video_mode],
         cwd=str(PODCAST_DIR)
     )
     if result.returncode != 0:
@@ -1268,9 +1520,10 @@ def phase_cdn(ep_num, state):
     log("[ CDN ] Syncing translated media release assets...")
     return phase_translated_cdn(ep_num, state)
 
-def phase_translated_cdn(ep_num, state):
+def phase_translated_cdn(ep_num, state, langs=None):
+    target_langs = list(langs or LANGS)
     log("[ CDN / TRANSLATED ] Uploading translated audio + covers to media release repos...")
-    for lang in LANGS:
+    for lang in target_langs:
         upload_translated_release_assets(ep_num, lang)
         log(f"  ✅ {lang.upper()} media release updated")
 
@@ -1314,27 +1567,24 @@ def phase_publish_en(ep_num, state):
 
     return state
 
-def phase_publish_translations(ep_num, state):
+def phase_publish_translations(ep_num, state, langs=None):
+    target_langs = list(langs or LANGS)
     log("[ PUBLISH / TRANSLATED ] Pushing translated podcast + website...")
     ep_str = f"{ep_num:03d}"
-    stage = [
-        f"translations/feed_de.xml",
-        f"translations/feed_es.xml",
-        f"translations/feed_hi.xml",
-        f"translations/feed_pt.xml",
-    ]
-    for lang in LANGS:
+    stage = []
+    for lang in target_langs:
+        stage.append(f"translations/feed_{lang}.xml")
         ensure_website_cover(ep_num, lang)
         stage += [
             f"images/episode_{ep_str}_cover_{lang}.png",
             f"translations/{lang}/episode_{ep_str}_{lang}.md",
             f"translations/{lang}/show_notes_episode_{ep_str}_{lang}.md",
         ]
-    push_podcast_stage(ep_num, stage, f"EP{ep_num}: publish translated episode_{ep_str}")
+    push_podcast_stage(ep_num, stage, f"EP{ep_num}: publish translated episode_{ep_str} ({'-'.join(target_langs)})")
     deploy_website(
         ep_num,
-        f"EP{ep_num}: translated cover art + website update",
-        [f"frontend/public/images/podcast/episode_{ep_str}_cover_{lang}.png" for lang in LANGS],
+        f"EP{ep_num}: translated cover art + website update ({'-'.join(target_langs)})",
+        [f"frontend/public/images/podcast/episode_{ep_str}_cover_{lang}.png" for lang in target_langs],
     )
 
     return state
@@ -1365,11 +1615,12 @@ def phase_discord(ep_num, state):
 
     log(f"[ DISCORD ] Posting release to #openclaw-daily and cleaning up #{ep_channel_name}...")
 
+    discord_state = state.setdefault("discord_cleanup", {})
+
     # Read show notes for the release announcement
     show_notes_path = PODCAST_DIR / f"show_notes_episode_{ep_str}.md"
     if show_notes_path.exists():
         show_notes = show_notes_path.read_text()
-        # Extract just title + tagline + story titles for the announcement (keep it concise)
         lines = show_notes.splitlines()
         title_line = next((l for l in lines if l.startswith("# EP")), f"# EP{ep_str}")
         tagline_line = next((l for l in lines if l.startswith("**OpenClaw Daily**")), "")
@@ -1377,17 +1628,24 @@ def phase_discord(ep_num, state):
     else:
         announcement = f"🎙️ **EP{ep_str} is live!**\nhttps://tobyonfitnesstech.com/podcasts/episode-{ep_num}/"
 
-    # Post to #openclaw-daily
-    discord_request("POST", f"/channels/{DAILY_CHANNEL_ID}/messages", {"content": announcement})
-    log(f"  ✅ Posted to #openclaw-daily")
+    if not discord_state.get("daily_posted"):
+        discord_request("POST", f"/channels/{DAILY_CHANNEL_ID}/messages", {"content": announcement})
+        discord_state["daily_posted"] = True
+        save_state(ep_num, state)
+        log(f"  ✅ Posted to #openclaw-daily")
+    else:
+        log(f"  ℹ️  #openclaw-daily post already sent")
 
-    # Find and delete the per-episode channel
     channels = discord_request("GET", f"/guilds/{GUILD_ID}/channels")
     ep_channel = next((c for c in channels if c.get("name") == ep_channel_name), None)
     if ep_channel:
         discord_request("DELETE", f"/channels/{ep_channel['id']}")
+        discord_state["working_channel_deleted"] = True
+        save_state(ep_num, state)
         log(f"  ✅ Deleted #{ep_channel_name}")
     else:
+        discord_state["working_channel_deleted"] = True
+        save_state(ep_num, state)
         log(f"  ℹ️  #{ep_channel_name} not found (already deleted or never created)")
 
     return state

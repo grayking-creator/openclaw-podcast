@@ -3,13 +3,14 @@
 build_episode.py — Pre-greenlight episode builder.
 
 Runs everything needed before ARIA posts review assets to Discord:
-  1. Verify transcript matches the approved story slate from show notes.
-  2. Run QC (check_episode.py) — blocks on any ERROR.
-  3. Render nova transcript (render_nova.py).
-  4. Generate EN audio.
-  5. Generate EN cover art (from show notes title).
-  6. Copy audio + cover to CDN repo.
-  7. Post review URLs to Discord episode channel, then stop for approval.
+  1. QC the approved show notes (check_show_notes.py).
+  2. Verify transcript matches the approved story slate from show notes.
+  3. Run QC (check_episode.py) — blocks on any ERROR.
+  4. Render nova transcript (render_nova.py).
+  5. Generate EN audio.
+  6. Generate EN cover art (from show notes title).
+  7. Copy audio + cover to CDN repo.
+  8. Post review URLs to Discord episode channel, then stop for approval.
 
 Does NOT proceed to site/feed publish, translations, or YouTube — that's release_episode_approved.py after approval.
 
@@ -17,6 +18,7 @@ Usage:
     python3 scripts/build_episode.py 29
     python3 scripts/build_episode.py 29 --force-audio   # regenerate even if audio exists
     python3 scripts/build_episode.py 29 --skip-discord  # skip Discord post (dry-run)
+    python3 scripts/build_episode.py 29 --force-art     # regenerate bespoke center art module
 """
 
 import argparse
@@ -84,6 +86,97 @@ def load_env_key(name):
     return ""
 
 
+def cover_stale_against_art(cover_path: Path, art_path: Path) -> bool:
+    """A rendered cover must be refreshed if newer bespoke art exists."""
+    if not cover_path.exists() or not art_path.exists():
+        return False
+    return cover_path.stat().st_mtime < art_path.stat().st_mtime
+
+
+def assert_feed_sequence(ep_num: int) -> None:
+    """Fail closed if we are about to skip over an unpublished episode number."""
+    feed_path = PODCAST_DIR / "feed.xml"
+    if ep_num <= 0 or not feed_path.exists():
+        return
+    feed_text = feed_path.read_text()
+    existing = {int(m) for m in re.findall(r"<itunes:episode>(\d+)</itunes:episode>", feed_text)}
+    if not existing or ep_num in existing:
+        return
+    expected = 0
+    while expected in existing:
+        expected += 1
+    if ep_num != expected:
+        expected_str = f"{expected:03d}"
+        prior_draft = PODCAST_DIR / f"show_notes_episode_{expected_str}.md"
+        draft_hint = (
+            f"\n\nUnreleased prior draft exists: {prior_draft.name}"
+            if prior_draft.exists()
+            else ""
+        )
+        raise SystemExit(
+            f"❌ Refusing to build EP{ep_num:03d}: feed sequence expects EP{expected:03d} next. "
+            f"EP{ep_num:03d} would skip over an unpublished episode."
+            f"{draft_hint}\n\n"
+            "Choose one recovery path before building:\n"
+            f"1. Keep the prior stories: merge EP{expected_str}'s Story Slate into the episode you meant to build, "
+            "then build the next expected episode number.\n"
+            f"   Helper: python3 scripts/resolve_episode_gap.py prepare-merge --prior {expected} --target {ep_num}\n"
+            f"2. Replace the prior stories: archive EP{expected_str}'s draft/assets and reuse EP{expected_str} "
+            "for the new story slate, regenerating transcript, audio, cover, translations, and YouTube assets from that replacement.\n"
+            f"   Helper: python3 scripts/resolve_episode_gap.py archive {expected} --reason 'replaced before transcript generation'"
+        )
+
+
+def ensure_bespoke_art_module(ep_num: int, force: bool = False) -> Path:
+    ep_str = f"{ep_num:03d}"
+    art_path = SCRIPTS_DIR / "episode_art" / f"episode_{ep_str}_art.py"
+
+    log(f"\n── Bespoke Art ─────────────────────────────────────────────────────────")
+    if art_path.exists() and not force:
+        log(f"✅ Bespoke art ready: {art_path.name}")
+        post_build_log(f"✅ EP{ep_str} [5/6] Bespoke art ready — {art_path.name}")
+        return art_path
+
+    if force and art_path.exists():
+        log(f"♻️  Regenerating bespoke art: {art_path.name}")
+        post_build_log(f"♻️ EP{ep_str} [5/6] Regenerating bespoke art module…")
+    else:
+        log("Generating episode art via Claude...")
+        post_build_log(f"🎨 EP{ep_str} [5/6] Generating bespoke center art…")
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPTS_DIR / "generate_episode_art.py"), str(ep_num)],
+        cwd=str(PODCAST_DIR),
+    )
+    if result.returncode != 0 or not art_path.exists():
+        msg = f"❌ EP{ep_str} [5/6] Bespoke art module generation failed"
+        post_build_log(f"{msg}\nBuild stops here instead of using fallback cover art.")
+        raise SystemExit(f"{msg} ({art_path.name} missing)")
+
+    log(f"✅ Bespoke art generated: {art_path.name}")
+    post_build_log(f"✅ EP{ep_str} [5/6] Bespoke art ready — {art_path.name}")
+    return art_path
+
+
+# ── Step 0: Show-notes QC ────────────────────────────────────────────────────
+
+def run_show_notes_qc(ep_num):
+    ep_str = f"{ep_num:03d}"
+    show_notes = PODCAST_DIR / f"show_notes_episode_{ep_str}.md"
+    qc_script = SCRIPTS_DIR / "check_show_notes.py"
+
+    if not show_notes.exists():
+        raise SystemExit(f"❌ Show notes missing: {show_notes.name}\n   Write show notes before building.")
+    if not qc_script.exists():
+        raise SystemExit(f"❌ Missing show-notes QC script: {qc_script.name}")
+
+    log("\n── Show notes QC ───────────────────────────────────────────────────────")
+    post_build_log(f"🧭 EP{ep_str} [0/7] Validating approved show notes…")
+    run([sys.executable, str(qc_script), str(show_notes)])
+    assert_feed_sequence(ep_num)
+    post_build_log(f"✅ EP{ep_str} [0/7] Show notes QC passed")
+
+
 # ── Step 1: Story slate verification ────────────────────────────────────────
 
 def verify_story_slate(ep_num):
@@ -99,10 +192,12 @@ def verify_story_slate(ep_num):
         raise SystemExit(f"❌ Show notes missing: {show_notes.name}\n   Write show notes before building.")
 
     if not transcript.exists():
-        raise SystemExit(
-            f"❌ Transcript missing: {transcript.name}\n"
-            f"   Write the transcript from the approved story slate in show_notes_episode_{ep_str}.md first."
+        msg = (
+            f"❌ EP{ep_str} build failed — transcript missing: `{transcript.name}`\n"
+            f"Write the transcript from the approved story slate in `show_notes_episode_{ep_str}.md` first."
         )
+        post_build_log(msg)
+        raise SystemExit(msg)
 
     # Extract story titles from the Story Slate section
     notes_text = show_notes.read_text()
@@ -212,39 +307,29 @@ def generate_en_cover(ep_num, force=False):
 
     log(f"\n── EN cover ────────────────────────────────────────────────────────────")
 
-    # Always ensure bespoke center art exists before deciding whether the cover can be reused.
-    art_path = SCRIPTS_DIR / "episode_art" / f"episode_{ep_str}_art.py"
-    if not art_path.exists():
-        log(f"Generating episode art via Claude...")
-        post_build_log(f"🎨 EP{ep_str} [5/6] Generating center art via Claude…")
-        result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "generate_episode_art.py"), str(ep_num)],
-            cwd=str(PODCAST_DIR),
-        )
-        if result.returncode != 0 or not art_path.exists():
-            post_build_log(f"❌ EP{ep_str} [5/6] generate_episode_art.py failed — cover will use fallback")
-            log(f"⚠️  Art generation failed — cover will use fallback strata design")
-        else:
-            log(f"✅ Episode art generated: {art_path.name}")
-    else:
-        log(f"✅ Episode art ready: {art_path.name}")
+    # Bespoke art is now a required build prerequisite, not a best-effort fallback.
+    art_path = ensure_bespoke_art_module(ep_num)
 
-    if out_path.exists() and not force:
+    stale_against_art = cover_stale_against_art(out_path, art_path)
+    if out_path.exists() and not force and not stale_against_art:
         log(f"⏭  EN cover already exists — skipping render")
-        post_build_log(f"⏭ EP{ep_str} [5/6] EN cover already exists — skipped")
+        post_build_log(f"⏭ EP{ep_str} [6/6] EN cover already exists — skipped")
         return out_path
+    if stale_against_art and not force:
+        log(f"♻️  EN cover is older than {art_path.name} — re-rendering")
+        post_build_log(f"♻️ EP{ep_str} [6/6] EN cover is stale vs bespoke art — re-rendering")
 
-    post_build_log(f"🖼 EP{ep_str} [5/6] Rendering cover…")
+    post_build_log(f"🖼 EP{ep_str} [6/6] Rendering cover…")
     sys.path.insert(0, str(SCRIPTS_DIR))
     import release_episode as rel
     rel.generate_en_cover(ep_num)
 
     if not out_path.exists():
-        post_build_log(f"❌ EP{ep_str} [5/6] Cover generation finished but {out_path.name} not found")
+        post_build_log(f"❌ EP{ep_str} [6/6] Cover generation finished but {out_path.name} not found")
         raise SystemExit(f"❌ Cover generation completed but {out_path.name} not found")
 
     log(f"✅ EN cover: {out_path.name}")
-    post_build_log(f"✅ EP{ep_str} [5/6] EN cover done")
+    post_build_log(f"✅ EP{ep_str} [6/6] EN cover done")
     return out_path
 
 
@@ -424,9 +509,11 @@ def wait_for_pages_build(ep_num, commit_sha):
             if status == "built":
                 return
             if status == "errored":
-                raise SystemExit(
-                    f"❌ GitHub Pages build failed for EP{ep_str} ({commit_sha[:7]})"
-                )
+                # Pages API sometimes reports errored when content is already live
+                # (e.g. no-op pushes or transient build runner issues). Fall through
+                # to direct URL probing rather than hard-stopping here.
+                log(f"⚠️  Pages build reported errored for {commit_sha[:7]} — falling back to direct URL check")
+                return
 
         time.sleep(PAGES_BUILD_POLL_SECONDS)
 
@@ -543,6 +630,8 @@ def main():
                         help="Skip public GitHub Pages verification and treat URLs as unverified")
     parser.add_argument("--force-cover", action="store_true",
                         help="Regenerate cover even if episode_XXX_cover.png already exists")
+    parser.add_argument("--force-art", action="store_true",
+                        help="Regenerate bespoke center art module even if episode_NNN_art.py already exists")
     args = parser.parse_args()
 
     ep_num = args.episode
@@ -553,14 +642,16 @@ def main():
     log(f"{'='*60}\n")
 
     try:
+        run_show_notes_qc(ep_num)
         story_count = verify_story_slate(ep_num)
         run_qc(ep_num)
         post_build_log(
             f"🏗 EP{ep_str} build started\n"
-            f"✅ Slate verified ({story_count} stories) | ✅ QC passed"
+            f"✅ Show notes QC passed | ✅ Slate verified ({story_count} stories) | ✅ Transcript QC passed"
         )
         render_nova(ep_num)
         audio_path = generate_en_audio(ep_num, force=args.force_audio)
+        ensure_bespoke_art_module(ep_num, force=args.force_art)
         generate_en_cover(ep_num, force=args.force_cover)
         cdn_commit = sync_to_cdn(ep_num)
     except SystemExit as e:
