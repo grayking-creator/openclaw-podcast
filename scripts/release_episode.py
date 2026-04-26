@@ -913,21 +913,21 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
 
     # Line 1 — white with teal glow
     l1w = md.textlength(line1, font=font_title_l1)
-    md.text(((W-l1w)/2+3, 988), line1, font=font_title_l1, fill=(0, 0, 0, 160))
+    md.text(((W-l1w)/2+3, 1028), line1, font=font_title_l1, fill=(0, 0, 0, 160))
     tg1 = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(tg1).text(((W-l1w)/2, 985), line1, font=font_title_l1, fill=TEAL+(50,))
+    ImageDraw.Draw(tg1).text(((W-l1w)/2, 1025), line1, font=font_title_l1, fill=TEAL+(50,))
     img = Image.alpha_composite(img, tg1.filter(ImageFilter.GaussianBlur(14)))
     md = ImageDraw.Draw(img)
-    md.text(((W-l1w)/2, 985), line1, font=font_title_l1, fill=WHITE+(255,))
+    md.text(((W-l1w)/2, 1025), line1, font=font_title_l1, fill=WHITE+(255,))
 
     # Line 2 — amber glow
     l2w = md.textlength(line2, font=font_title_l2)
-    md.text(((W-l2w)/2+4, 1118), line2, font=font_title_l2, fill=(0, 0, 0, 170))
+    md.text(((W-l2w)/2+4, 1158), line2, font=font_title_l2, fill=(0, 0, 0, 170))
     tg2 = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(tg2).text(((W-l2w)/2, 1115), line2, font=font_title_l2, fill=AMBER+(80,))
+    ImageDraw.Draw(tg2).text(((W-l2w)/2, 1155), line2, font=font_title_l2, fill=AMBER+(80,))
     img = Image.alpha_composite(img, tg2.filter(ImageFilter.GaussianBlur(16)))
     md = ImageDraw.Draw(img)
-    md.text(((W-l2w)/2, 1115), line2, font=font_title_l2, fill=AMBER_BRIGHT+(255,))
+    md.text(((W-l2w)/2, 1155), line2, font=font_title_l2, fill=AMBER_BRIGHT+(255,))
 
     # Tagline
     def wrap_text(text_value, font, max_width):
