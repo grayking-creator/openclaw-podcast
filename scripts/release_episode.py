@@ -685,15 +685,18 @@ def generate_en_cover(ep_num):
     def extract_cover_lines(t):
         # Strip episode number prefix if present (e.g. "Episode 29: ...")
         t = re.sub(r'^Episode\s+\d+:\s*', '', t, flags=re.IGNORECASE)
+        # Cover text should sell the story, not repeat release-number bookkeeping.
+        # Remove version tokens and drop empty/generic OpenClaw-only chunks so release-led
+        # episodes can still use the concrete follow-on stories as the readable title.
+        t = re.sub(r'\bv\d{4}\.\d+\.\d+\b', '', t, flags=re.IGNORECASE)
         # Split on ", and ", ", ", " and "
         parts = re.split(r',\s*(?:and\s+)?|\s+and\s+', t)
-        # Clean filler words from each part, uppercase
         cleaned = []
         for p in parts:
-            p = p.strip().upper()
-            # Drop short filler-only parts
-            if p and p not in ("THE", "A", "AN", "AND", "OR", "BUT", "IN", "OF"):
-                cleaned.append(p)
+            p = re.sub(r'\s+', ' ', p).strip(' :-—–').upper()
+            if not p or p in ("THE", "A", "AN", "AND", "OR", "BUT", "IN", "OF", "OPENCLAW", "OPENCLAW DAILY"):
+                continue
+            cleaned.append(p)
         return cleaned
 
     concepts = extract_cover_lines(title)
@@ -955,13 +958,9 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
         wrapped = wrap_text(text_value, candidate_font, W-120)
         return candidate_font, wrapped[:2]
 
-    if tagline:
-        font_tagline, tagline_lines = fit_tagline(tagline, 28 if is_hindi else 30)
-        y = 1260 if len(tagline_lines) == 1 else 1238
-        line_gap = 34 if is_hindi else 32
-        for idx, line in enumerate(tagline_lines):
-            tw = md.textlength(line, font=font_tagline)
-            md.text(((W-tw)/2, y + idx * line_gap), line, font=font_tagline, fill=AMBER_BRIGHT+(120,))
+    # No extra bottom tagline. It frequently duplicates version metadata or creates a
+    # third competing text block; covers should stay clean: show name, episode number,
+    # two-line story title, and bespoke art only.
 
     # Vignette
     vig = Image.new("L", (W, H), 0)
