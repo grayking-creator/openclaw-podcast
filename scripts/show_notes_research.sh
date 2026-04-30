@@ -73,17 +73,26 @@ Release-selection rule (STRICT):
 - Never say 'newest uncovered stable release' unless it is also the latest stable release.
 - Before writing, explicitly verify the candidate release list against the covered tags and the GitHub stable-release list. If there are zero valid candidates, say no OpenClaw release story is included.
 
-STEP 2 — Fresh stories: web_search for AI/tech news from last 2-3 days only. Rank stories by importance to OpenClaw, practical builder/operator workflows, and major-model/product significance. Fetch each URL to verify it loads — drop any 404. Cross-check against last 3 episode show notes — drop any topic already covered. Do NOT pad with filler just to hit a story count.
+STEP 2 — Fresh stories: web_search for AI/tech news from last 2-3 days only. Rank stories by importance to OpenClaw, practical builder/operator workflows, major-model/product significance, and technical depth. Prefer stories with primary-source technical material: release notes, changelogs, papers, API docs, architecture posts, benchmarks, SDK changes, infrastructure reports, security advisories, or model/system cards. Fetch each URL to verify it loads — drop any 404. Cross-check against last 3 episode show notes — drop any topic already covered. Do NOT pad with filler just to hit a story count.
+
+STEP 2B — Technical-depth filter (STRICT): Before selecting the slate, reject or demote generic business/M&A/funding/regulatory/hype stories unless there is a concrete technical mechanism to explain. Every non-release story must support at least one of these angles: API/runtime behavior, model architecture/training/evaluation, agent workflow mechanics, browser/computer-use details, infra/observability/safety engineering, developer tooling, hardware/power constraints with real operational implications, or security/privacy implementation details.
+
+STEP 2C — Source-quality gate for MiniMax/Gemini synthesis: Each selected story must include at least one primary technical source and a written "Technical depth angle" in the Story Slate. The angle must name concrete mechanisms the episode can explain (for example: API contracts, request/response semantics, scheduling/runtime behavior, eval methodology, model/system-card constraints, failure modes, deployment knobs, observability, security boundaries, or hardware/power/cost tradeoffs). If you cannot state that angle from sources, drop the story.
 
 STEP 3 — Draft show notes with: punchy title, tagline, story slate (2-3 sentences each), full show notes block, verified links, ## Chapters with timestamps.
 
 Editorial rules for STEP 3:
 - If OpenClaw release coverage exists, it MUST be story #1 and the deepest block in the episode.
 - Open the show-notes block on the release versions and what actually changed. Do not open on an umbrella theme.
-- Default to 2-4 total stories, not 5-6. Cut low-priority stories before cutting release detail.
+- Default to 3-5 total stories on non-release days; use 2-3 only when the selected stories are genuinely deep enough to carry the runtime. On release days, 2-3 stories is allowed only because the release block takes roughly half the episode.
+- If there is an OpenClaw release, allocate about half the episode to concrete release details: changed components, operator surfaces, bug fixes, configs/APIs, risks, migration guidance, and why each change matters.
+- If there is no OpenClaw release, do not shrink into a thin news roundup. Use more technically strong stories or deeper source-backed dives so the episode still feels substantial.
+- Each story segment must include a practical technical deep dive in the EP042 style: what the technology is, how the stack works, mechanisms, system design, tradeoffs, failure modes, APIs/configs, operational impact, builder implications, and practical recommendations/ratings where useful. Avoid summarizing articles at surface level.
+- Every Story Slate item must include a "Technical depth angle:" sentence for MiniMax/Gemini so synthesis knows exactly what mechanisms to explain, not just what happened.
 - Theme-first umbrella framing is banned. Do not use “common thread,” “trust layer,” “these stories are all connected,” or similar language in the title, tagline, feed description, or opening.
-- If covering a major OpenAI model or image release, explain the practical builder/workflow implication in generic terms. Do not mention Toby or any listener-specific personal setup.
+- If covering a major OpenAI model, coding-agent, browser/computer-use, infra, or image/video release, explain the practical builder/workflow implication in generic terms. Do not mention Toby or any listener-specific personal setup.
 - The release section should be concrete: what changed, why it matters, and which operator/builder surfaces actually move.
+- Tone target: technical operator briefing, not tech-news roundup. Less article recap; more explanation of how the technology works and what changes for builders.
 
 STEP 4 — Save to ${DRAFT_PATH}
 
