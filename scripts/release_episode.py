@@ -217,8 +217,13 @@ def extract_section(notes, heading):
     return match.group(1).strip() if match else ""
 
 def extract_episode_title(notes, ep_num):
-    title = re.search(r"^## Episode Title\s*\n\*\*(.+?)\*\*", notes, re.MULTILINE)
-    return title.group(1).strip() if title else f"Episode {ep_num}"
+    section = extract_section(notes, "Episode Title")
+    if section:
+        for raw_line in section.splitlines():
+            line = collapse_ws(raw_line).strip("*_` ")
+            if line:
+                return line
+    return f"Episode {ep_num}"
 
 def extract_tagline(notes):
     return collapse_ws(extract_section(notes, "Tagline"))
@@ -675,8 +680,7 @@ def generate_en_cover(ep_num):
     """Generate EN cover art from show notes title — LLM picks cover lines."""
     ep_str = f"{ep_num:03d}"
     notes = (PODCAST_DIR / f"show_notes_episode_{ep_str}.md").read_text()
-    title_m = re.search(r"^## Episode Title\s*\n\*\*(.+?)\*\*", notes, re.MULTILINE)
-    title = title_m.group(1).strip() if title_m else f"Episode {ep_num}"
+    title = extract_episode_title(notes, ep_num)
     tag_m = re.search(r"^## Tagline\s*\n(.+?)(?=\n\n|\n##)", notes, re.MULTILINE | re.DOTALL)
     tagline = (tag_m.group(1).strip() if tag_m else "").split(".")[0][:60]
 
