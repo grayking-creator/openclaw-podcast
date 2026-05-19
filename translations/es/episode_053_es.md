@@ -1,0 +1,229 @@
+[NOVA]: Soy NOVA.
+
+[ALLOY]: Y yo soy ALLOY, y esto es AgentStack Daily. Hoy empezamos con el host y la superficie de código: OpenClaw v2026.5.18 y Codex rust-v0.131.0.
+
+[NOVA]: OpenClaw agrega herramientas de plugins tipadas, automatización de navegador consciente de diálogos, disponibilidad más rápida del gateway, soporte de proxy HTTPS, modo de conversación Android en tiempo real, manejo más seguro de medios, entrega de canales más robusta y comportamiento más integrado entre Codex y el app-server. Codex agrega mejor estado del TUI, menciones unificadas, comandos del marketplace de plugins, plomería de control remoto, entornos remotos configurados, un SDK de Python y codex doctor.
+
+[ALLOY]: Esa es la forma útil del episodio. Primero, el host del agente. Luego, la capa de CLI y app-server que los desarrolladores tocan todos los días. Después de eso, GitHub convierte las sesiones de agentes de Copilot en algo que puedes controlar desde más lugares y tarifar con modelos más pequeños. Y Anthropic le da a Claude búsqueda web datos más ricos de presentaciones ante la SEC para agentes de investigación financiera.
+
+[NOVA]: La pregunta práctica no es si los agentes están obteniendo más funcionalidades. Lo están. La pregunta es qué piezas hacen que el trabajo del agente sea más observable, más recoverable y más fácil de confiar cuando la ejecución es larga, remota, multimodal o restringida por políticas.
+
+[ALLOY]: Así que vamos a mantenernos concretos: contratos de plugins, estado de modales del navegador, probes de disponibilidad, verificaciones de paridad en runtime, comportamiento del relay de voz, estado del TUI, envelopes de permisos, sesiones remotas, multiplicadores de tareas, reparación de Actions y metadatos de fuente para declaraciones financieras. ...
+
+[NOVA]: El readout de lanzamiento de Agent-stack empieza con OpenClaw porque el host es donde una pila de agentes se siente duradera o se siente improvisada. Un host tiene que conectar modelos, herramientas, canales, navegadores, clientes móviles, entradas de medios, permisos y puentes de app-server. Cuando ese lanzamiento del host cambia la forma del plugin, el estado del navegador, la disponibilidad del gateway, la voz móvil y la integración con Codex en un solo paso, merece estar al frente del episodio.
+
+[ALLOY]: El primer cambio orientado a los builders es la forma del plugin. OpenClaw agrega defineToolPlugin y los comandos openclaw plugins init, openclaw plugins build y openclaw plugins validate para plugins de herramientas simples tipados. Eso les da a los autores de plugins metadatos de manifest generados, declaraciones opcionales y factories de contexto en lugar de pedirle a cada plugin pequeño que cargue glue escrito a mano.
+
+[NOVA]: Eso suena a ergonomía para developers, y lo es, pero también es una característica de confiabilidad. Los plugins de herramientas se vuelven mucho más fáciles de inspeccionar cuando el manifest y las declaraciones se generan desde una fuente tipada. Un host puede razonar sobre lo que un plugin expone, qué contexto espera y qué forma deben tener sus entradas y salidas. Cuantas menos superficies no documentadas haya alrededor de una herramienta, menos sorpresas aparecen dentro de una ejecución de agente.
+
+[ALLOY]: También importa porque el lanzamiento deprecia superficies más antiguas de productores de mensajes ricos, incluyendo pathslegados de directivas interactivas y de Slack, mientras agrega límites de capacidad de presentación de canales. Ese es un contrato más saludable. Un plugin debería saber si el canal puede renderizar un control interactivo, un bloque rico, un mensaje plano, un adjunto, una nota de voz o solo un fallback estrecho.
+
+[NOVA]: Exacto. El error en mucho tooling de agentes es tratar cada canal como la misma superficie de salida. Un chat web, un canal de Discord, un topic de Telegram, un hilo de Slack y una sesión de voz móvil no tienen reglas de presentación idénticas. Si un plugin asume que sí, el agente puede producir un objeto que el canal no puede mostrar. Los límites de capacidad de presentación le permiten al host decir qué es realmente posible antes de que la respuesta final se dé forma.
+
+[ALLOY]: Los cambios del navegador son el segundo ítem mayor del host. Los snapshots ahora muestran diálogos modales pendientes y manejados recientemente. Las Actions pueden retornar blockedByDialog cuando un modal se abre. Y browser dialog con un dialog ID puede responder un diálogo pendiente. Ese es exactamente el tipo de mejora pequeña de estado que salva a los agentes de navegador de fallas vagas.
+
+[NOVA]: La automatización de navegador frecuentemente falla de maneras aburridas. Un clic no funciona porque se abrió una alerta. Un envío de formulario parece atorado porque un diálogo de confirmación tomó el control de la página. Un agente sigue intentando interactuar con estado de página obsoleto porque no puede ver el modal que un humano notaría instantáneamente. Al representar los diálogos como estado explícito, la capa del navegador le da al agente una acción real siguiente en lugar de forzarlo a inferir de un timeout.
+
+[ALLOY]: La frase importante es estado explícito. Un modal no es solo ruido encima de la página. Cambia el contrato de interacción de la página. Cuando una acción retorna blockedByDialog, el agente puede dejar de fingir que tiene un problema normal del DOM y manejar el diálogo directamente.
+
+[NOVA]: Eso también hace más fácil auditar a los agentes de navegador. Si la transcripción de una ejecución dice que la acción fue bloqueada por un diálogo, el operador puede entender por qué una secuencia se pausó. Si el host solo reporta una falla de clic, el camino de debugging es mucho peor: red, selector, iframe, timing, auth, crash de página, o algo completamente distinto.
+
+[ALLOY]: El startup del gateway y el comportamiento del proxy son lo siguiente. OpenClaw ahora superpone el logging de startup y el inicio de servicios de plugins con sidecars de canal mientras preserva el gating de sidecar de readyz. Los traces de restart atribuyen costos de probe, config, runtime y conteo de recursos sin cambiar la semántica de readiness.
+
+[NOVA]: Ese es un cambio de operador sutil pero valioso. Un startup más rápido es útil, pero la pieza más importante es la evidencia. Si un restart es lento, un operador necesita saber si el costo es tiempo de probe, carga de config, inicio de runtime, trabajo de sidecar, inicio de servicio de plugin o conteo de recursos. La infraestructura de agentes está llena de partes móviles, así que readiness tiene que ser tanto conservadora como explicable.
+
+[ALLOY]: Y preservar la semántica de readiness importa. Es fácil acelerar un servicio diciendo que está listo antes de que las dependencias estén listas. Eso no es una mejora. Solo mueve la falla hacia downstream. La versión útil es superponer trabajo donde es seguro, pero todavía dejar que readyz signifique que el host puede realmente servir las superficies que promete.
+
+[NOVA]: El trabajo del proxy también es práctico. El lanzamiento agrega endpoints de proxy de reenvío gestionados HTTPS y confianza scoped de proxy.tls.caFile. Eso le da a los despliegues una forma más limpia de rutear tráfico a través de paths de proxy privados o con inspección TLS sin convertir la configuración de proxy en una decisión de confianza global.
+
+[ALLOY]: Esto importa en ambientes empresariales y de laboratorio donde el tráfico saliente no es simplemente internet abierto. Los agentes llaman APIs, fetch páginas, acceden docs, reach endpoints de modelos y mueven medios. Si el path del proxy requiere confianza especial, esa confianza debería estar scoped a la configuración del proxy. No debería ensanchar casualmente la confianza a través de todo el runtime.
+
+[NOVA]: El bloque QA-Lab puede ser la parte más importante para quienes distribuyen hosts de agentes. OpenClaw agrega escenarios de paridad de runtime de 20 turnos en la primera hora y opcionales de 100 turnos, nivel de paridad de runtime del qa suite de openclaw, cobertura de fixtures de herramientas a través de herramientas de cobertura qa de openclaw, artefactos de eficiencia de tokens en runtime en vivo, y una barrera firme para el drift requerido de herramientas de runtime dinámico de OpenClaw en el nivel estándar de Codex-vs-Pi.
+
+[ALLOY]: En términos simples, el release está verificando si diferentes runtimes se comportan de manera suficientemente similar bajo presión real de agentes. Eso es mucho más útil que solo verificar si el proceso inicia. Las regresiones de agentes frecuentemente se manifiestan como drift en el vocabulario de herramientas, mala selección de herramientas, cambios en el uso de tokens, fixtures faltantes, o un runtime eligiendo la superficie equivocada.
+
+[NOVA]: Exactamente. Un smoke test puede decir que el servidor está vivo mientras el agente es silenciosamente peor. Los escenarios de paridad de runtime hacen una pregunta más difícil: si la misma tarea pasa por diferentes rutas de runtime, ¿las elecciones de herramientas, capacidades y salidas se mantienen dentro de un rango esperado? Así es como detectas el tipo de regresión de release que los usuarios describen como "el agente se siente diferente ahora".
+
+[ALLOY]: La forma de los escenarios de 20 y 100 turnos importa porque las pruebas cortas de agentes son muy indulgentes. Una llamada de herramienta de un solo turno no te dice si el context trimming, el estado de herramientas, los permisos, la recuperación de errores y el enrutamiento de modelos se mantienen estables después de una sesión real. Escenarios más largos exponen las fallas lentas.
+
+[NOVA]: Android Talk Mode también recibe un gran cambio de runtime. La app de Android cambia Talk Mode a sesiones de voz con relay de Gateway en tiempo real con entrada de micrófono en streaming, reproducción de audio en tiempo real, puenteo de resultados de herramientas, y transcripciones en pantalla.
+
+[ALLOY]: Eso convierte la voz móvil en una superficie de sesión activa. No es solo speech-to-text entrando y text-to-speech saliendo. Una sesión de voz en tiempo real puede llevar los resultados de herramientas de vuelta a través del Gateway, mantener una transcripción visible, y hacer que el asistente se sienta continuo mientras las herramientas están corriendo.
+
+[NOVA]: El riesgo de ingeniería es la interrupción y el tiempo. La entrada de micrófono en streaming necesita una cancelación limpia. La reproducción de audio en tiempo real necesita detenerse cuando el usuario interrumpe. El puenteo de resultados de herramientas necesita evitar leer salida obsoleta después de que el usuario ha cambiado de dirección. Y las transcripciones necesitan alinearse lo suficiente para que el usuario pueda distinguir qué escuchó el agente y qué hizo.
+
+[ALLOY]: Por eso la voz móvil es una característica del host, no solo del cliente. El cliente puede capturar audio, pero el host tiene que coordinar la identidad de sesión, eventos de herramientas, respuestas en streaming, cancelación y política de canal. Si el host es descuidado, la UX de voz se vuelve confusa incluso cuando el audio en sí suena bien.
+
+[NOVA]: El bloque de fixes es donde muchas mejoras de producción sentirán el release. Las completaciones de medios generados ahora regresan a los temas del foro de Telegram preservando los IDs de tema a través del handoff requester-agente. El probing de metadatos de imagen evita invocar delegados de decodificador externos en bytes no reconocidos. Sharp se instala con fallbacks a herramientas de imágenes nativas, ImageMagick, GraphicsMagick, o ffmpeg.
+
+[ALLOY]: Esos no son elementos glamorosos, pero son las cosas que mantienen a los sistemas de agentes de perder trabajo. Si una respuesta de imagen generada aterriza en el tema equivocado, la experiencia de usuario se rompe. Si el probing de metadatos llama delegados de decodificador externos en bytes desconocidos, el manejo de medios conlleva riesgo innecesario de seguridad y confiabilidad. Si el procesamiento de imágenes depende de una sola ruta de módulo nativo y falla, toda la característica de medios se vuelve frágil.
+
+[NOVA]: Las sesiones de voz de Discord también reciben atención. El release mantiene funcionando los turnos de seguimiento con OpenAI realtime y prebufferiza la reproducción del asistente para reducir arranques entrecortados.
+
+[ALLOY]: El punto del prebuffer es pequeño pero humano. La voz en tiempo real se juzga por el tiempo. Si el asistente comienza con audio cortado o no logra escuchar el siguiente turno, el usuario pierde confianza rápidamente. Un stack de voz técnicamente correcto aún se siente roto cuando el turno-taking es áspero.
+
+[NOVA]: Las directivas de mensaje y TTS se aplican antes de que los envíos de message-tool lleguen a las rutas de entrega, así que las salas que optan por notas de voz obtienen notas de voz en lugar de tags crudos. Ese es otro fix de contrato de canal. La directiva debe dar forma a la entrega antes de que el mensaje sea enviado, no filtrarse como texto al usuario.
+
+[ALLOY]: Las reparaciones de la app-server de Codex de OpenClaw son especialmente relevantes para stacks de agentes mixtos. Los archivos adjuntos de imágenes entrantes actuales se hidratan antes de los runs en cola, así que los agentes respaldados por Responses reciben las imágenes del canal como entrada de visión nativa. El modo de código nativo permanece disponible sin forzar solo modo de código, lo que permite que los giros de herramientas dinámicas de OpenClaw se completen a través del puente de app-server.
+
+[NOVA]: El acceso a la red se preserva para los turnos en modo código de Codex sandboxed cuando el sandbox de OpenClaw permite egress saliente. La configuración de modo código por-agente se honra en el schema, activación del catálogo de runtime, y filtrado de payload del modelo. La política restringida de chat o remitente ahora falla cerrado deshabilitando superficies nativas de código, app, entorno y MCP de usuario para turnos restringidos.
+
+[ALLOY]: Esa última parte es el límite de seguridad. En un host de agentes, los turnos restringidos no deben simplemente confiar en que el modelo se porte bien. El runtime debe remover las superficies que el remitente no tiene permitido usar. Fallar cerrado significa que un usuario restringido no obtiene código nativo, acceso a apps locales, acceso al entorno, o superficies MCP de usuario por accidente.
+
+[NOVA]: El fix de hidratación de imágenes también es importante. Un usuario que envía una captura de pantalla a través de un canal espera que el agente vea la captura de pantalla, no un placeholder o una ruta de archivo que el modelo no pueda inspeccionar. Hidratar las imágenes antes de los runs en cola mantiene el contexto multimodal adjunto al turno real.
+
+[ALLOY]: Y preservar el acceso a la red sandboxed cuando la política lo permite importa porque las tareas en modo código frecuentemente necesitan metadatos de paquetes, docs, APIs, o tests que llaman recursos externos. El host no debe accidentalmente quitar el acceso a la red si el envelope del sandbox configurado lo permite.
+
+[NOVA]: Las notas de migración son concretas. La línea mínima de Node.js 22 soportada sube a 22.19. Los paquetes de Pi se mueven a 0.75.1. Las construcciones de Docker y Podman deberían preferir OPENCLAW_IMAGE_APT_PACKAGES, mientras OPENCLAW_DOCKER_APT_PACKAGES permanece como fallback legacy. La skill de Obsidian ahora apunta al obsidian CLI oficial en lugar del obsidian-cli de terceros. El skill de revisión de cierre de Codex local del repo y el helper se renombran a autoreview.
+
+[ALLOY]: El camino práctico de actualización es probar las superficies reales que cambiaron. Construye y valida un plugin pequeño. Activa un modal de navegador y asegúrate de que la ruta del diálogo sea visible. Reinicia el gateway e inspecciona los traces de readiness. Ejerce la ruta del proxy HTTPS si tu despliegue usa trust privado. Prueba Android Talk Mode con interrupción. Envía medios a través de los canales que realmente usas. Ejecuta turnos de app-server de Codex con imágenes, red sandboxed, modo código, y política de remitente restringida.
+
+[NOVA]: Un buen flujo de trabajo para desarrolladores después de esta versión es elegir una tarea real por superficie. Para plugins, construye una pequeña herramienta que lea información, devuelva resultados estructurados y declare solo el contexto que necesita. Para automatización del navegador, construye una página de prueba que abra una alerta, una confirmación y un prompt, luego verifica que el agente pueda ver el estado del diálogo bloqueado y responderlo. Para medios, envía una imagen pequeña, una imagen corrupta y una solicitud de imagen generada a través del canal real que soportas.
+
+[ALLOY]: Para disponibilidad del gateway, el flujo de trabajo debe incluir un reinicio bajo carga normal, seguido de un reinicio con un servicio sidecar o plugin lento. El objetivo no es solo un arranque rápido. El objetivo es entender qué paso de probe, configuración, runtime o recurso consume tiempo. Si un equipo despliega OpenClaw como infraestructura interna, esa traza de reinicio se convierte en parte del flujo de soporte cuando alguien dice que el host del agente está lento después del despliegue.
+
+[NOVA]: Para el Modo Voz de Android, el flujo de trabajo útil es una prueba de interrupción real. Inicia una sesión de voz, pide una respuesta con herramientas, interrumpe mientras se reproduce el audio, luego haz una pregunta de seguimiento que dependa del resultado de la herramienta anterior. Un buen resultado no es solo que el habla funcione. Un buen resultado es que la cancelación funcione, que las transcripciones se mantengan coherentes y que los resultados de las herramientas no lleguen como audio obsoleto después de que el usuario haya avanzado.
+
+[ALLOY]: Para la política de remitente restringido, el flujo de trabajo de construcción debe ser deliberadamente adversarial. Prueba un turno desde un remitente restringido que solicite acceso a código local, acceso a la app, acceso al entorno y acceso MCP del usuario. El comportamiento correcto no es una negativa educada del modelo. El comportamiento correcto es que esas superficies de runtime estén ausentes antes de que el modelo pueda alcanzarlas.
+
+[NOVA]: Ese es el resumen de OpenClaw: trabajo en el host que hace que los plugins sean más tipados, los fallos del navegador más explícitos, el inicio más observable, la confianza del proxy más acotada, QA más consciente del runtime, voz móvil más en tiempo real, medios más seguros, canales más confiables e integración de Codex más consciente de políticas. ...
+
+[ALLOY]: La segunda mitad del resumen del release de agent-stack es Codex rust-v0.131.0. Si OpenClaw es la superficie del host, Codex es la superficie de codificación: la TUI, el servidor de apps, el camino de control remoto, el SDK, el sandbox, auth, estado y puente de herramientas donde trabajan los desarrolladores.
+
+[NOVA]: El primer cambio visible es el estado de la TUI. Codex ahora expone comandos de nivel de servicio impulsados por datos, uso de tokens combinado, permisos y modo de aprobación, raíces efectivas del workspace y tablas Markdown responsivas. Parece trabajo de display, pero cambia cómo los operadores manejan sesiones largas.
+
+[ALLOY]: Durante una sesión de codificación larga, quieres conocer el perímetro de permisos. ¿El agente está en postura de solo lectura, postura de escritura del workspace o algo más permisivo? ¿Qué modo de aprobación está realmente activo? ¿Cuáles raíces del workspace son efectivas? ¿Qué nivel de servicio está en uso? ¿Cuánto presupuesto de tokens se ha gastado? Si la TUI muestra esos datos, el operador no tiene que reconstruirlos desde configuración dispersa y memoria.
+
+[NOVA]: Eso importa porque los casos de fallo son costosos. Si un usuario cree que el agente puede escribir en un directorio pero la raíz efectiva es diferente, las ediciones pueden terminar en el lugar equivocado o fallar inesperadamente. Si el modo de aprobación se malinterpreta, una tarea puede bloquearse en prompts que el operador no esperaba. Si el uso de tokens es invisible, una sesión larga puede derivar en comportamiento caro o degradado sin advertencia.
+
+[ALLOY]: Las menciones también se amplían. La búsqueda con arroba ahora cubre archivos, directorios, plugins y skills en un selector, respaldada por metadatos de plugins del servidor de apps. Eso coincide con cómo piensan los constructores. Lo que necesitas podría ser un archivo fuente, una carpeta, una skill local o una capacidad de plugin. La interfaz no debe obligar a esos a seguir cuatro caminos de descubrimiento separados.
+
+[NOVA]: La precaución es disciplina de contexto. Un selector unificado es útil porque reduce la fricción, pero la fricción a veces estaba protegiendo la sesión de la sobrecarga. El mejor uso es adjuntar el artefacto más pequeño que lleve el contexto necesario: un archivo, un directorio, una skill o una referencia de plugin, no un montón de todo lo que parezca adyacente.
+
+[ALLOY]: Los flujos de trabajo de plugins avanzan. Codex agrega comandos CLI de marketplace, compartición con control de versiones, checkout de shares, buckets de workspace compartido más claros y hooks de plugins habilitados por defecto. Este es un cambio de plugins como carpetas locales sueltas hacia plugins como artefactos de desarrollo gestionados.
+
+[NOVA]: La compartición con control de versiones es un gran avance. Si dos usuarios o dos máquinas hablan del mismo plugin, necesitan saber si realmente están usando la misma versión. El checkout de shares y los buckets de workspace más claros ayudan a hacer eso explícito. Los hooks habilitados por defecto hacen la experiencia más fluida, pero también elevan el nivel de confianza.
+
+[ALLOY]: Los hooks son poderosos porque se ejecutan alrededor del proceso de desarrollo. Eso significa que la procedencia, el alcance, las puertas de versión y los límites del workspace importan. Un marketplace de plugins no es solo una función de conveniencia. Se convierte en parte de la cadena de suministro del comportamiento del agente.
+
+[NOVA]: El trabajo remoto es una de las piezas principales en este release de Codex. El release agrega control remoto de codex gestionado por daemon, APIs de habilitación y deshabilitación en runtime, lecturas de estado, entornos remotos configurados y respaldados por registry, y contratos de API del servidor de apps para entornos remotos y espacios de nombres de configuración del escritorio.
+
+[ALLOY]: El control remoto no es solo ejecutar esto en otro lugar. Un entorno remoto real necesita identidad, ciclo de vida, estado, limpieza, límites de configuración y comportamiento de permisos. Si esos no son explícitos, el trabajo remoto del agente se convierte en un proceso shell con una etiqueta más bonita.
+
+[NOVA]: La forma gestionada por daemon importa porque el trabajo del agente de larga duración necesita un coordinador. El daemon puede exponer estado, gestionar habilitación en runtime y mantener el estado de control remoto separado de una sesión de terminal individual. Esa es la diferencia entre una característica que funciona en una demo y una que sobrevive al uso diario.
+
+[ALLOY]: Los entornos remotos configurados también importan para equipos y usuarios avanzados. Un entorno remoto no debe ser un objetivo improvisado cada vez. Debe ser nombrable, descubrible, consciente de políticas y recuperable. El contrato del servidor de apps da a las integraciones algo estructurado a lo que llamar en lugar de raspar salida de terminal.
+
+[NOVA]: El SDK de Python ahora es openai-codex y se importa como openai_codex. Incluye tipos generados en runtime fijados, enrutamiento de turnos concurrentes, modos de aprobación y cobertura de integración. Eso le da a las aplicaciones Python un camino real para dirigir turnos de Codex sin tratar el CLI como un subproceso solo de texto.
+
+[ALLOY]: El enrutamiento de turnos es el mecanismo clave. Si una app maneja más de un turno de agente, necesita IDs y eventos estructurados. De lo contrario, aprobaciones, actividad de herramientas, notificaciones y salidas pueden cruzarse. El trabajo concurrente sin enrutamiento estructurado es donde los bugs sutiles se vuelven horribles: una aprobación destinada a un turno se asocia con otro, o un evento de herramienta aparece bajo la tarea equivocada.
+
+[NOVA]: Los modos de aprobación también necesitan ser explícitos en un SDK. Una app de Python que incluya Codex tiene que saber si una interacción puede pedir permiso, si puede ejecutar herramientas, si puede escribir, y cómo se presentan esas aprobaciones a la aplicación controladora. Eso no es plomería opcional. Es el modelo de seguridad.
+
+[ALLOY]: Codex también agrega codex doctor para diagnósticos en runtime, autenticación, terminal, red, configuración y estado local. Este es el tipo de comando que parece pequeño hasta la primera actualización problemática.
+
+[NOVA]: Un agente de codificación que falla puede hacerlo por autenticación obsoleta, peculiaridades de terminal, políticas de red, conflictos de configuración, problemas en la base de datos de estado local, incompatibilidades de runtime, comportamiento de sandbox o inicio del servidor de apps. Sin diagnósticos, el soporte se convierte en un juego de adivinanzas. Un comando doctor puede recopilar evidencia lista para soporte y acortar el camino de "se rompió" a "esta es la capa rota".
+
+[ALLOY]: La versión también hace más seguro el inicio del servidor de apps y el estado local al preservar datos SQLite, cerrar de forma segura cuando el estado no puede abrirse, agregar rutas de recuperación y suavizar fallos de sincronización de metadatos opcionales. Esa combinación es buena ingeniería. Preserva el estado durable. No procedas de forma insegura si el estado requerido no puede abrirse. Recupérate cuando sea posible. No dejes que una sincronización de metadatos opcional derribé la ruta principal.
+
+[NOVA]: El bloque de fortalecimiento es amplio. El comportamiento del sandbox de Windows mejora alrededor de reglas de denegación de lectura, raíces de escritura delimitadas, políticas de firewall ineficaces y casos extremos de PowerShell. Las restricciones de lectura administradas sobreviven a la escalada de permisos. La resolución del perfil de permisos de la raíz del espacio de trabajo se limpia.
+
+[ALLOY]: La confiabilidad de Git y autenticación mejora a través de hooks de árbol de trabajo raíz, ignorando configuración de hook de repo y fsmonitor en comandos auxiliares, vinculando callbacks OAuth MCP locales y revocando tokens de inicio de sesión reemplazados. La limpieza remota y de Windows obtiene tiempos de espera de transporte de exec-server más largos, taskkill más silencioso y lecturas de plugin sin cola.
+
+[NOVA]: El patrón es recoverabilidad. Un agente de codificación solo es útil si puede trabajar dentro de repositorios reales, flujos de autenticación reales, shells de Windows reales, políticas de sandbox reales y estado de servidor de apps real. Esos entornos son desordenados. La versión se trata menos de una capacidad llamativa y más de hacer sesiones largas observables, recuperables y más seguras.
+
+[ALLOY]: El consejo de migración para Codex es simple: después de actualizar, ejercita la línea de estado del TUI, comandos de nivel de servicio, menciones unificadas, marketplace de plugins y comandos para compartir, flujos de control remoto, entornos remotos configurados, enrutamiento de turnos del SDK de Python, codex doctor, casos de sandbox de Windows si son relevantes, y recuperación de estado del servidor de apps.
+
+[NOVA]: También prueba la visibilidad de permisos. Inicia una sesión con el modo de aprobación y raíces de espacio de trabajo que esperas, luego verifica que el TUI muestre la misma realidad. Usa menciones con arroba con un archivo, un directorio, una habilidad y un plugin para asegurarte de que el selector sea útil sin sobrecargar la interacción. Para entornos remotos, verifica lecturas y limpieza de estado, no solo el inicio.
+
+[ALLOY]: Para constructores de SDK, prueba turnos concurrentes deliberadamente. Ejecuta dos trabajos pequeños, activa aprobación o actividad de herramientas en ambos, y asegúrate de que las notificaciones aterricen bajo los ID correctos. Ahí es donde un SDK estructurado gana confianza.
+
+[NOVA]: También hay un flujo de trabajo limpio para el selector de menciones unificadas. Comienza con una mención de archivo estrecha cuando la tarea es local. Pasa a una mención de directorio solo cuando el agente necesita pruebas vecinas o módulos relacionados. Usa una mención de habilidad cuando el contexto importante es un procedimiento, no código fuente. Usa una mención de plugin cuando la tarea dependa de una capacidad. Ese flujo de trabajo mantiene la sesión enfocada mientras hace valioso el nuevo selector.
+
+[ALLOY]: Para compartir plugins, el flujo de trabajo debe incluir verificaciones de versión. Comparte un plugin, revísalo en un segundo espacio de trabajo, verifica la versión que se cargó, luego ejercita cualquier hook habilitado por defecto en un repositorio pequeño antes de confiarlos en uno más grande. Compartir plugins sin problemas es útil, pero no debe hacer invisible el comportamiento de los hooks.
+
+[NOVA]: Para trabajo de control remoto, construye una prueba de ciclo de vida. Inicia una sesión, habilita el control remoto, lee el estado, envía una corrección pequeña desde una segunda superficie, responde una solicitud de permiso, deshabilita el control remoto y confirma la limpieza. Ese es el tipo de flujo de trabajo que atrapa estado que no coincide. Si el inicio funciona pero el estado está mal, la característica será difícil de operar. Si la deshabilitación funciona pero la limpieza deja estado obsoleto, la siguiente sesión puede heredar confusión.
+
+[NOVA]: Entonces la lectura de Codex es: estado operativo más claro en el TUI, adjunción de contexto más amplia a través de menciones unificadas, compartir plugins administrados más robusto, control remoto respaldado por daemon, entornos remotos configurados, un SDK de Python con enrutamiento de turnos estructurado, diagnósticos y una larga lista de reparaciones de sandbox, autenticación, Git, Windows, servidor de apps y estado.
+
+[ALLOY]: Combinado con OpenClaw, apunta en la misma dirección. Las herramientas de agente se están volviendo menos mágicas y más inspeccionables. El host puede explicar qué puede renderizar y qué diálogo lo bloqueó. La CLI puede explicar qué modo de permiso y raíces de espacio de trabajo están activos. El SDK puede enrutar turnos concurrentes por ID. Así es como el trabajo de agente se vuelve más fácil de operar. ...
+
+[NOVA]: GitHub convierte los agentes de Copilot en una cola de trabajo multi-superficie y de menor costo con tres actualizaciones del 18 de mayo: control remoto para sesiones de Copilot CLI está generalmente disponible en móvil, web, VS Code y JetBrains; las tareas de agente en la nube de Copilot pueden usar modelos más baratos para trabajo más simple; y GitHub Actions fallidas pueden entregar trabajo de reparación a Copilot desde la página de registros de workflow.
+
+[ALLOY]: La mecánica del control remoto es explícita. Un usuario puede comenzar con copilot remote, habilitar el control remoto dentro de una sesión con remote on, o configurar remoteSessions en el archivo de configuración de Copilot. Una vez adjuntado, la superficie remota puede transmitir actividad de sesión, aceptar entrada en cola, responder prompts de permiso, detener una sesión y dejar que el usuario dirija el trabajo alejándose de la terminal original.
+
+[NOVA]: Eso cambia la forma del trabajo de CLI-agente. La terminal local sigue siendo el ancla de ejecución, pero la supervisión puede moverse. Un constructor puede comenzar una tarea en el escritorio, luego verificar el progreso desde móvil o un navegador, responder una solicitud de permiso, poner en cola una corrección o detener la sesión sin estar en el mismo editor.
+
+[ALLOY]: Las restricciones importan. La máquina que ejecuta la sesión todavía necesita mantenerse en línea, y los docs de GitHub señalan keep-alive para trabajo más largo. Las sesiones son específicas del usuario. El uso de negocio y empresa puede depender de políticas de administrador para control remoto y características CLI. Así que esto no es computación en la nube desconectada. Es una sesión en vivo con un plano de control remoto.
+
+[NOVA]: Esa distinción es importante. La dirección remota es útil porque preserva el contexto local y permite que la supervisión se mueva. Pero también significa que el entorno local, estado de branch, credenciales, red y sesión de terminal todavía importan. Si la laptop se duerme, la sesión no está mágicamente ejecutándose en otro lugar.
+
+[ALLOY]: La segunda actualización de GitHub es la selección de modelos más económica para tareas de agentes en la nube de Copilot. Claude Haiku 4.5 y GPT-5.4-mini están disponibles con un multiplicador de 0.33x para trabajo más simple. Esa es la dirección correcta del producto porque las tareas de agentes no son todas igual de difíciles.
+
+[NOVA]: Un pequeño incremento de dependencia, corrección de lint, corrección de erratas, refactorización mecánica, actualización de expectativa de prueba, o una prueba que falla de manera directa no siempre necesita el modelo más fuerte. Un modelo más económico puede manejar la tarea mientras preserva el presupuesto para los trabajos que necesitan razonamiento más profundo: bugs ambiguos, cambios de arquitectura, parches sensibles a seguridad, o cambios de comportamiento multi-archivo.
+
+[ALLOY]: Los puntos de entrada también importan aquí. GitHub dice que la selección de modelo está disponible desde flujos soportados como asignar un issue, mencionar a Copilot en un comentario de pull request, comenzar desde superficies de agentes, GitHub Mobile, o Raycast. Donde no existe un selector, se usa Auto.
+
+[NOVA]: Eso significa que los desarrolladores deben tratar la elección del modelo como parte del triaje de tareas. Si el punto de entrada expone un selector, elijan deliberadamente. Si la tarea es mecánica, usen el modelo más pequeño. Si es intensiva en diseño o arriesgada, paguen por el camino más fuerte. Si no hay selector y se usa Auto, revisen el resultado con esa incertidumbre en mente.
+
+[ALLOY]: El tercer cambio es la reparación con un clic para GitHub Actions que fallan. Desde la página de logs de ejecución de workflow, los suscriptores de Copilot Business y Enterprise pueden hacer clic en Arreglar con Copilot. El agente en la nube investiga el fallo, hace push de la corrección a la rama, y etiqueta al usuario para revisión.
+
+[NOVA]: Ese es un punto de entrada de agente fuerte porque el paquete de contexto es fuerte: logs del trabajo que falló, estado de la rama, instrucciones del repositorio, y un entorno de desarrollo en la nube. En lugar de copiar logs al chat, el usuario delega desde el lugar donde el fallo ya es visible.
+
+[ALLOY]: Pero la disciplina de revisión no desaparece. Una corrección de rama hecha por un agente sigue siendo un cambio de código. El revisor tiene que verificar si el agente arregló la causa real, preservó el diseño, evitó hacks generales, y no simplemente optimizó para un CI verde.
+
+[NOVA]: Eso es especialmente cierto con fallos de Actions. La corrección más fácil podría ser aflojar una prueba, saltarse un caso, fijar una dependencia antigua, o cambiar la configuración de CI de manera que oculte un bug. La corrección correcta puede ser más profunda. El agente puede redactar, pero la revisión humana sigue siendo quien tiene el juicio de ingeniería.
+
+[ALLOY]: La dirección más grande del producto está clara. GitHub está convirtiendo a los agentes de Copilot en una cola de trabajo que abarca superficies. Las sesiones locales de CLI pueden ser guiadas de forma remota. Las tareas en la nube pueden usar modelos más pequeños cuando el trabajo es simple. Los fallos de CI pueden convertirse en trabajos de reparación delegados desde la página de logs.
+
+[NOVA]: Para los equipos, la capa de políticas importa. El control remoto, los agentes en la nube, la selección de modelos, y la reparación de Actions necesitan configuración de administración, instrucciones de repositorio, y normas de revisión. Sin esas cosas, es fácil crear una cola de agentes que es conveniente pero inconsistente.
+
+[ALLOY]: El patrón de construcción útil es clasificar las tareas antes de asignarlas. El mantenimiento simple de ramas puede ir a un modelo más económico en la nube. La reparación de fallos de CI puede comenzar desde los logs del workflow. El trabajo que depende del estado local del desarrollador puede quedarse en la CLI pero ser supervisado de forma remota. El trabajo de diseño arriesgado todavía necesita modelos más fuertes y revisión más cercana.
+
+[NOVA]: Y la superficie de supervisión debe coincidir con el trabajo. Si el agente está pidiendo permisos, la aprobación móvil puede ser suficiente para una operación simple conocida. Si el cambio es amplio, una revisión en escritorio es mejor. El punto no es hacer cada tarea de agente remota. Es dejar que el plano de control se mueva cuando eso realmente ayuda.
+
+[ALLOY]: Un flujo de trabajo útil para el equipo es enrutar por costo y riesgo. Usar los modelos más pequeños de agentes en la nube para correcciones estrechas con pruebas claras. Usar modelos más fuertes cuando el issue tiene comportamiento ambiguo, implicaciones de seguridad, o impacto de diseño amplio. Usar guía remota de CLI cuando la tarea necesita estado local pero el humano no puede estar en la terminal. Usar reparación de Actions cuando el contexto del fallo ya está concentrado en los logs de CI.
+
+[NOVA]: El flujo de trabajo de revisión debe ser igual de explícito. Para un cambio de modelo barato, verificar si el agente se mantuvo dentro de la tarea estrecha. Para un cambio remoto de CLI, verificar el diff local y el historial de comandos. Para una reparación de Actions, verificar si el agente cambió código del producto, pruebas, dependencias, o configuración de CI. El hecho de que el agente vino de un punto de entrada conveniente no cambia el estándar de revisión.
+
+[ALLOY]: Por eso estas actualizaciones de GitHub encajan con el bloque de lanzamiento. No son solo anuncios de características. Son parte del mismo cambio operacional: los agentes necesitan control del ciclo de vida, puertas de políticas, niveles de costo, y mejores puntos de entrada desde los lugares donde el trabajo ya sucede. ...
+
+[NOVA]: Anthropic le da a la búsqueda web de Claude datos más ricos de presentaciones ante la SEC para agentes financieros citados. La nota de Claude Platform del 18 de mayo es estrecha, pero importa para cualquier agente que resume ganancias, compara empresas públicas, redacta notas de due diligence, o monitorea divulgaciones de riesgo.
+
+[ALLOY]: La diferencia entre un resultado web genérico y una búsqueda consciente de presentaciones es la calidad de la fuente. Los agentes de investigación financiera necesitan saber si están mirando un 10-K, 10-Q, 8-K, declaración de proxy, declaración de registro, u otra presentación primaria. También necesitan suficientes metadatos para mantener esa cita adjunta después de que el modelo resume la afirmación.
+
+[NOVA]: El modo de fallo es familiar. Un modelo busca en la web, encuentra una afirmación financiera, la resume, y pierde el límite entre presentaciones primarias, comunicados de prensa, comentarios de analistas, y artículos de noticias. La respuesta final puede sonar confiada, pero la cadena de evidencia es débil.
+
+[ALLOY]: Datos más ricos de presentaciones ante la SEC ayudan a que la capa de herramientas cargue mejor evidencia en el contexto del modelo. Le da a la aplicación una mejor oportunidad de preservar la identidad de la presentación, tipo de presentación, fecha, compañía, URL de origen, texto citado, y metadatos de recuperación. Pero la aplicación tiene que mantener esa información. Si colapsa todo en prosa, el beneficio desaparece.
+
+[NOVA]: La recomendación práctica es tratar los resultados de búsqueda como objetos de evidencia. Mantener la URL, título, tipo de presentación, fecha, texto de cita, identidad de la compañía, y marca de tiempo de recuperación. Si el agente escribe un memo, cada afirmación material debe señalar de vuelta a la presentación y, cuando esté disponible, a la sección o extracto. Si el agente escribe notas estructuradas, la fuente de la presentación debe ser un campo, no una oración enterrada en el medio.
+
+[ALLOY]: Eso también cambia la evaluación. Un agente de investigación financiera no solo debe ser calificado por si el resumen suena plausible. Debe ser evaluado por si las afirmaciones son rastreables a fuentes primarias, si los comentarios secundarios están separados de los archivos, si las fechas se preservan, y si la evidencia contradictoria se marca en lugar de suavizarse.
+
+[NOVA]: Los archivos de la SEC son artefactos legales y financieros estructurados. Un factor de riesgo 10-K no es lo mismo que una actualización operativa trimestral. Un 8-K puede anunciar un evento discreto. Una declaración de poder puede explicar gobernanza y compensación. Si un agente simplifica eso en la empresa dijo, pierde el contexto que hace útil la afirmación.
+
+[ALLOY]: Para los flujos de trabajo de construcción, el patrón de diseño es directo. La capa de recuperación devuelve evidencia. La capa de razonamiento puede resumir y comparar. La capa de informe debe preservar las citas. La capa de almacenamiento debe mantener suficientes metadatos para que una auditoría posterior pueda reconstruir de dónde vino una afirmación.
+
+[NOVA]: Eso es especialmente importante para hojas de cálculo posteriores, notas de inversión, revisiones de cumplimiento e investigación面向cliente. Un resumen hermoso con citas débiles es un pasivo. Un resumen más estructurado con campos de origen claros es más fácil de confiar, revisar y corregir.
+
+[ALLOY]: El flujo de trabajo de construcción concreto es mantener los objetos de evidencia vivos. Cuando la búsqueda web de Claude devuelve un resultado de archivo, almacena el tipo de archivo, empresa, fecha, URL, texto citado y tiempo de recuperación junto a la afirmación. Cuando el agente redacta una comparación, lleva esos campos a la tabla de comparación o memorando. Cuando el agente exporta un informe, incluye suficiente detalle de citas para que un revisor pueda abrir la fuente y verificar la afirmación sin volver a ejecutar toda la búsqueda.
+
+[NOVA]: Para agentes financieros, esto también sugiere un mejor flujo de trabajo de falla. Si una afirmación no tiene fuente de archivo primaria, márcala como comentario secundario. Si dos archivos parecen entrar en conflicto, mantén ambas citas y pide revisión en lugar de suavizar la diferencia. Si el tipo de archivo no está claro, no dejes que el modelo adivine. El agente debe preservar la incertidumbre como estado, porque la incertidumbre es a menudo lo más importante que el usuario necesita ver.
+
+[ALLOY]: El mismo patrón aplica fuera de las finanzas, pero las finanzas hacen obvias las apuestas. La conexión a fuentes primarias no es un extra cuando una afirmación puede afectar una decisión. Datos más ricos de archivos SEC les da a los desarrolladores una mejor herramienta de resultado; la aplicación todavía tiene que preservar la conexión límite hasta el usuario.
+
+[NOVA]: Así que la actualización de Anthropic es pequeña en superficie y grande en implicación. Mejores metadatos de búsqueda hacen que los agentes financieros sean más auditables, pero solo si los constructores mantienen las citas vivas a través de todo el pipeline. ...
+
+[ALLOY]: La prioridad de actualización para OpenClaw es probar las superficies de host cambiadas, no solo instalar el lanzamiento. Validar plugin init, build y validación. Activar manejo de modal del navegador. Inspeccionar preparación de reinicio de gateway. Ejercitar confianza de proxy HTTPS si lo necesitas. Probar Android Talk Mode con interrupción. Enviar medios a través de temas de Telegram y voz de Discord. Probar manejo de imágenes y cambios de app-server de Codex con imágenes, red sandboxed, modo código y política de remitente restringida.
+
+[NOVA]: Para Codex, actualizar e inspeccionar el estado operativo. Verificar línea de estado TUI, comandos de nivel de servicio, permisos, modo de aprobación, raíces de espacio de trabajo, menciones unificadas, comandos de marketplace y compartir, flujos de control remoto, entornos remotos configurados, enrutamiento de turnos Python SDK, codex doctor, casos sandbox de Windows si es relevante, y recuperación de estado de app-server.
+
+[ALLOY]: Para Copilot, usar modelos de agente en la nube más baratos para trabajo de reparación simple, mantener sesiones remotas policy-gated, y revisar correcciones de Acciones de un clic como cambios de código en lugar de respuestas finales. Para agentes financieros de Claude, preservar metadatos de archivos SEC y citas como evidencia estructurada, no solo texto.
+
+[NOVA]: El hilo conductor de estas actualizaciones es la madurez operacional. Los hosts están haciendo contratos de herramientas y canales más claros. Los CLIs están exponiendo estado y permisos. Los agentes remotos están obteniendo mejores planos de control. Las herramientas de búsqueda están devolviendo evidencia más rica. Ese es el trabajo que hace que los agentes sean más fáciles de enviar, depurar y confiar.
+
+[ALLOY]: Los enlaces de origen y notas del episodio están disponibles en Toby On Fitness Tech punto com.
+
+[NOVA]: Eso es AgentStack Daily. Soy NOVA.
+
+[ALLOY]: Y yo soy ALLOY. Estaremos de vuelta pronto.
