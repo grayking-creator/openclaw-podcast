@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Post-approval OpenClaw Daily release orchestrator.
+Post-approval AgentStack Daily release orchestrator.
 
 Flow:
   1. Run rel.phase_setup first.
@@ -24,9 +24,13 @@ file, under the "approved_orchestrator" key.
 from __future__ import annotations
 
 import argparse
+import atexit
 import copy
+import hashlib
 import json
+import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -36,6 +40,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import uuid
 
 import build_youtube_episode_videos as video_build
 import release_episode as rel
@@ -43,11 +48,36 @@ import release_episode as rel
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 PODCAST_DIR = SCRIPTS_DIR.parent
-VIDEO_ROOT = Path.home() / ".openclaw/workspace/video-workspace/crossfire-series"
+
+
+def resolve_video_root() -> Path:
+    candidates = [
+        Path.home() / ".openclaw/workspace/video-workspace/flux-videos",
+        Path.home() / ".openclaw/workspace/video-workspace/crossfire-series",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+    return candidates[-1]
+
+
+VIDEO_ROOT = resolve_video_root()
 VIDEO_PYTHON = VIDEO_ROOT / ".venv" / "bin" / "python3"
 VIDEO_BOOTSTRAP = VIDEO_ROOT / "shared" / "bootstrap_podcast_episode.py"
 VIDEO_PIPELINE = VIDEO_ROOT / "shared" / "run_pipeline.py"
 PUBLISH_LOCK = threading.Lock()
+STATE_SAVE_LOCK = threading.RLock()
+# Serialises local TTS calls — generate_audio sets module-level ga.VOICES so concurrent
+# threads would race and generate the wrong language voices for each other.
+_LOCAL_TTS_LOCK = threading.Lock()
+
+# M4 TTS dispatch — SSH via Thunderbolt link
+M4_HOST = "192.168.1.222"
+M4_USER = "toby"
+M4_SSH_KEY = Path.home() / ".ssh/id_ed25519"
+M4_PODCAST_DIR = Path("/Users/toby/podcast_gen")
+# First M4_LANG_SLOTS languages in LANGS order run on M4; the rest run locally on M3
+M4_LANG_SLOTS = 2
 
 STEP_SETUP = "setup"
 STEP_EN_PUBLISH = "lane_en_publish"
@@ -69,6 +99,14 @@ STEP_ORDER = [
     STEP_DISCORD,
 ]
 
+VALID_YOUTUBE_VIDEO_MODES = {"static", "flux"}
+
+RUN_CONTEXT: dict[str, Any] = {
+    "ep_num": None,
+    "state": None,
+    "terminal_status": None,
+}
+
 
 class LaneError(RuntimeError):
     def __init__(self, lane: str, message: str, state: dict[str, Any] | None = None):
@@ -89,6 +127,10 @@ def post_build_log(ep_num: int, msg: str) -> None:
         pass
 
 
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 def orchestrator_meta(state: dict[str, Any]) -> dict[str, Any]:
     meta = state.setdefault("approved_orchestrator", {})
     meta.setdefault("completed_steps", [])
@@ -102,8 +144,95 @@ def completed_steps(state: dict[str, Any]) -> set[str]:
 
 
 def save_state(ep_num: int, state: dict[str, Any]) -> None:
-    orchestrator_meta(state)["updated_at"] = datetime.now(timezone.utc).isoformat()
-    rel.save_state(ep_num, state)
+    with STATE_SAVE_LOCK:
+        orchestrator_meta(state)["updated_at"] = utc_now()
+        rel.save_state(ep_num, state)
+
+
+def mark_run_status(
+    ep_num: int,
+    state: dict[str, Any],
+    status: str,
+    current_step: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> None:
+    meta = orchestrator_meta(state)
+    meta["run_status"] = status
+    meta["run_pid"] = os.getpid()
+    meta["last_heartbeat_at"] = utc_now()
+    if current_step:
+        meta["current_step"] = current_step
+    if details:
+        meta.update(details)
+    RUN_CONTEXT["ep_num"] = ep_num
+    RUN_CONTEXT["state"] = state
+    if status in {"complete", "failed", "interrupted", "paused", "exited_early"}:
+        RUN_CONTEXT["terminal_status"] = status
+    save_state(ep_num, state)
+
+
+def heartbeat(ep_num: int, state: dict[str, Any], current_step: str) -> None:
+    mark_run_status(ep_num, state, "running", current_step)
+
+
+def notify_unexpected_exit() -> None:
+    ep_num = RUN_CONTEXT.get("ep_num")
+    if ep_num is None:
+        return
+    if RUN_CONTEXT.get("terminal_status") in {"complete", "failed", "interrupted", "paused"}:
+        return
+
+    state = RUN_CONTEXT.get("state")
+    if not isinstance(state, dict):
+        try:
+            state = rel.load_state(int(ep_num))
+        except Exception:
+            state = {}
+
+    meta = orchestrator_meta(state)
+    if STEP_DISCORD in set(meta.get("completed_steps", [])) or meta.get("run_status") == "complete":
+        return
+
+    step = meta.get("current_step") or "unknown step"
+    try:
+        mark_run_status(int(ep_num), state, "exited_early", str(step))
+    except Exception:
+        pass
+    post_build_log(
+        int(ep_num),
+        f"❌ Approved release process exited before completion near {step}; rerun the approved release launcher to resume.",
+    )
+
+
+def install_signal_handlers(ep_num: int, state: dict[str, Any]) -> None:
+    RUN_CONTEXT["ep_num"] = ep_num
+    RUN_CONTEXT["state"] = state
+
+    def handle_sighup(signum: int, _frame: Any) -> None:
+        current_state = RUN_CONTEXT.get("state") if isinstance(RUN_CONTEXT.get("state"), dict) else state
+        name = signal.Signals(signum).name
+        meta = orchestrator_meta(current_state)
+        meta["last_signal"] = name
+        meta["sighup_ignored_at"] = utc_now()
+        mark_run_status(ep_num, current_state, "running", str(meta.get("current_step") or "sighup"), {"last_signal": name})
+        post_build_log(ep_num, "⚠️ Approved release received SIGHUP; continuing detached.")
+
+    def handle_shutdown(signum: int, _frame: Any) -> None:
+        current_state = RUN_CONTEXT.get("state") if isinstance(RUN_CONTEXT.get("state"), dict) else state
+        name = signal.Signals(signum).name
+        meta = orchestrator_meta(current_state)
+        step = str(meta.get("current_step") or "unknown step")
+        mark_run_status(ep_num, current_state, "interrupted", step, {"last_signal": name})
+        post_build_log(ep_num, f"❌ Approved release interrupted by {name} near {step}.")
+        raise SystemExit(128 + signum)
+
+    if hasattr(signal, "SIGHUP"):
+        signal.signal(signal.SIGHUP, handle_sighup)
+    signal.signal(signal.SIGTERM, handle_shutdown)
+    signal.signal(signal.SIGINT, handle_shutdown)
+
+
+atexit.register(notify_unexpected_exit)
 
 
 def mark_step_complete(ep_num: int, state: dict[str, Any], step: str, details: dict[str, Any] | None = None) -> None:
@@ -176,14 +305,115 @@ def paragraph_count(path: Path) -> int:
     return total
 
 
+def transcript_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def bootstrap_mismatches(ep_dir: Path, transcript_path: Path, audio_path: Path) -> list[str]:
+    config_path = ep_dir / "config.json"
+    narr_path = ep_dir / "narration.txt"
+    mismatches: list[str] = []
+
+    try:
+        cfg = json.loads(config_path.read_text())
+    except Exception as exc:
+        return [f"config unreadable: {exc}"]
+
+    expected_scene_count = paragraph_count(transcript_path)
+    if int(cfg.get("scene_count") or 0) != expected_scene_count:
+        mismatches.append(
+            f"scene_count={cfg.get('scene_count')} but transcript now has {expected_scene_count} paragraphs"
+        )
+
+    expected_audio = str(audio_path)
+    if cfg.get("direct_audio") != expected_audio:
+        mismatches.append("direct_audio path no longer matches current EN audio")
+    if cfg.get("paths", {}).get("narration") != expected_audio:
+        mismatches.append("paths.narration no longer matches current EN audio")
+
+    current_transcript = transcript_path.read_text(encoding="utf-8")
+    try:
+        bootstrapped_transcript = narr_path.read_text(encoding="utf-8")
+    except Exception as exc:
+        mismatches.append(f"narration.txt unreadable: {exc}")
+    else:
+        if bootstrapped_transcript != current_transcript:
+            mismatches.append("narration.txt differs from the current transcript")
+
+    fingerprint = cfg.get("source_fingerprint", {})
+    current_hash = transcript_sha256(transcript_path)
+    if fingerprint.get("transcript_sha256") and fingerprint["transcript_sha256"] != current_hash:
+        mismatches.append("source_fingerprint transcript hash no longer matches")
+
+    return mismatches
+
+
+def derived_video_artifact_count(ep_num: int) -> int:
+    build_dir = video_build.episode_build_dir(ep_num)
+    patterns = (
+        "assets/flux_images/scene_*.png",
+        "assets/kb_clips/scene_*.mp4",
+        "outputs/*.mp4",
+    )
+    total = 0
+    for pattern in patterns:
+        total += len(list(build_dir.glob(pattern)))
+    return total
+
+
+def video_episode_dir(ep_num: int) -> Path:
+    canonical = VIDEO_ROOT / "openclaw-daily" / f"ep{ep_num}"
+    legacy = VIDEO_ROOT / f"ep{ep_num}"
+    if canonical.exists():
+        return canonical
+    if legacy.exists():
+        return legacy
+    return canonical
+
+
 def ensure_crossfire_bootstrap(ep_num: int, state: dict[str, Any]) -> None:
-    ep_dir = VIDEO_ROOT / f"ep{ep_num}"
+    ep_dir = video_episode_dir(ep_num)
     config_path = ep_dir / "config.json"
     story_path = ep_dir / "story.py"
     narr_path = ep_dir / "narration.txt"
+    ep_str = f"{ep_num:03d}"
+    transcript_path = PODCAST_DIR / "episodes" / f"episode_{ep_str}_transcript_nova.md"
+    audio_path = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
+
+    if not transcript_path.exists():
+        raise FileNotFoundError(f"Missing EN transcript for crossfire bootstrap: {transcript_path}")
+    if not audio_path.exists():
+        raise FileNotFoundError(f"Missing EN audio for crossfire bootstrap: {audio_path}")
 
     if config_path.exists() and story_path.exists() and narr_path.exists():
-        log(f"[ EN VIDEO ] Crossfire ep{ep_num} already bootstrapped")
+        mismatches = bootstrap_mismatches(ep_dir, transcript_path, audio_path)
+        if not mismatches:
+            log(f"[ EN VIDEO ] Crossfire ep{ep_num} already bootstrapped")
+            return
+
+        artifact_count = derived_video_artifact_count(ep_num)
+        detail = "; ".join(mismatches)
+        if artifact_count:
+            raise RuntimeError(
+                f"Crossfire bootstrap drift detected for ep{ep_num}: {detail}. "
+                f"Found {artifact_count} derived video artifact(s) in {video_build.episode_build_dir(ep_num)}; "
+                "refusing to reuse stale assets."
+            )
+        log(f"[ EN VIDEO ] Bootstrap drift detected — regenerating source files ({detail})")
+        meta = rel.get_en_release_metadata(ep_num, state)
+        scene_count = paragraph_count(transcript_path)
+        split_scene = scene_count // 2
+        run_streaming([
+            str(VIDEO_PYTHON),
+            str(VIDEO_BOOTSTRAP),
+            "--episode", str(ep_num),
+            "--title", meta["episode_title"],
+            "--transcript", str(transcript_path),
+            "--direct-audio", str(audio_path),
+            "--split-scene", str(split_scene),
+            "--root", str(VIDEO_ROOT),
+            "--force",
+        ], cwd=VIDEO_ROOT)
         return
 
     existing = [path.name for path in (config_path, story_path, narr_path) if path.exists()]
@@ -197,14 +427,6 @@ def ensure_crossfire_bootstrap(ep_num: int, state: dict[str, Any]) -> None:
         raise FileNotFoundError(f"Missing crossfire bootstrap script: {VIDEO_BOOTSTRAP}")
     if not VIDEO_PYTHON.exists():
         raise FileNotFoundError(f"Missing crossfire venv python: {VIDEO_PYTHON}")
-
-    ep_str = f"{ep_num:03d}"
-    transcript_path = PODCAST_DIR / "episodes" / f"episode_{ep_str}_transcript_nova.md"
-    audio_path = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
-    if not transcript_path.exists():
-        raise FileNotFoundError(f"Missing EN transcript for crossfire bootstrap: {transcript_path}")
-    if not audio_path.exists():
-        raise FileNotFoundError(f"Missing EN audio for crossfire bootstrap: {audio_path}")
 
     meta = rel.get_en_release_metadata(ep_num, state)
     scene_count = paragraph_count(transcript_path)
@@ -260,6 +482,7 @@ def en_publish_lane(ep_num: int, state: dict[str, Any], pub_date: str) -> dict[s
     lane_state = copy.deepcopy(state)
     try:
         log("[ LANE / EN PUBLISH ] Starting...")
+        heartbeat(ep_num, lane_state, STEP_EN_PUBLISH)
         lane_state = rel.phase_en_feed(ep_num, lane_state, pub_date)
         with PUBLISH_LOCK:
             lane_state = rel.phase_publish_en(ep_num, lane_state)
@@ -269,23 +492,269 @@ def en_publish_lane(ep_num: int, state: dict[str, Any], pub_date: str) -> dict[s
         raise LaneError(STEP_EN_PUBLISH, str(exc), lane_state) from exc
 
 
-def translation_lane(ep_num: int, state: dict[str, Any]) -> dict[str, Any]:
+def run_tts_on_m4(ep_num: int, lang: str, local_script: Path, local_out: Path) -> None:
+    ep_str = f"{ep_num:03d}"
+    remote_script = M4_PODCAST_DIR / f"episode_{ep_str}_{lang}.md"
+    remote_out_stem = f"episode_{ep_str}_{lang}"
+    remote_out = M4_PODCAST_DIR / "audio" / f"{remote_out_stem}.mp3"
+    ssh_opts = ["-i", str(M4_SSH_KEY), "-o", "BatchMode=yes",
+                "-o", "ConnectTimeout=30", "-o", "ServerAliveInterval=60"]
+
+    # Always sync local TTS code to M4 so the remote stage cannot silently run
+    # stale generation logic.
+    for script_name in ("generate_audio.py", "generate_audio_lang.py"):
+        subprocess.run(
+            ["scp"] + ssh_opts + [
+                str(PODCAST_DIR / script_name),
+                f"{M4_USER}@{M4_HOST}:{M4_PODCAST_DIR}/{script_name}",
+            ],
+            check=True, timeout=60,
+        )
+    subprocess.run(
+        ["scp"] + ssh_opts + [str(local_script), f"{M4_USER}@{M4_HOST}:{remote_script}"],
+        check=True, timeout=60,
+    )
+    subprocess.run(
+        ["ssh"] + ssh_opts + [f"{M4_USER}@{M4_HOST}",
+         f"export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH && "
+         f"{M4_PODCAST_DIR}/venv/bin/python3 {M4_PODCAST_DIR}/generate_audio_lang.py"
+         f" {remote_script} --lang {lang} -o {remote_out_stem}"],
+        check=True, timeout=7200,
+    )
+    subprocess.run(
+        ["scp"] + ssh_opts + [f"{M4_USER}@{M4_HOST}:{remote_out}", str(local_out)],
+        check=True, timeout=300,
+    )
+    if not local_out.exists():
+        raise RuntimeError(f"M4 TTS did not produce {local_out.name}")
+
+
+def run_local_tts(ep_num: int, lang: str, out_path: Path) -> None:
+    ep_str = f"{ep_num:03d}"
+    if str(PODCAST_DIR) not in sys.path:
+        sys.path.insert(0, str(PODCAST_DIR))
+    import generate_audio as ga
+    LANG_VOICES = {
+        "es": {"NOVA": "es-ES-ElviraNeural",    "ALLOY": "es-ES-AlvaroNeural"},
+        "de": {"NOVA": "de-DE-KatjaNeural",     "ALLOY": "de-DE-ConradNeural"},
+        "pt": {"NOVA": "pt-BR-FranciscaNeural", "ALLOY": "pt-BR-AntonioNeural"},
+        "hi": {"NOVA": "hi-IN-SwaraNeural",     "ALLOY": "hi-IN-MadhurNeural"},
+    }
+    script_path = PODCAST_DIR / "translations" / lang / f"episode_{ep_str}_{lang}.md"
+    import asyncio
+    with _LOCAL_TTS_LOCK:
+        ga.VOICES = LANG_VOICES[lang]
+        ga.AUDIO_DIR = PODCAST_DIR / "audio"
+        asyncio.run(ga.generate_podcast_audio(str(script_path), f"episode_{ep_str}_{lang}"))
+    if not out_path.exists():
+        raise RuntimeError(f"{lang.upper()} local audio render did not produce {out_path.name}")
+
+
+def run_tts_for_language(ep_num: int, state: dict[str, Any], lang: str) -> dict[str, Any]:
+    ep_str = f"{ep_num:03d}"
+    out_path = PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
+    if out_path.exists():
+        post_build_log(ep_num, f"ℹ️ [{lang.upper()}] audio already exists")
+        return state
+
+    use_m4 = rel.LANGS.index(lang) < M4_LANG_SLOTS
+    node_label = "M4" if use_m4 else "M3"
+    post_build_log(ep_num, f"⏳ [{lang.upper()}] audio → {node_label}")
+    script_path = PODCAST_DIR / "translations" / lang / f"episode_{ep_str}_{lang}.md"
+
+    if use_m4:
+        run_tts_on_m4(ep_num, lang, script_path, out_path)
+    else:
+        run_local_tts(ep_num, lang, out_path)
+
+    return state
+
+
+def incremental_language_publish(ep_num: int, state: dict[str, Any], lang: str, pub_date: str) -> dict[str, Any]:
+    log(f"[ POST TRANSLATION / {lang.upper()} ] Starting...")
+    post_build_log(ep_num, f"⏳ [{lang.upper()}] translated assets ready — running QA/publish")
+    state = rel.phase_translated_feeds(ep_num, state, pub_date, langs=[lang])
+    save_state(ep_num, state)
+
+    qc = subprocess.run(
+        [sys.executable, str(SCRIPTS_DIR / "check_episode_translations.py"), str(ep_num), "--lang", lang],
+        capture_output=True,
+        text=True,
+    )
+    if qc.stdout.strip():
+        print(qc.stdout.strip(), flush=True)
+    if qc.returncode != 0:
+        if qc.stderr.strip():
+            print(qc.stderr.strip(), flush=True)
+        raise RuntimeError(f"{lang.upper()} QC failed")
+
+    state = rel.phase_translated_cdn(ep_num, state, langs=[lang])
+    save_state(ep_num, state)
+    with PUBLISH_LOCK:
+        state = rel.phase_publish_translations(ep_num, state, langs=[lang])
+    save_state(ep_num, state)
+    published = state.setdefault("incremental_translations_published", [])
+    if lang not in published:
+        published.append(lang)
+    save_state(ep_num, state)
+    post_build_log(ep_num, f"✅ [{lang.upper()}] QA passed and published")
+    log(f"[ POST TRANSLATION / {lang.upper()} ] Complete")
+    return state
+
+
+def _tts_cover_publish(
+    ep_num: int,
+    lang: str,
+    pub_date: str,
+    state_snap: dict[str, Any],
+    m4_sem: threading.Semaphore,
+    shared_state: list[dict[str, Any]],
+    shared_lock: threading.Lock,
+) -> None:
+    """Run TTS → cover → publish for one language. Runs in a thread pool."""
+    ep_str = f"{ep_num:03d}"
+    out_path = PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
+
+    # TTS — try M4 first (non-blocking semaphore), fall through to M3 local on any failure
+    if not out_path.exists():
+        use_m4 = m4_sem.acquire(blocking=False)
+        try:
+            node = "M4" if use_m4 else "M3"
+            post_build_log(ep_num, f"⏳ [{lang.upper()}] audio → {node}")
+            script_path = PODCAST_DIR / "translations" / lang / f"episode_{ep_str}_{lang}.md"
+            if use_m4:
+                try:
+                    run_tts_on_m4(ep_num, lang, script_path, out_path)
+                except Exception as m4_err:
+                    log(f"  ⚠️  [{lang.upper()}] M4 TTS failed ({m4_err}), falling back to local...")
+                    post_build_log(ep_num, f"⚠️ [{lang.upper()}] M4 down — local TTS fallback")
+                    run_local_tts(ep_num, lang, out_path)
+            else:
+                run_local_tts(ep_num, lang, out_path)
+        finally:
+            if use_m4:
+                m4_sem.release()
+        post_build_log(ep_num, f"✅ [{lang.upper()}] audio ready")
+
+    # Cover + publish (serialised to avoid concurrent feed/git writes)
+    with shared_lock:
+        current = shared_state[0]
+        current = rel.phase_covers(ep_num, current, langs=[lang])
+        current = incremental_language_publish(ep_num, current, lang, pub_date)
+        published = current.setdefault("incremental_translations_published", [])
+        if lang not in published:
+            published.append(lang)
+        save_state(ep_num, current)
+        shared_state[0] = current
+
+
+def translation_lane(ep_num: int, state: dict[str, Any], pub_date: str) -> dict[str, Any]:
+    """
+    Incremental per-language pipeline:
+      For each language in order:
+        1. Translate (main thread, sequential — avoids API hammering)
+        2. Immediately dispatch TTS → cover → publish to a thread pool
+           • First M4_LANG_SLOTS languages get M4 (non-blocking semaphore acquire)
+           • Overflow falls through to M3 (local)
+      All TTS jobs run concurrently while translation of the next language proceeds.
+    """
     lane_state = copy.deepcopy(state)
     try:
-        log("[ LANE / TRANSLATIONS ] Starting...")
-        lane_state = rel.phase_translate(ep_num, lane_state)
-        lane_state = rel.phase_tts(ep_num, lane_state)
-        lane_state = rel.phase_covers(ep_num, lane_state)
+        log("[ LANE / TRANSLATIONS ] Starting (incremental per-language)...")
+
+        already_published = set(lane_state.get("incremental_translations_published", []))
+        pending = [l for l in rel.LANGS if l not in already_published]
+
+        if not pending:
+            log("[ LANE / TRANSLATIONS ] All languages already published, nothing to do")
+            return lane_state
+
+        # Shared mutable state — threads update via shared_lock
+        shared_state = [copy.deepcopy(lane_state)]
+        shared_lock = threading.Lock()
+        # Semaphore gates M4 usage: up to M4_LANG_SLOTS concurrent TTS jobs on M4
+        m4_sem = threading.Semaphore(M4_LANG_SLOTS)
+
+        tts_futures: dict[str, Any] = {}
+
+        with ThreadPoolExecutor(max_workers=len(pending)) as pool:
+            for lang in pending:
+                # ── Translation (main thread, sequential) ──────────────────
+                if not lane_state.get("translations", {}).get(lang, {}).get("done"):
+                    heartbeat(ep_num, lane_state, f"{STEP_TRANSLATIONS}:{lang}:translate")
+                    post_build_log(ep_num, f"⏳ [{lang.upper()}] translating...")
+                    lane_state = rel.phase_translate(ep_num, lane_state, langs=[lang])
+                    # Propagate translated state into shared state
+                    with shared_lock:
+                        shared_state[0]["translations"] = copy.deepcopy(
+                            lane_state.get("translations", {})
+                        )
+                    save_state(ep_num, lane_state)
+                    post_build_log(ep_num, f"✅ [{lang.upper()}] text ready")
+
+                # ── Dispatch TTS immediately (thread pool) ─────────────────
+                snap = copy.deepcopy(lane_state)
+                tts_futures[lang] = pool.submit(
+                    _tts_cover_publish,
+                    ep_num, lang, pub_date, snap,
+                    m4_sem, shared_state, shared_lock,
+                )
+
+            # ── Wait for all TTS/publish threads ───────────────────────────
+            errors = []
+            for lang, fut in tts_futures.items():
+                try:
+                    fut.result()
+                except Exception as e:
+                    errors.append(f"{lang.upper()}: {e}")
+
+            if errors:
+                raise RuntimeError("TTS/publish failures: " + "; ".join(errors))
+
+        lane_state = shared_state[0]
         log("[ LANE / TRANSLATIONS ] Complete")
         return lane_state
     except Exception as exc:
         raise LaneError(STEP_TRANSLATIONS, str(exc), lane_state) from exc
 
 
+TRANSLATION_MAX_RETRIES = 2
+TRANSLATION_RETRY_DELAY = 60  # seconds; multiplied by attempt number
+
+
+def translation_lane_with_retry(ep_num: int, state: dict[str, Any], pub_date: str) -> dict[str, Any]:
+    """Wraps translation_lane with automatic retry on failure.
+
+    Between retries, state is reloaded from disk so any per-language progress
+    already saved (translations.*.done flags) is preserved and not repeated.
+    """
+    last_exc: LaneError | None = None
+    for attempt in range(TRANSLATION_MAX_RETRIES + 1):
+        if attempt > 0:
+            delay = TRANSLATION_RETRY_DELAY * attempt
+            log(f"[ LANE / TRANSLATIONS ] Retry {attempt}/{TRANSLATION_MAX_RETRIES} in {delay}s...")
+            post_build_log(ep_num, f"⚠️ [lane_translations] retry {attempt}/{TRANSLATION_MAX_RETRIES} — waiting {delay}s")
+            time.sleep(delay)
+            # Reload from disk to pick up per-language done flags saved before the failure
+            state = rel.load_state(ep_num)
+        try:
+            return translation_lane(ep_num, state, pub_date)
+        except LaneError as exc:
+            if exc.state:
+                merged = merge_release_state(state, exc.state)
+                save_state(ep_num, merged)
+            last_exc = exc
+            if attempt < TRANSLATION_MAX_RETRIES:
+                log(f"[ LANE / TRANSLATIONS ] Attempt {attempt + 1} failed: {exc}")
+                post_build_log(ep_num, f"❌ [lane_translations] attempt {attempt + 1} failed: {exc}")
+    raise last_exc  # type: ignore[misc]
+
+
 def en_video_lane(ep_num: int, state: dict[str, Any]) -> dict[str, Any]:
     lane_state = copy.deepcopy(state)
     try:
         log("[ LANE / EN VIDEO ] Starting...")
+        heartbeat(ep_num, lane_state, STEP_EN_VIDEO)
         ensure_crossfire_bootstrap(ep_num, lane_state)
         run_crossfire_stage(ep_num, "flux")
         run_crossfire_stage(ep_num, "kenburns")
@@ -319,12 +788,39 @@ def run_post_translation(ep_num: int, state: dict[str, Any], pub_date: str) -> d
 
 def run_step(ep_num: int, state: dict[str, Any], step: str, label: str, fn, *args) -> dict[str, Any]:
     log(f"[ {label} ] Starting...")
+    heartbeat(ep_num, state, step)
     post_build_log(ep_num, f"⏳ [{label}] starting…")
     state = fn(ep_num, state, *args)
     mark_step_complete(ep_num, state, step)
     post_build_log(ep_num, f"✅ [{label}] complete")
     log(f"[ {label} ] Complete")
     return state
+
+
+def run_local_cleanup(ep_num: int, state: dict[str, Any]) -> None:
+    cleanup_script = SCRIPTS_DIR / "cleanup_local_artifacts.py"
+    if not cleanup_script.exists():
+        return
+    result = subprocess.run(
+        [sys.executable, str(cleanup_script), "--completed-release", str(ep_num)],
+        cwd=str(PODCAST_DIR),
+        capture_output=True,
+        text=True,
+    )
+    output = "\n".join(part.strip() for part in (result.stdout, result.stderr) if part.strip())
+    state["local_cleanup"] = {
+        "updated_at": utc_now(),
+        "returncode": result.returncode,
+        "output": output[-2000:],
+    }
+    save_state(ep_num, state)
+    if result.returncode == 0:
+        summary = output.splitlines()[-2:] if output else ["No local cleanup output."]
+        post_build_log(ep_num, "🧹 Local release artifacts cleaned: " + " | ".join(summary))
+        log("[ CLEANUP ] " + " | ".join(summary))
+    else:
+        post_build_log(ep_num, f"⚠️ Local cleanup failed after release; run {cleanup_script.name} manually.")
+        log(f"[ CLEANUP ] Failed with exit {result.returncode}")
 
 
 def format_lane_errors(errors: dict[str, BaseException]) -> str:
@@ -335,7 +831,7 @@ def format_lane_errors(errors: dict[str, BaseException]) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="OpenClaw Daily approved-release orchestrator")
+    parser = argparse.ArgumentParser(description="AgentStack Daily approved-release orchestrator")
     parser.add_argument("episode", type=int, help="Episode number (e.g. 33)")
     _today = datetime.now(timezone.utc).strftime("%a, %d %b %Y 18:00:00 +0000")
     parser.add_argument(
@@ -353,6 +849,16 @@ def parse_args() -> argparse.Namespace:
         choices=STEP_ORDER,
         help="Rewind this orchestrator from the chosen step onward before running",
     )
+    parser.add_argument(
+        "--through-step",
+        choices=STEP_ORDER,
+        help="Stop after this step instead of running the full approved release",
+    )
+    parser.add_argument(
+        "--youtube-video-mode",
+        choices=sorted(VALID_YOUTUBE_VIDEO_MODES),
+        help="Per-episode YouTube video mode: static cover video or flux publish videos",
+    )
     return parser.parse_args()
 
 
@@ -360,27 +866,58 @@ def main() -> int:
     args = parse_args()
     ep_num = args.episode
     ep_str = f"{ep_num:03d}"
+    through_idx = STEP_ORDER.index(args.through_step) if args.through_step else None
 
     state = rel.load_state(ep_num)
+    video_mode = str(
+        args.youtube_video_mode
+        or state.get("youtube_video_mode")
+        or "static"
+    ).strip().lower()
+    if video_mode not in VALID_YOUTUBE_VIDEO_MODES:
+        raise SystemExit(f"Invalid --youtube-video-mode: {video_mode}")
+    state["youtube_video_mode"] = video_mode
+    state["pub_date"] = args.pub_date
     if args.reset:
         state.pop("approved_orchestrator", None)
     if args.from_step:
         prune_from_step(state, args.from_step)
-    save_state(ep_num, state)
+    install_signal_handlers(ep_num, state)
+    mark_run_status(
+        ep_num,
+        state,
+        "running",
+        "start",
+        {
+            "started_at": utc_now(),
+            "launcher_pid": os.getppid(),
+        },
+    )
 
     log(f"\n{'=' * 68}")
-    log(f"OpenClaw Daily — EP{ep_str} Approved Release")
+    log(f"AgentStack Daily — EP{ep_str} Approved Release")
+    log(f"YouTube video mode: {video_mode}")
     log(f"{'=' * 68}\n")
     post_build_log(ep_num, "🚀 Approved release orchestrator started")
+
+    def should_stop_after(step: str) -> bool:
+        if through_idx is None:
+            return False
+        return STEP_ORDER.index(step) >= through_idx
 
     try:
         if STEP_SETUP not in completed_steps(state):
             state = run_step(ep_num, state, STEP_SETUP, "SETUP", rel.phase_setup)
         else:
             log("[ SETUP ] Already complete, skipping")
+        if should_stop_after(STEP_SETUP):
+            mark_run_status(ep_num, state, "paused", STEP_SETUP)
+            post_build_log(ep_num, f"⏸ Approved release paused after {STEP_SETUP}")
+            return 0
 
         lane_errors: dict[str, BaseException] = {}
         futures: dict[Any, str] = {}
+        heartbeat(ep_num, state, "parallel_lanes")
 
         with ThreadPoolExecutor(max_workers=3, thread_name_prefix=f"ep{ep_str}-approved") as executor:
             if STEP_EN_PUBLISH not in completed_steps(state):
@@ -389,12 +926,14 @@ def main() -> int:
                 log("[ LANE / EN PUBLISH ] Already complete, skipping")
 
             if STEP_TRANSLATIONS not in completed_steps(state):
-                futures[executor.submit(translation_lane, ep_num, state)] = STEP_TRANSLATIONS
+                futures[executor.submit(translation_lane_with_retry, ep_num, state, args.pub_date)] = STEP_TRANSLATIONS
             else:
                 log("[ LANE / TRANSLATIONS ] Already complete, skipping")
 
-            if STEP_EN_VIDEO not in completed_steps(state):
+            if video_mode == "flux" and STEP_EN_VIDEO not in completed_steps(state):
                 futures[executor.submit(en_video_lane, ep_num, state)] = STEP_EN_VIDEO
+            elif video_mode != "flux":
+                log("[ LANE / EN VIDEO ] Static mode selected, skipping FLUX/video lane")
             else:
                 log("[ LANE / EN VIDEO ] Already complete, skipping")
 
@@ -454,41 +993,59 @@ def main() -> int:
         if lane_errors:
             raise RuntimeError(format_lane_errors(lane_errors))
 
-        if STEP_EN_VIDEO not in completed_steps(state):
+        if video_mode == "flux" and STEP_EN_VIDEO not in completed_steps(state):
             raise RuntimeError("EN video lane did not complete; refusing to build translated publish videos")
         if STEP_POST_TRANSLATION not in completed_steps(state):
             raise RuntimeError("Post-translation finalize did not complete; refusing to continue to video + YouTube")
+        if should_stop_after(STEP_POST_TRANSLATION):
+            mark_run_status(ep_num, state, "paused", STEP_POST_TRANSLATION)
+            post_build_log(ep_num, f"⏸ Approved release paused after {STEP_POST_TRANSLATION}")
+            return 0
 
-        if STEP_TRANSLATED_VIDEOS not in completed_steps(state):
+        if video_mode == "flux" and STEP_TRANSLATED_VIDEOS not in completed_steps(state):
+            heartbeat(ep_num, state, STEP_TRANSLATED_VIDEOS)
             outputs = build_translated_publish_videos(ep_num)
             mark_step_complete(ep_num, state, STEP_TRANSLATED_VIDEOS, {"video_outputs": outputs})
             post_build_log(ep_num, "✅ [TRANSLATED VIDEOS] complete")
+        elif video_mode != "flux":
+            log("[ TRANSLATED VIDEOS ] Static mode selected, skipping localized publish-video builds")
         else:
             log("[ TRANSLATED VIDEOS ] Already complete, skipping")
+        if should_stop_after(STEP_TRANSLATED_VIDEOS):
+            mark_run_status(ep_num, state, "paused", STEP_TRANSLATED_VIDEOS)
+            post_build_log(ep_num, f"⏸ Approved release paused after {STEP_TRANSLATED_VIDEOS}")
+            return 0
 
         if STEP_YOUTUBE not in completed_steps(state):
             state = run_step(ep_num, state, STEP_YOUTUBE, "YOUTUBE", rel.phase_youtube)
         else:
             log("[ YOUTUBE ] Already complete, skipping")
+        if should_stop_after(STEP_YOUTUBE):
+            mark_run_status(ep_num, state, "paused", STEP_YOUTUBE)
+            post_build_log(ep_num, f"⏸ Approved release paused after {STEP_YOUTUBE}")
+            return 0
 
         if STEP_DISCORD not in completed_steps(state):
             state = run_step(ep_num, state, STEP_DISCORD, "DISCORD", rel.phase_discord)
         else:
             log("[ DISCORD ] Already complete, skipping")
 
+        run_local_cleanup(ep_num, state)
+
         log(f"\n{'=' * 68}")
         log(f"✅ EP{ep_str} approved release complete")
         log(f"  Website: https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/")
         log(f"  Feed: https://clawdassistant85-netizen.github.io/openclaw-podcast/feed.xml")
         log(f"{'=' * 68}")
+        mark_run_status(ep_num, state, "complete", STEP_DISCORD, {"completed_at": utc_now()})
         post_build_log(ep_num, f"🎙️ Approved release complete — <https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/>")
         return 0
 
     except Exception as exc:
         log(f"\n❌ Approved release failed: {exc}")
         trace = "".join(traceback.format_exception_only(type(exc), exc)).strip()
+        mark_run_status(ep_num, state, "failed", orchestrator_meta(state).get("current_step"), {"failure": trace})
         post_build_log(ep_num, f"❌ Approved release failed: {trace}")
-        save_state(ep_num, state)
         return 1
 
 

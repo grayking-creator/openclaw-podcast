@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OpenClaw Daily — Episode Release Pipeline
+AgentStack Daily — Episode Release Pipeline
 From: approved EN audio + cover from the pre-approval build flow
 To:   EN feed/site published immediately after approval, translations generated and
       published after translated audio exists, and the EN video lane started early.
@@ -183,6 +183,27 @@ def git_add_paths(repo_dir, paths):
     if ordered:
         run(["git", "add", "--"] + ordered, cwd=str(repo_dir))
 
+def push_current_branch_if_ahead(repo_dir):
+    upstream = run(
+        ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+        cwd=str(repo_dir),
+        check=False,
+    )
+    if upstream.returncode != 0:
+        return False
+    ahead = run(["git", "rev-list", "--count", "@{u}..HEAD"], cwd=str(repo_dir), check=False)
+    if ahead.returncode != 0:
+        return False
+    try:
+        ahead_count = int(ahead.stdout.strip() or "0")
+    except ValueError:
+        return False
+    if ahead_count <= 0:
+        return False
+    run(["git", "push"], cwd=str(repo_dir))
+    log(f"  ✅ Podcast repo pushed ({ahead_count} local commit(s) ahead)")
+    return True
+
 def ensure_website_cover(ep_num, lang=None):
     ep_str = f"{ep_num:03d}"
     if lang:
@@ -279,7 +300,7 @@ def normalize_translated_metadata(meta, ep_num, prefix, fallback_title, fallback
 
     line1 = collapse_ws(normalized.get("cover_line1", "")).upper()
     line2 = collapse_ws(normalized.get("cover_line2", "")).upper()
-    generic_line1 = line1 in {"OPENCLAW", "OPENCLAW DAILY", "ओपनक्लॉ"}
+    generic_line1 = line1 in {"OPENCLAW", "AGENTSTACK DAILY", "ओपनक्लॉ"}
     if not line1 or generic_line1 or not line2:
         derived_line1, derived_line2 = derive_cover_lines_from_title(title)
         if not line1 or generic_line1:
@@ -317,12 +338,16 @@ def _minimax_call(prompt, max_tokens=4000, retries=3):
 
     for attempt in range(1, retries + 1):
         try:
-            with ThreadPoolExecutor(max_workers=1) as ex:
-                future = ex.submit(_call)
-                try:
-                    raw = future.result(timeout=_MINIMAX_WALL_TIMEOUT)
-                except FutureTimeout:
-                    raise TimeoutError(f"wall-clock timeout after {_MINIMAX_WALL_TIMEOUT}s")
+            ex = ThreadPoolExecutor(max_workers=1)
+            future = ex.submit(_call)
+            try:
+                raw = future.result(timeout=_MINIMAX_WALL_TIMEOUT)
+            except FutureTimeout:
+                future.cancel()
+                ex.shutdown(wait=False, cancel_futures=True)
+                raise TimeoutError(f"wall-clock timeout after {_MINIMAX_WALL_TIMEOUT}s")
+            else:
+                ex.shutdown(wait=True)
             last_raw = raw
             clean = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
             if clean:
@@ -342,7 +367,12 @@ def _minimax_call(prompt, max_tokens=4000, retries=3):
 
 
 def _local_claude_call(prompt, max_tokens=4000):
-    """Call the local OpenClaw Claude gateway at 18792 (always available, no quota)."""
+    """Call the local OpenClaw Claude gateway only after explicit opt-in."""
+    if os.getenv("ALLOW_CLAUDE_RELEASE_GATEWAY") != "1":
+        raise RuntimeError(
+            "Local Claude release gateway is disabled. Set "
+            "ALLOW_CLAUDE_RELEASE_GATEWAY=1 only after explicit approval."
+        )
     import urllib.request, json as _json
     payload = _json.dumps({
         "model": "claude-code",
@@ -698,7 +728,7 @@ def generate_en_cover(ep_num):
         cleaned = []
         for p in parts:
             p = re.sub(r'\s+', ' ', p).strip(' :-—–').upper()
-            if not p or p in ("THE", "A", "AN", "AND", "OR", "BUT", "IN", "OF", "OPENCLAW", "OPENCLAW DAILY"):
+            if not p or p in ("THE", "A", "AN", "AND", "OR", "BUT", "IN", "OF", "OPENCLAW", "AGENTSTACK DAILY"):
                 continue
             cleaned.append(p)
         return cleaned
@@ -781,58 +811,19 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
         draw_fn(ld)
         return layer.filter(ImageFilter.GaussianBlur(blur))
 
-    # Per-episode bespoke middle art — try episode_art/episode_NNN_art.py first
-    _art_mod = None
+    # Per-episode bespoke middle art is mandatory. Do not silently render generic fallback art.
     _art_path = SCRIPTS_DIR / "episode_art" / f"episode_{ep_num:03d}_art.py"
-    if _art_path.exists():
-        import importlib.util as _ilu
-        _spec = _ilu.spec_from_file_location(f"episode_{ep_num:03d}_art", _art_path)
-        _art_mod = _ilu.module_from_spec(_spec)
-        _spec.loader.exec_module(_art_mod)
+    if not _art_path.exists():
+        raise FileNotFoundError(
+            f"Missing bespoke art module for EP{ep_num:03d}; fallback cover art is disabled"
+        )
 
-    if _art_mod is not None:
-        img = _art_mod.draw_art(img, W, H)
-        d = ImageDraw.Draw(img)
-    else:
-        # Fallback: strata geological cross-section
-        random.seed(ep_num)
-        strata = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        sd = ImageDraw.Draw(strata)
-        strata_defs = [
-            (120, 3, TEAL, 45), (185, 2, STEEL_LIGHT, 35), (240, 4, BLUE, 40),
-            (310, 2, STEEL_LIGHT, 30), (370, 3, AMBER, 35), (420, 2, TEAL, 30),
-            (480, 5, BLUE, 45), (530, 2, STEEL_LIGHT, 25), (590, 3, AMBER, 40),
-            (640, 2, TEAL, 30), (700, 4, BLUE, 35), (760, 2, AMBER, 30),
-            (820, 3, TEAL, 35), (870, 2, STEEL_LIGHT, 25),
-        ]
-        for y_center, thickness, color, alpha in strata_defs:
-            pts = []
-            for x in range(0, W + 20, 20):
-                wave = math.sin(x * 0.008 + y_center * 0.01) * 8
-                wave += math.sin(x * 0.003 - y_center * 0.02) * 12
-                pts.append((x, y_center + wave))
-            for i in range(len(pts) - 1):
-                sd.line([pts[i], pts[i+1]], fill=color + (alpha,), width=thickness)
-        img = Image.alpha_composite(img, strata.filter(ImageFilter.GaussianBlur(12)))
-        img = Image.alpha_composite(img, strata.filter(ImageFilter.GaussianBlur(0.8)))
-
-        markers = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        mkd = ImageDraw.Draw(markers)
-        for y in range(80, 900, 60):
-            tick_len = 25 if y % 180 == 0 else 12
-            mkd.line([(40, y), (40+tick_len, y)], fill=STEEL_LIGHT+(50,), width=1)
-            mkd.line([(W-40, y), (W-40-tick_len, y)], fill=STEEL_LIGHT+(50,), width=1)
-        mkd.line([(40, 80), (40, 880)], fill=STEEL_LIGHT+(35,), width=1)
-        mkd.line([(W-40, 80), (W-40, 880)], fill=STEEL_LIGHT+(35,), width=1)
-        img = Image.alpha_composite(img, markers)
-
-        for center, color in [((700, 400), BLUE), ((700, 600), AMBER), ((700, 300), TEAL)]:
-            g = blur_overlay(
-                lambda ld, c=center, col=color: ld.ellipse(
-                    [(c[0]-500, c[1]-200), (c[0]+500, c[1]+200)], fill=col+(7,)), blur=110)
-            img = Image.alpha_composite(img, g)
-
-        d = ImageDraw.Draw(img)
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location(f"episode_{ep_num:03d}_art", _art_path)
+    _art_mod = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(_art_mod)
+    img = _art_mod.draw_art(img, W, H)
+    d = ImageDraw.Draw(img)
 
     # Fonts
     font_path_bold = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
@@ -864,12 +855,12 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
 
     md = ImageDraw.Draw(img)
 
-    SHOW_TEXT = "OPENCLAW DAILY"
+    SHOW_TEXT = "AGENTSTACK DAILY"
     EP_TEXT   = f"EP{ep_num:03d}"
     line1     = collapse_ws(meta.get("cover_line1", "")).upper()
     line2     = collapse_ws(meta.get("cover_line2", "")).upper()
     tagline   = collapse_ws(meta.get("cover_tagline", ""))
-    generic_line1 = line1 in {"OPENCLAW", "OPENCLAW DAILY", "ओपनक्लॉ"}
+    generic_line1 = line1 in {"OPENCLAW", "AGENTSTACK DAILY", "ओपनक्लॉ"}
     if not line1 or generic_line1 or not line2:
         derived_line1, derived_line2 = derive_cover_lines_from_title(meta.get("title", ""))
         if not line1 or generic_line1:
@@ -877,7 +868,7 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
         if not line2:
             line2 = derived_line2 or line2
 
-    def fit_font(text_value, start_size, min_size=56, max_width=W-110):
+    def fit_font(text_value, start_size, min_size=42, max_width=W-180):
         if not text_value:
             return font_title
         if not hasattr(ImageFont, "truetype"):
@@ -893,7 +884,7 @@ def generate_translated_cover(ep_num, lang, meta, out_path=None):
     font_title_l1 = fit_font(line1, base_title_size)
     font_title_l2 = fit_font(line2, base_title_size)
 
-    # "OPENCLAW DAILY" top
+    # "AGENTSTACK DAILY" top
     sw = md.textlength(SHOW_TEXT, font=font_show)
     md.text(((W-sw)/2, 55), SHOW_TEXT, font=font_show, fill=(185, 205, 230, 210))
 
@@ -1070,7 +1061,8 @@ def ensure_bespoke_art_module(ep_num, force=False):
     )
     if result.returncode != 0 or not art_mod_path.exists():
         raise RuntimeError(
-            f"Bespoke art module generation failed for EP{ep_str}; refusing to continue with fallback cover art."
+            f"Bespoke art module generation failed for EP{ep_str}; "
+            "fallback cover art is disabled"
         )
 
     log(f"  ✅ Art module ready: {art_mod_path.name}")
@@ -1302,9 +1294,10 @@ def phase_tts(ep_num, state):
 
     return state
 
-def phase_covers(ep_num, state):
+def phase_covers(ep_num, state, langs=None):
     log("[ COVERS ] Generating translated cover art...")
     ep_str = f"{ep_num:03d}"
+    target_langs = list(langs or LANGS)
     translations = state.get("translations", {})
     en_notes = (PODCAST_DIR / f"show_notes_episode_{ep_str}.md").read_text()
     en_episode_title = extract_episode_title(en_notes, ep_num)
@@ -1328,7 +1321,7 @@ def phase_covers(ep_num, state):
     if sync_if_newer(en_cover_src, en_cover_web):
         log(f"  ✅ EN cover → website")
 
-    for lang in LANGS:
+    for lang in target_langs:
         out_path = PODCAST_DIR / "images" / f"episode_{ep_str}_cover_{lang}.png"
         needs_refresh = cover_stale_against_art(out_path, art_mod_path)
         if out_path.exists() and not needs_refresh:
@@ -1487,8 +1480,14 @@ def phase_qc(ep_num, state):
 
 def phase_youtube(ep_num, state):
     log("[ YOUTUBE ] Uploading all 5 channels...")
-    venv_python = PODCAST_DIR / ".venv_shorts/bin/python3"
-    youtube_python = str(venv_python) if venv_python.exists() else sys.executable
+    youtube_python = sys.executable
+    for candidate in (
+        PODCAST_DIR / ".venv_youtube/bin/python3",
+        PODCAST_DIR / ".venv_shorts/bin/python3",
+    ):
+        if candidate.exists():
+            youtube_python = str(candidate)
+            break
     video_mode = str(state.get("youtube_video_mode", "static")).strip().lower() or "static"
     result = subprocess.run(
         [youtube_python, str(SCRIPTS_DIR / "youtube_scheduled_upload.py"), str(ep_num), "--video-mode", video_mode],
@@ -1547,6 +1546,8 @@ def push_podcast_stage(ep_num, stage, commit_message):
         run(["git", "commit", "-m", commit_message], cwd=str(PODCAST_DIR), env=env)
         run(["git", "push"], cwd=str(PODCAST_DIR))
         log(f"  ✅ Podcast repo pushed")
+    elif push_current_branch_if_ahead(PODCAST_DIR):
+        pass
     else:
         log(f"  ℹ️  Podcast repo already up to date")
 
@@ -1598,8 +1599,9 @@ def phase_discord(ep_num, state):
     DISCORD_TOKEN = load_env_key("DISCORD_BOT_TOKEN")
     GUILD_ID = "1475905694145318944"
     DAILY_CHANNEL_ID = "1485445727772475533"
+    DAILY_CHANNEL_NAME = "agentstack-daily"
     ep_str = f"{ep_num:03d}"
-    ep_channel_name = f"openclaw-ep{ep_str}"
+    working_channel_names = (f"agent-stack-ep{ep_str}", f"openclaw-ep{ep_str}")
 
     def discord_request(method, path, body=None):
         url = f"https://discord.com/api/v10{path}"
@@ -1616,7 +1618,10 @@ def phase_discord(ep_num, state):
             body_text = e.read().decode()
             raise RuntimeError(f"Discord {method} {path} → {e.code}: {body_text}")
 
-    log(f"[ DISCORD ] Posting release to #openclaw-daily and cleaning up #{ep_channel_name}...")
+    log(
+        f"[ DISCORD ] Posting release to #{DAILY_CHANNEL_NAME} and cleaning up "
+        f"{', '.join('#' + name for name in working_channel_names)}..."
+    )
 
     discord_state = state.setdefault("discord_cleanup", {})
 
@@ -1626,7 +1631,7 @@ def phase_discord(ep_num, state):
         show_notes = show_notes_path.read_text()
         lines = show_notes.splitlines()
         title_line = next((l for l in lines if l.startswith("# EP")), f"# EP{ep_str}")
-        tagline_line = next((l for l in lines if l.startswith("**OpenClaw Daily**")), "")
+        tagline_line = next((l for l in lines if l.startswith("**AgentStack Daily**")), "")
         announcement = f"🎙️ **EP{ep_str} is live!**\n\n{title_line}\n{tagline_line}\n\nhttps://tobyonfitnesstech.com/podcasts/episode-{ep_num}/"
     else:
         announcement = f"🎙️ **EP{ep_str} is live!**\nhttps://tobyonfitnesstech.com/podcasts/episode-{ep_num}/"
@@ -1635,21 +1640,35 @@ def phase_discord(ep_num, state):
         discord_request("POST", f"/channels/{DAILY_CHANNEL_ID}/messages", {"content": announcement})
         discord_state["daily_posted"] = True
         save_state(ep_num, state)
-        log(f"  ✅ Posted to #openclaw-daily")
+        log(f"  ✅ Posted to #{DAILY_CHANNEL_NAME}")
     else:
-        log(f"  ℹ️  #openclaw-daily post already sent")
+        log(f"  ℹ️  #{DAILY_CHANNEL_NAME} post already sent")
 
     channels = discord_request("GET", f"/guilds/{GUILD_ID}/channels")
-    ep_channel = next((c for c in channels if c.get("name") == ep_channel_name), None)
-    if ep_channel:
-        discord_request("DELETE", f"/channels/{ep_channel['id']}")
+    ep_channels = [c for c in channels if c.get("name") in working_channel_names]
+    if ep_channels:
+        deleted_names = []
+        for ep_channel in ep_channels:
+            discord_request("DELETE", f"/channels/{ep_channel['id']}")
+            deleted_names.append(ep_channel.get("name") or ep_channel["id"])
         discord_state["working_channel_deleted"] = True
+        discord_state["working_channel_deleted_names"] = deleted_names
+        discord_state.pop("working_channel_delete_missing_names", None)
         save_state(ep_num, state)
-        log(f"  ✅ Deleted #{ep_channel_name}")
+        log(f"  ✅ Deleted {', '.join('#' + name for name in deleted_names)}")
+    elif discord_state.get("working_channel_deleted"):
+        log(
+            "  ℹ️  Working channel already marked deleted and no matching channel "
+            f"found ({', '.join('#' + name for name in working_channel_names)})"
+        )
     else:
-        discord_state["working_channel_deleted"] = True
+        discord_state["working_channel_deleted"] = False
+        discord_state["working_channel_delete_missing_names"] = list(working_channel_names)
         save_state(ep_num, state)
-        log(f"  ℹ️  #{ep_channel_name} not found (already deleted or never created)")
+        raise RuntimeError(
+            "Discord working channel not found for cleanup; looked for "
+            + ", ".join(f"#{name}" for name in working_channel_names)
+        )
 
     return state
 
@@ -1714,7 +1733,7 @@ def run_named_phase(phase, ep_num, state, pub_date):
     return fn(ep_num, state)
 
 def main():
-    parser = argparse.ArgumentParser(description="OpenClaw episode release pipeline")
+    parser = argparse.ArgumentParser(description="AgentStack Daily episode release pipeline")
     parser.add_argument("episode", type=int, help="Episode number (e.g. 25)")
     parser.add_argument("--from-phase", help=f"Start from phase: {', '.join(CLI_PHASE_CHOICES)}")
     parser.add_argument("--only-phase", help="Run only this phase")
@@ -1746,7 +1765,7 @@ def main():
         phases_to_run = FULL_RELEASE_ORDER
 
     log(f"\n{'='*60}")
-    log(f"OpenClaw Daily — EP{ep_num:03d} Release Pipeline")
+    log(f"AgentStack Daily — EP{ep_num:03d} Release Pipeline")
     log(f"Phases: {', '.join(phases_to_run)}")
     log(f"{'='*60}\n")
 

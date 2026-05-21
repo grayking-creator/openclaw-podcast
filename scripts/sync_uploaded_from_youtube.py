@@ -19,7 +19,7 @@ def load_api_key():
                 return line.split("=", 1)[1].strip().strip('"').strip("'")
     return os.environ.get("YOUTUBE_READONLY_API_KEY", "")
 
-# Channel IDs for all 5 OpenClaw Daily channels
+# Channel IDs for all 5 AgentStack Daily channels
 CHANNELS = {
     "en": "UCTNxp_EbKdO3f2uengvBC4g",
     "es": "UCIOxiwRkDPZr5MkCuc3NNhA",

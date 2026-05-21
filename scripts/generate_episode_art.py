@@ -5,11 +5,14 @@ Generate bespoke PIL episode art module for a given episode number.
 Usage:
     python3 scripts/generate_episode_art.py 030
 
-Reads the episode show notes, calls Claude to produce a draw_art(img, W, H) function,
-tests it renders without error, and writes:
+Reads the episode show notes, generates a draw_art(img, W, H) function, tests it
+renders without error, and writes:
     scripts/episode_art/episode_NNN_art.py
+
+The legacy Claude CLI generator is disabled by default because it spends Claude
+plan quota. Set ALLOW_CLAUDE_EPISODE_ART=1 only after explicit approval.
 """
-import sys, subprocess, re, textwrap, importlib.util, traceback
+import os, sys, subprocess, re, textwrap, importlib.util, traceback
 from pathlib import Path
 
 PODCAST_DIR = Path(__file__).parent.parent
@@ -148,6 +151,12 @@ def build_prompt(ep_num, show_notes_text):
 
 def call_claude(prompt):
     """Call claude CLI in print mode and return stdout."""
+    if os.getenv("ALLOW_CLAUDE_EPISODE_ART") != "1":
+        raise RuntimeError(
+            "Claude episode-art generation is disabled. This path invokes `claude -p` "
+            "and spends Claude plan quota. Set ALLOW_CLAUDE_EPISODE_ART=1 only after "
+            "explicit approval."
+        )
     result = subprocess.run(
         ["claude", "-p", "--model", "claude-sonnet-4-6"],
         input=f"{SYSTEM}\n\n{prompt}",
@@ -195,7 +204,7 @@ def generate(ep_num, retry=2):
         print(f"[!] No show notes found for EP{ep_num:03d}. Aborting.")
         sys.exit(1)
 
-    print(f"[EP{ep_num:03d}] Calling Claude to generate art module...")
+    print(f"[EP{ep_num:03d}] Generating art module...")
     prompt = build_prompt(ep_num, show_notes)
 
     for attempt in range(1, retry + 2):

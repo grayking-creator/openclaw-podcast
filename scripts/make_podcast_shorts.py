@@ -20,6 +20,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from moviepy import CompositeVideoClip, ImageClip, VideoFileClip
 
 import mlx_whisper
+from validate_shorts_media import validate_media_file
 
 STOPWORDS = {
     'a','an','and','are','as','at','be','but','by','for','from','had','has','have','he','her','here','hers','him','his','how','i','if','in','into','is','it','its','just','me','my','of','on','or','our','out','she','so','that','the','their','them','there','they','this','to','up','was','we','were','what','when','where','who','why','with','you','your',
@@ -29,6 +30,36 @@ HOOK_WORDS = {
     'agent','agents','memory','workflow','release','platform','self-hosting','openai'
 }
 LOW_VALUE_TERMS = {'audio','camera','hear','hello','mic','mute','okay guys','ready','test','testing'}
+HOOK_PHRASES = {
+    'here is why',
+    'heres why',
+    'what if',
+    'this is why',
+    'the real reason',
+    'turns out',
+    'not just',
+    'which means',
+    'the problem is',
+    'the moment',
+    'the future is',
+    'you can',
+    'you should',
+}
+WEAK_OPENERS = (
+    'today we',
+    'in this episode',
+    'story one',
+    'story two',
+    'story three',
+    'story four',
+    'story five',
+    'story six',
+    'on paper',
+    'exactly',
+    'there is also',
+    'and that is why',
+    'so story',
+)
 CAPTION_FONT = '/System/Library/Fonts/Supplemental/Verdana Bold.ttf'
 TITLE_FONT = '/System/Library/Fonts/Supplemental/Arial Bold.ttf'
 LABEL_FONT = '/System/Library/Fonts/Supplemental/Arial.ttf'
@@ -36,6 +67,12 @@ FFMPEG = '/opt/homebrew/bin/ffmpeg'
 WIDTH = 1080
 HEIGHT = 1920
 FPS = 30
+MIN_SHORT_DURATION = 35.0
+IDEAL_SHORT_LOW = 40.0
+IDEAL_SHORT_HIGH = 52.0
+SOFT_MAX_SHORT_DURATION = 55.0
+HARD_MAX_SHORT_DURATION = 60.0
+SELECTION_OVERLAP_MAX = 3.0
 
 
 @dataclass
@@ -58,6 +95,70 @@ def normalize_text(text: str) -> str:
 
 def word_tokens(text: str) -> list[str]:
     return re.findall(r"[A-Za-z0-9']+", text.lower())
+
+
+def opener_fragment(text: str, max_words: int = 12) -> str:
+    fragment = re.split(r"(?<=[.!?])\s+", text, maxsplit=1)[0].strip()
+    tokens = fragment.split()
+    if len(tokens) > max_words:
+        fragment = ' '.join(tokens[:max_words])
+    return fragment.strip(" ,;:")
+
+
+def hook_strength(text: str) -> tuple[float, list[str]]:
+    opener = opener_fragment(text)
+    opener_lower = opener.lower()
+    tokens = word_tokens(opener_lower)
+    reasons: list[str] = []
+    score = 0.0
+
+    if not tokens:
+        return -3.0, ['hook=empty']
+    if '?' in opener:
+        score += 2.0
+        reasons.append('hook_question')
+    if any(token in {'you', 'your'} for token in tokens):
+        score += 1.0
+        reasons.append('hook_you')
+    hook_hits = sum(1 for token in tokens if token in HOOK_WORDS)
+    if hook_hits:
+        score += hook_hits * 0.85
+        reasons.append(f'hook_words={hook_hits}')
+    phrase_hits = sum(1 for phrase in HOOK_PHRASES if phrase in opener_lower)
+    if phrase_hits:
+        score += phrase_hits * 1.1
+        reasons.append(f'hook_phrases={phrase_hits}')
+    if any(token.isdigit() for token in tokens):
+        score += 0.6
+        reasons.append('hook_number')
+    if 4 <= len(tokens) <= 11:
+        score += 1.0
+        reasons.append('hook_length_ok')
+    elif len(tokens) > 15:
+        score -= 1.1
+        reasons.append('hook_too_long')
+    if any(opener_lower.startswith(prefix) for prefix in WEAK_OPENERS):
+        score -= 2.5
+        reasons.append('hook_weak_open')
+    if opener_lower.count(',') >= 2:
+        score -= 0.7
+        reasons.append('hook_clausey')
+    return score, reasons
+
+
+def duration_fit_score(duration: float) -> float:
+    if duration < MIN_SHORT_DURATION:
+        return -6.0 - (MIN_SHORT_DURATION - duration) * 0.35
+    if duration <= IDEAL_SHORT_LOW:
+        return 1.8 - (IDEAL_SHORT_LOW - duration) * 0.18
+    if duration <= IDEAL_SHORT_HIGH:
+        midpoint = (IDEAL_SHORT_LOW + IDEAL_SHORT_HIGH) / 2.0
+        return 3.0 - abs(duration - midpoint) * 0.10
+    if duration <= SOFT_MAX_SHORT_DURATION:
+        return 2.0 - (duration - IDEAL_SHORT_HIGH) * 0.35
+    if duration <= HARD_MAX_SHORT_DURATION:
+        return -0.4 - (duration - SOFT_MAX_SHORT_DURATION) * 0.75
+    return -7.0 - (duration - HARD_MAX_SHORT_DURATION) * 0.8
 
 
 def extract_audio(input_audio: Path, wav_path: Path) -> None:
@@ -152,10 +253,15 @@ def build_candidates(segments: list[dict], rms: np.ndarray, bucket_seconds: floa
         end = float(current[-1]['end'])
         duration = end - start
         text = normalize_text(' '.join(seg['text'] for seg in current))
-        if duration < 14 or len(word_tokens(text)) < 20:
+        if duration < MIN_SHORT_DURATION or len(word_tokens(text)) < 18:
             current = []
             return
-        score, reasons = score_window(start, end, text, current, rms, bucket_seconds)
+        first_id = int(current[0].get('id', 0))
+        starts_cleanly = first_id == 0
+        if first_id > 0:
+            prev_text = normalize_text(segments[first_id - 1].get('text', ''))
+            starts_cleanly = bool(re.search(r'[.!?]$', prev_text))
+        score, reasons = score_window(start, end, text, current, rms, bucket_seconds, starts_cleanly=starts_cleanly)
         candidates.append(Candidate(start=start, end=end, score=score, text=text, reasons=reasons))
         current = []
 
@@ -169,17 +275,26 @@ def build_candidates(segments: list[dict], rms: np.ndarray, bucket_seconds: floa
             gap = start - float(prev['end'])
             current_duration = float(prev['end']) - float(current[0]['start'])
             sentence_break = re.search(r'[.!?]$', normalize_text(prev.get('text', ''))) is not None
-            if gap > 1.6 or current_duration > 46 or (sentence_break and current_duration > 28):
+            if gap > 1.2 or current_duration > HARD_MAX_SHORT_DURATION or (sentence_break and current_duration > IDEAL_SHORT_LOW):
                 flush()
         current.append(segment)
     flush()
     return candidates
 
 
-def score_window(start: float, end: float, text: str, segments: list[dict], rms: np.ndarray, bucket_seconds: float) -> tuple[float, list[str]]:
+def score_window(
+    start: float,
+    end: float,
+    text: str,
+    segments: list[dict],
+    rms: np.ndarray,
+    bucket_seconds: float,
+    starts_cleanly: bool = True,
+) -> tuple[float, list[str]]:
     duration = end - start
     tokens = word_tokens(text)
     words = [t for t in tokens if t not in STOPWORDS]
+    open_score, open_reasons = hook_strength(text)
     unique_ratio = len(set(words)) / max(1, len(words))
     word_counts = Counter(words)
     top_word_ratio = (max(word_counts.values()) / max(1, len(words))) if word_counts else 0.0
@@ -199,13 +314,40 @@ def score_window(start: float, end: float, text: str, segments: list[dict], rms:
     energy_p90 = float(np.percentile(energy, 90)) if len(energy) else 0.0
     energy_var = float(np.std(energy)) if len(energy) else 0.0
     intro_penalty = 0.0  # keep strong openers in play for podcast shorts
-    long_penalty = max(0.0, duration - 42.0) * 0.08
-    short_penalty = max(0.0, 18.0 - duration) * 0.15
+    duration_fit = duration_fit_score(duration)
     repetition_penalty = max(0.0, top_word_ratio - 0.22) * 26.0 + max(0.0, top_bigram_ratio - 0.14) * 44.0
+    sentence_boundary_penalty = 0.0 if starts_cleanly else 4.8
     score = (
-        unique_ratio * 7.0 + hook_hits * 1.25 + number_hits * 0.6 + question_bonus * 0.9 + emphasis_bonus * 0.45 + speech_density * 1.3 + confidence * 4.0 + energy_mean * 95.0 + energy_p90 * 40.0 + energy_var * 20.0 - low_value_hits * 2.2 - intro_penalty - long_penalty - short_penalty - repetition_penalty
+        unique_ratio * 7.0
+        + hook_hits * 1.25
+        + number_hits * 0.6
+        + question_bonus * 0.9
+        + emphasis_bonus * 0.45
+        + speech_density * 1.3
+        + confidence * 4.0
+        + energy_mean * 95.0
+        + energy_p90 * 40.0
+        + energy_var * 20.0
+        + open_score * 2.2
+        + duration_fit * 1.8
+        - low_value_hits * 2.2
+        - intro_penalty
+        - repetition_penalty
+        - sentence_boundary_penalty
     )
-    reasons = [f'duration={duration:.1f}s', f'hooks={hook_hits}', f'density={speech_density:.2f}', f'unique={unique_ratio:.2f}', f'repeat={top_word_ratio:.2f}/{top_bigram_ratio:.2f}', f'energy={energy_mean:.3f}/{energy_p90:.3f}', f'confidence={confidence:.2f}']
+    reasons = [
+        f'duration={duration:.1f}s',
+        f'duration_fit={duration_fit:.2f}',
+        f'hooks={hook_hits}',
+        f'open={open_score:.2f}',
+        f'starts_cleanly={starts_cleanly}',
+        f'density={speech_density:.2f}',
+        f'unique={unique_ratio:.2f}',
+        f'repeat={top_word_ratio:.2f}/{top_bigram_ratio:.2f}',
+        f'energy={energy_mean:.3f}/{energy_p90:.3f}',
+        f'confidence={confidence:.2f}',
+        *open_reasons,
+    ]
     return score, reasons
 
 
@@ -225,7 +367,7 @@ def choose_candidates(candidates: list[Candidate], num_clips: int) -> list[Candi
     picked: list[Candidate] = []
     ranked = sorted(candidates, key=lambda item: item.score, reverse=True)
     for candidate in ranked:
-        if any(overlap(candidate, existing) > 5.0 for existing in picked):
+        if any(overlap(candidate, existing) > SELECTION_OVERLAP_MAX for existing in picked):
             continue
         if any(content_similarity(candidate.text, existing.text) > 0.58 for existing in picked):
             continue
@@ -421,6 +563,7 @@ def render_podcast_base(audio_path: Path, cover_path: Path, output_path: Path, s
     bg.close()
     run([FFMPEG, '-y', '-ss', f'{start:.3f}', '-t', f'{duration:.3f}', '-i', str(audio_path), '-i', str(temp_silent), '-map', '1:v:0', '-map', '0:a:0', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', str(output_path)])
     temp_silent.unlink(missing_ok=True)
+    validate_media_file(output_path, expected_duration=duration, expected_tolerance=2.0, require_video=True)
 
 
 def render_captioned_clip(base_video: Path, output_path: Path, captions: list[dict]) -> None:
@@ -440,6 +583,7 @@ def render_captioned_clip(base_video: Path, output_path: Path, captions: list[di
     final.write_videofile(str(output_path), codec='libx264', audio_codec='aac', preset='medium', fps=30, threads=os.cpu_count() or 8, logger='bar')
     final.close()
     clip.close()
+    validate_media_file(output_path, require_video=True)
 
 
 def save_manifest(path: Path, clips: list[Candidate]) -> None:

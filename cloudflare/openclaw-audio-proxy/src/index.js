@@ -1,5 +1,8 @@
 const EN_AUDIO_BASE =
   "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/audio";
+const EN_ARCHIVE_BASE =
+  "https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/releases/download";
+const EN_ARCHIVE_CUTOFF_EPISODE = 32;
 
 const RELEASE_REPOS = {
   es: "clawdassistant85-netizen/openclaw-podcast-media-es",
@@ -46,6 +49,14 @@ function buildUpstreamUrl(lang, filename) {
   }
 
   if (lang === "en") {
+    const episode = filename.match(/^episode_(\d{3})\.mp3$/)?.[1];
+    if (!episode) {
+      return null;
+    }
+    const epNum = Number(episode);
+    if (Number.isFinite(epNum) && epNum <= EN_ARCHIVE_CUTOFF_EPISODE) {
+      return `${EN_ARCHIVE_BASE}/ep${episode}/${filename}`;
+    }
     return `${EN_AUDIO_BASE}/${filename}`;
   }
 

@@ -120,7 +120,10 @@ def contains_theme_glue(text: str) -> list[str]:
 
 
 def run_checks(path: str) -> None:
-    notes = Path(path).read_text(encoding="utf-8", errors="ignore")
+    notes_path = Path(path)
+    notes = notes_path.read_text(encoding="utf-8", errors="ignore")
+    ep_match = re.search(r"episode_(\d{3})", notes_path.name)
+    ep_num = int(ep_match.group(1)) if ep_match else 0
 
     show_notes_block = extract_show_notes_block(notes)
     story_titles = extract_story_titles(notes)
@@ -139,6 +142,10 @@ def run_checks(path: str) -> None:
           hint="Missing `## Show Notes` fenced markdown block.")
     check("Story slate exists", len(story_titles) >= 1,
           hint="Missing `## Story Slate` titles.")
+    if ep_num >= 55:
+        check("AgentStack Daily slate has six real topics",
+              len(story_titles) >= 6,
+              hint=f"Expected at least 6 numbered Story Slate topics for EP055+; found {len(story_titles)}. Do not leave viable topics under Extra Research Candidates when building the draft.")
 
     if show_notes_block:
         intro_words = len(first_words(show_notes_block, 999999).split())
@@ -151,6 +158,15 @@ def run_checks(path: str) -> None:
           len(story_titles) > 0 and technical_angle_count >= len(story_titles),
           hint=f"Found {technical_angle_count} Technical depth angle line(s) for {len(story_titles)} story/stories. MiniMax/Gemini needs a concrete mechanism to synthesize, not just article summaries.")
 
+    extra_research = extract_section(notes, "Extra Research Candidates")
+    extra_candidate_count = len(re.findall(r"^\s*[-*]\s+\*\*.+?\*\*", extra_research, re.MULTILINE))
+    extra_angle_count = len(re.findall(r"Technical depth angle\s*:\s*\S", extra_research, re.IGNORECASE))
+    extra_link_count = len(re.findall(r"https?://\S+", extra_research))
+    if 46 <= ep_num < 55:
+        check("Research phase includes exactly three extra technical story candidates",
+              extra_candidate_count == 3 and extra_angle_count >= 3 and extra_link_count >= 3,
+              hint=f"Expected 3 backup candidates with links and Technical depth angle lines; found candidates={extra_candidate_count}, angles={extra_angle_count}, links={extra_link_count}.")
+
     mechanism_terms = re.findall(
         r"\b(API|SDK|runtime|architecture|training|evaluation|benchmark|observability|security|privacy|deployment|configuration|config|failure mode|latency|throughput|cost|memory|scheduler|inference|model card|system card|changelog|release notes)\b",
         show_notes_block,
@@ -160,6 +176,76 @@ def run_checks(path: str) -> None:
           len(mechanism_terms) >= max(6, len(story_titles) * 2),
           severity="WARNING",
           hint=f"Only found {len(mechanism_terms)} mechanism terms; deepen APIs/runtime/architecture/evals/infra/security/operator tradeoffs before synthesis.")
+
+
+
+    internal_impl_patterns = [
+        r"\bfetched window\b",
+        r"\bfetched release window\b",
+        r"\brelease window\b",
+        r"\bselected from the fetched\b",
+        r"\bdaily release check\b",
+        r"\bno new stable .*selected\b",
+        r"\bno new stable .*candidate\b",
+    ]
+    internal_impl_hits = []
+    for pat in internal_impl_patterns:
+        internal_impl_hits.extend(re.findall(pat, notes, re.IGNORECASE))
+    check("No internal research/build implementation language in public notes", len(internal_impl_hits) == 0,
+          hint=f"Remove internal process/research/build wording from public episode: {internal_impl_hits[:8]}")
+
+    public_meta_patterns = [
+        r"\barchitecture-advice\b", r"\bdrops? the .*framing\b",
+        r"\breturns? to a .*format\b", r"\bthis rewrite\b",
+        r"\bchanges? the format\b",
+        r"\bsix[- ]story\b",
+        r"\bsix practical stories\b",
+        r"\btoday'?s six stories\b",
+        r"\bone obvious flagship release\b",
+        r"\bflagship release\b",
+        r"\bnot short on news\b",
+        r"\bstretching one update\b",
+        r"\bbefore audio\b",
+        r"\bbefore .*publish\b",
+        r"\breview before release\b",
+        r"\brelease plan\b",
+        r"\bactual artifact\b",
+        r"\bstory in the slate\b",
+        r"\btranscript include\b",
+        r"\btranscript includes\b",
+        r"\bwhat changed operationally\b",
+        r"\blist of links\b",
+        r"\bstrong new .*release block\b",
+        r"\bcurrent stable feed window\b",
+        r"\brecent-version scan\b",
+        r"\bToby (?:asked|wanted|said|told)\b", r"\byou asked\b", r"\byou told\b",
+        r"\bno grand theory\b", r"\bno abstract operating model\b", r"\bstraight what'?s-new episode\b",
+        r"\bnot a lecture\b", r"\bdo not waste\b", r"\bdo not invent\b", r"\bnot a long .*recipe\b",
+    ]
+    public_meta_hits = []
+    for pat in public_meta_patterns:
+        public_meta_hits.extend(re.findall(pat, notes, re.IGNORECASE))
+    check("No public editorial-feedback/meta framing leaks", len(public_meta_hits) == 0,
+          hint=f"Remove production-instruction/meta phrasing from public show notes: {public_meta_hits[:8]}")
+
+    operator_slog_hits = []
+    for pat in [
+        r"\boperator playbook\b",
+        r"\bturn the .* into a .* workflow\b",
+        r"\bthe first workflow\b",
+        r"\bthe second workflow\b",
+        r"\bthe third workflow\b",
+        r"\bthe fourth workflow\b",
+        r"\bthe fifth workflow\b",
+        r"\bthe sixth workflow\b",
+        r"\bthe seventh workflow\b",
+        r"\bthe eighth workflow\b",
+        r"\bconcrete builder workflow\b",
+        r"\bchecklist is simple\b",
+    ]:
+        operator_slog_hits.extend(re.findall(pat, notes, re.IGNORECASE))
+    check("No generic operator-playbook slog in public notes", len(operator_slog_hits) == 0,
+          hint=f"Rewrite toward what changed / what is new / why it matters, not generic workflow advice: {operator_slog_hits[:8]}")
 
     listener_specific_hits = []
     for pattern in LISTENER_SPECIFIC_PATTERNS:
@@ -228,6 +314,35 @@ def run_checks(path: str) -> None:
                 no_release_meta_hits.append(match.group(0))
         check("No-release intro avoids meta throat-clearing / list-style opening", len(no_release_meta_hits) == 0,
               hint=f"Opening should hook, not announce episode mechanics: {no_release_meta_hits[:4]}")
+
+
+    # ── Editorial quality gate: no prior-episode/version-history filler ──────
+    # Show notes feed the transcript; reject process housekeeping before it can
+    # become spoken audio.
+    prior_episode_meta_patterns = [
+        r"\b(?:last|previous|prior|earlier)\s+(?:episode|episodes|show|shows|show-note|show-note files|show notes)\b.{0,140}\b(?:cover|covered|coverage|already|recent)\b",
+        r"\b(?:already|previously|recently)\s+(?:cover|covered|discussed|talked about)\b",
+        r"\b(?:we|I|this show|OpenClaw Daily)\s+(?:already|previously|recently)\s+(?:covered|discussed|talked about)\b",
+        r"\b(?:covered|discussed|talked about)\s+(?:in|on)\s+(?:EP\d+|episode\s+\d+|a previous episode|previous episodes|recent episode notes)\b",
+        r"\b(?:under|because of)\s+the\s+(?:latest-contiguous|contiguous-release|release coverage)\s+rule\b",
+        r"\bEP\d+\s+(?:starts|surfaces|covers|covered|talked|discussed)\b",
+        r"\b(?:show-note files|episode notes|release list)\s+(?:already\s+)?(?:cover|covered|show|indicate)\b",
+        r"\b(?:v\d{4}\.\d+\.\d+[,\s]*(?:and\s+)*){2,}\b.*\b(?:older stable tags|already cover|previous|prior|recent)\b",
+    ]
+    prior_episode_meta_hits = []
+    for pattern in prior_episode_meta_patterns:
+        prior_episode_meta_hits.extend(re.findall(pattern, notes, re.IGNORECASE | re.DOTALL))
+    check("No prior-episode / already-covered recap filler",
+          len(prior_episode_meta_hits) == 0,
+          hint=f"Remove release-history/show-process housekeeping before transcript generation: {[hit if isinstance(hit, str) else ' '.join(hit) for hit in prior_episode_meta_hits[:5]]}")
+
+    public_episode_material = "\n".join([show_notes_block, story_slate, tagline, feed_desc])
+    public_version_tags = sorted(set(re.findall(r"\bv\d{4}\.\d+\.\d+\b", public_episode_material)))
+    if release_tags:
+        off_slate_version_tags = [tag for tag in public_version_tags if tag not in release_tags]
+        check("Public show notes do not mention off-slate old version tags",
+              len(off_slate_version_tags) == 0,
+              hint=f"Old-version roll calls are banned from public episode material: {off_slate_version_tags[:8]}")
 
     if "images 2.0" in notes.lower() or "gpt-image-2" in notes.lower():
         image_story_context = extract_section(notes, "Story Slate") + "\n" + show_notes_block

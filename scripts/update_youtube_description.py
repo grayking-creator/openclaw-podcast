@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Update YouTube video descriptions for an already-uploaded episode.
-Rebuilds descriptions from feed + show notes (with correct chapters) and patches
+Update YouTube video metadata for an already-uploaded episode.
+Rebuilds descriptions and tags from the current uploader logic and patches
 each video via the YouTube Data API.
 
 Usage:
@@ -15,8 +15,10 @@ PODCAST_DIR = SCRIPTS_DIR.parent
 
 sys.path.insert(0, str(SCRIPTS_DIR))
 from youtube_scheduled_upload import (
-    CHANNEL_CONFIG, get_episode_description, get_episode_chapters,
-    get_episode_title, get_show_notes_url, _load_readonly_api_key,
+    CHANNEL_CONFIG,
+    build_youtube_description,
+    build_youtube_tags,
+    get_episode_chapters,
 )
 
 from google.oauth2.credentials import Credentials
@@ -39,29 +41,12 @@ def get_video_id_from_state(ep_num, lang):
     ep_state = state.get(ep_str, {})
     return ep_state.get(f"{lang}_url", "").split("v=")[-1] or None
 
-def build_description(ep_num, lang):
-    """Rebuild the full description the same way youtube_scheduled_upload.py does."""
-    desc = get_episode_description(ep_num, lang)
-    if not desc:
-        desc = f"OpenClaw Daily Episode {ep_num}"
-
-    show_notes_url = get_show_notes_url(ep_num, lang)
-    desc += f"\n\n📖 Full show notes & links: {show_notes_url}"
-    desc += f"\n🎙️ Subscribe on your favourite podcast app: https://tobyonfitnesstech.com/podcasts/"
-
-    chapters = get_episode_chapters(ep_num)
-    if chapters:
-        desc += f"\n\n─── CHAPTERS ───\n{chapters}"
-
-    desc += f"\n\n---\nWebsite: https://tobyonfitnesstech.com"
-    return desc
-
 def get_current_video(yt, video_id):
     r = yt.videos().list(part="snippet", id=video_id).execute()
     items = r.get("items", [])
     return items[0] if items else None
 
-def update_video_description(yt, video_id, new_description):
+def update_video_metadata(yt, video_id, new_description, new_tags):
     video = get_current_video(yt, video_id)
     if not video:
         print(f"  ❌ Video not found: {video_id}")
@@ -69,6 +54,7 @@ def update_video_description(yt, video_id, new_description):
 
     snippet = video["snippet"]
     snippet["description"] = new_description
+    snippet["tags"] = new_tags
 
     yt.videos().update(
         part="snippet",
@@ -113,12 +99,12 @@ def main():
         try:
             yt = get_authenticated_service(config["token"])
 
-            new_desc = build_description(ep_num, lang)
-            title = get_episode_title(ep_num, lang)
+            new_desc = build_youtube_description(ep_num, lang)
+            new_tags = build_youtube_tags(ep_num, lang)
 
-            success = update_video_description(yt, video_id, new_desc)
+            success = update_video_metadata(yt, video_id, new_desc, new_tags)
             if success:
-                print(f"  ✅ Description updated ({len(new_desc)} chars)")
+                print(f"  ✅ Metadata updated ({len(new_desc)} chars, {len(new_tags)} tags)")
                 if chapters:
                     print(f"     Chapters: {len(chapters.splitlines())} entries")
             else:

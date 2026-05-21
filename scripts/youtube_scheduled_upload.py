@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
-Scheduled YouTube upload for OpenClaw Daily episodes.
+Scheduled YouTube upload for AgentStack Daily episodes.
 Uploads one episode to all 5 channels (EN, ES, DE, PT, HI).
 Called by cron twice daily: 5AM and 6PM ET.
 
-Usage: python3 youtube_scheduled_upload.py <episode_number>
+Usage: python3 youtube_scheduled_upload.py <episode_number> [--video-mode static|flux|auto]
 """
+import argparse
 import os, sys, json, time, subprocess, re, requests as _requests
 from pathlib import Path
 from google.oauth2.credentials import Credentials
@@ -28,8 +31,159 @@ PODCAST_DIR = SCRIPTS_DIR.parent
 CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio"
 IMAGES_DIR = PODCAST_DIR / "images"
 SHARED_DIR = Path.home() / "clawd/shared"
-VIDEO_ROOT = Path.home() / ".openclaw/workspace/video-workspace/crossfire-series"
+FFPROBE = "/opt/homebrew/bin/ffprobe"
+MAX_AUDIO_SHORTFALL_SECONDS = 2.0
+
+
+def resolve_video_root() -> Path:
+    candidates = [
+        Path.home() / ".openclaw/workspace/video-workspace/flux-videos",
+        Path.home() / ".openclaw/workspace/video-workspace/crossfire-series",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+    return candidates[-1]
+
+
+VIDEO_ROOT = resolve_video_root()
 VIDEO_BUILD_SCRIPT = SCRIPTS_DIR / "build_youtube_episode_videos.py"
+UPLOADED_PATH = SCRIPTS_DIR / "youtube_uploaded.txt"
+PACKAGING_OVERRIDES_PATH = SCRIPTS_DIR / "youtube_packaging_overrides.json"
+VALID_VIDEO_MODES = {"static", "flux", "auto"}
+
+
+def ffprobe_duration(path):
+    result = subprocess.run(
+        [FFPROBE, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return float(result.stdout.strip())
+
+
+def validate_upload_video(video_path, audio_path, label):
+    video_duration = ffprobe_duration(video_path)
+    audio_duration = ffprobe_duration(audio_path)
+    if audio_duration - video_duration > MAX_AUDIO_SHORTFALL_SECONDS:
+        raise RuntimeError(
+            f"{label} is truncated: video={video_duration:.2f}s audio={audio_duration:.2f}s path={video_path}"
+        )
+
+
+def extract_video_id(value):
+    value = (value or "").strip()
+    if not value:
+        return ""
+    if re.fullmatch(r"[A-Za-z0-9_-]{11}", value):
+        return value
+    match = re.search(r"[?&]v=([A-Za-z0-9_-]{11})", value)
+    return match.group(1) if match else ""
+
+
+def youtube_video_exists(video_id):
+    if not video_id:
+        return False
+    try:
+        resp = _requests.get(
+            "https://www.youtube.com/oembed",
+            params={
+                "url": f"https://www.youtube.com/watch?v={video_id}",
+                "format": "json",
+            },
+            timeout=15,
+        )
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
+def persist_channel_state(path, state):
+    try:
+        path.write_text(json.dumps(state, indent=2))
+    except Exception:
+        pass
+
+
+def mark_episode_uploaded(ep_num):
+    try:
+        existing = set()
+        if UPLOADED_PATH.exists():
+            existing = {
+                int(line.strip())
+                for line in UPLOADED_PATH.read_text().splitlines()
+                if line.strip().isdigit()
+            }
+        existing.add(int(ep_num))
+        lines = [f"{ep}\n" for ep in sorted(existing)]
+        UPLOADED_PATH.write_text("".join(lines))
+    except Exception:
+        pass
+
+
+def load_packaging_overrides():
+    if not PACKAGING_OVERRIDES_PATH.exists():
+        return {}
+    try:
+        return json.loads(PACKAGING_OVERRIDES_PATH.read_text())
+    except Exception:
+        return {}
+
+
+def get_packaging_override(ep_num, lang):
+    overrides = load_packaging_overrides()
+    ep_key = f"{int(ep_num):03d}"
+    return overrides.get(ep_key, {}).get(lang, {})
+
+
+def resolve_override_path(raw_path):
+    if not raw_path:
+        return None
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path
+    video_candidate = VIDEO_ROOT / path
+    if video_candidate.exists():
+        return video_candidate
+    return PODCAST_DIR / path
+
+
+def get_custom_thumbnail_path(ep_num, lang):
+    override = get_packaging_override(ep_num, lang)
+    raw_path = override.get("thumbnail", "").strip()
+    if not raw_path:
+        return None
+    path = resolve_override_path(raw_path)
+    return path if path and path.exists() else None
+
+
+def load_release_state(ep_num):
+    path = SCRIPTS_DIR / f"release_ep{int(ep_num):03d}_state.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return {}
+
+
+def resolve_video_mode(ep_num, cli_mode="auto"):
+    cli_mode = (cli_mode or "auto").strip().lower()
+    if cli_mode not in VALID_VIDEO_MODES:
+        raise ValueError(f"Invalid video mode: {cli_mode}")
+    if cli_mode != "auto":
+        return cli_mode
+
+    env_mode = os.environ.get("OPENCLAW_YOUTUBE_VIDEO_MODE", "").strip().lower()
+    if env_mode in {"static", "flux"}:
+        return env_mode
+
+    state_mode = str(load_release_state(ep_num).get("youtube_video_mode", "")).strip().lower()
+    if state_mode in {"static", "flux"}:
+        return state_mode
+
+    return "static"
 
 YOUTUBE_COPY = {
     "en": {
@@ -38,7 +192,7 @@ YOUTUBE_COPY = {
         "listen": "Listen on your favorite podcast app:",
         "chapters": "Chapters:",
         "default_desc": "Daily AI news and sharp analysis on infrastructure, product strategy, and policy.",
-        "hashtags": ["#OpenClawDaily", "#AIPodcast", "#ArtificialIntelligence"],
+        "hashtags": ["#AgentStackDaily", "#AIPodcast", "#ArtificialIntelligence"],
     },
     "es": {
         "topics": "En este episodio:",
@@ -46,7 +200,7 @@ YOUTUBE_COPY = {
         "listen": "Escucha el podcast completo:",
         "chapters": "Capítulos:",
         "default_desc": "Noticias diarias de IA con análisis claro sobre infraestructura, producto y política.",
-        "hashtags": ["#OpenClawDaily", "#PodcastIA", "#InteligenciaArtificial"],
+        "hashtags": ["#AgentStackDaily", "#PodcastIA", "#InteligenciaArtificial"],
     },
     "de": {
         "topics": "Heute im Podcast:",
@@ -54,7 +208,7 @@ YOUTUBE_COPY = {
         "listen": "Den Podcast vollständig hören:",
         "chapters": "Kapitel:",
         "default_desc": "Tägliche KI-News mit klarer Analyse zu Infrastruktur, Produktstrategie und Politik.",
-        "hashtags": ["#OpenClawDaily", "#KIPodcast", "#KuenstlicheIntelligenz"],
+        "hashtags": ["#AgentStackDaily", "#KIPodcast", "#KuenstlicheIntelligenz"],
     },
     "pt": {
         "topics": "Neste episódio:",
@@ -62,7 +216,7 @@ YOUTUBE_COPY = {
         "listen": "Ouça o podcast completo:",
         "chapters": "Capítulos:",
         "default_desc": "Notícias diárias de IA com análise clara sobre infraestrutura, produto e política.",
-        "hashtags": ["#OpenClawDaily", "#PodcastIA", "#InteligenciaArtificial"],
+        "hashtags": ["#AgentStackDaily", "#PodcastIA", "#InteligenciaArtificial"],
     },
     "hi": {
         "topics": "आज के विषय:",
@@ -70,15 +224,15 @@ YOUTUBE_COPY = {
         "listen": "पूरा पॉडकास्ट सुनें:",
         "chapters": "चैप्टर्स:",
         "default_desc": "रोज़ का AI न्यूज़ और साफ़ विश्लेषण: इंफ्रास्ट्रक्चर, प्रोडक्ट और पॉलिसी।",
-        "hashtags": ["#OpenClawDaily", "#AIPodcast", "#HindiPodcast"],
+        "hashtags": ["#AgentStackDaily", "#AIPodcast", "#HindiPodcast"],
     },
 }
 
 BASE_TAGS = {
     "en": [
         "openclaw",
-        "openclaw daily",
-        "openclaw podcast",
+        "agentstack daily",
+        "agentstack podcast",
         "daily ai news",
         "ai infrastructure",
         "ai podcast",
@@ -88,8 +242,8 @@ BASE_TAGS = {
     ],
     "es": [
         "openclaw",
-        "openclaw daily",
-        "podcast openclaw",
+        "agentstack daily",
+        "podcast agentstack",
         "noticias diarias ia",
         "infraestructura ia",
         "podcast ia",
@@ -99,8 +253,8 @@ BASE_TAGS = {
     ],
     "de": [
         "openclaw",
-        "openclaw daily",
-        "openclaw podcast",
+        "agentstack daily",
+        "agentstack podcast",
         "tägliche ki news",
         "ki infrastruktur",
         "ki podcast",
@@ -110,8 +264,8 @@ BASE_TAGS = {
     ],
     "pt": [
         "openclaw",
-        "openclaw daily",
-        "podcast openclaw",
+        "agentstack daily",
+        "podcast agentstack",
         "noticias diarias ia",
         "infraestrutura ia",
         "podcast ia",
@@ -121,8 +275,8 @@ BASE_TAGS = {
     ],
     "hi": [
         "openclaw",
-        "openclaw daily",
-        "openclaw podcast",
+        "agentstack daily",
+        "agentstack podcast",
         "daily ai news",
         "एआई न्यूज़",
         "ai podcast",
@@ -176,52 +330,57 @@ TOPIC_TAG_RULES = [
 CHANNEL_CONFIG = {
     "en": {
         "token": SCRIPTS_DIR / "youtube_token_en.json",
-        "channel_name": "OpenClaw Daily",
+        "channel_name": "AgentStack Daily",
         "suffix": "",
         "expected_channel": {
             "id": "UCTNxp_EbKdO3f2uengvBC4g",
-            "title": "OpenClaw Daily",
-            "handle": "@openclawdaily",
+            "title": "AgentStack Daily",
+            "title_aliases": ["OpenClaw Daily"],
+            "handle": "@AgentStackDaily",
         },
     },
     "es": {
         "token": SCRIPTS_DIR / "youtube_token_es.json",
-        "channel_name": "OpenClaw Daily Español",
+        "channel_name": "AgentStack Daily Español",
         "suffix": " Español",
         "expected_channel": {
             "id": "UCIOxiwRkDPZr5MkCuc3NNhA",
-            "title": "OpenClaw Daily Español",
-            "handle": "@openclawdailyes",
+            "title": "AgentStack Daily Español",
+            "title_aliases": ["OpenClaw Daily Español"],
+            "handle": "@AgentStackDailyES",
         },
     },
     "de": {
         "token": SCRIPTS_DIR / "youtube_token_de.json",
-        "channel_name": "OpenClaw Daily Deutsch",
+        "channel_name": "AgentStack Daily Deutsch",
         "suffix": " Deutsch",
         "expected_channel": {
             "id": "UC9OQsUqMSdY723JSa50pp5Q",
-            "title": "OpenClaw Daily Deutsch",
-            "handle": "@openclawdailyde",
+            "title": "AgentStack Daily Deutsch",
+            "title_aliases": ["OpenClaw Daily Deutsch"],
+            "handle": "@AgentStackDailyDE",
         },
     },
     "pt": {
         "token": SCRIPTS_DIR / "youtube_token_pt.json",
-        "channel_name": "OpenClaw Daily Português",
+        "channel_name": "AgentStack Daily Português",
         "suffix": " Português",
         "expected_channel": {
             "id": "UCtgocn6qv3GXMeX4FJtFgQQ",
-            "title": "OpenClaw Daily Português",
-            "handle": "@openclawdailypt",
+            "title": "AgentStack Daily Português",
+            "title_aliases": ["OpenClaw Daily Português"],
+            "handle": "@AgentStackDailyPT",
         },
     },
     "hi": {
         "token": SCRIPTS_DIR / "youtube_token_hi.json",
-        "channel_name": "OpenClaw Daily Hindi",
+        "channel_name": "AgentStack Daily Hindi",
         "suffix": " हिंदी",
         "expected_channel": {
             "id": "UC0a37vGRA0ZTJKBxFNrU2dA",
-            "title": "OpenClaw Daily Hindi",
-            "handle": "@openclawdailyhindi",
+            "title": "AgentStack Daily Hindi",
+            "title_aliases": ["OpenClaw Daily Hindi"],
+            "handle": "@AgentStackDailyHindi",
         },
     },
 }
@@ -273,11 +432,21 @@ def get_cover_path(ep_num, lang):
 
 
 def get_publish_video_path(ep_num, lang):
-    return VIDEO_ROOT / f"build/ep{ep_num}" / "outputs" / f"openclaw{ep_num}_kb_publish_{lang}.mp4"
+    canonical = VIDEO_ROOT / "build" / "openclaw-daily" / f"ep{ep_num}" / "outputs" / f"openclaw{ep_num}_kb_publish_{lang}.mp4"
+    legacy = VIDEO_ROOT / f"build/ep{ep_num}" / "outputs" / f"openclaw{ep_num}_kb_publish_{lang}.mp4"
+    if canonical.exists():
+        return canonical
+    return canonical if (VIDEO_ROOT / "openclaw-daily" / f"ep{ep_num}").exists() else legacy
 
 
 def episode_has_video_pipeline(ep_num):
-    return (VIDEO_ROOT / f"ep{ep_num}").exists() and VIDEO_BUILD_SCRIPT.exists()
+    return (
+        (
+            (VIDEO_ROOT / "openclaw-daily" / f"ep{ep_num}" / "config.json").exists()
+            or (VIDEO_ROOT / f"ep{ep_num}" / "config.json").exists()
+        )
+        and VIDEO_BUILD_SCRIPT.exists()
+    )
 
 
 def build_publish_videos(ep_num):
@@ -296,7 +465,7 @@ def build_publish_videos(ep_num):
         print(result.stdout.strip())
 
 def get_episode_title(ep_num, lang):
-    """Get episode title from translation feed or EN feed."""
+    """Get episode title from feed, falling back to current show notes."""
     import re
     ep_str = f"{ep_num:03d}"
     
@@ -305,20 +474,31 @@ def get_episode_title(ep_num, lang):
     else:
         feed_path = PODCAST_DIR / "translations" / f"feed_{lang}.xml"
     
-    if not feed_path.exists():
-        return f"OpenClaw Daily EP{ep_str}"
+    if feed_path.exists():
+        content = feed_path.read_text()
+        # Find the item with this episode number
+        items = re.findall(r'<item>(.*?)</item>', content, re.DOTALL)
+        for item in items:
+            ep_match = re.search(r'<itunes:episode>(\d+)</itunes:episode>', item)
+            if ep_match and int(ep_match.group(1)) == ep_num:
+                title_match = re.search(r'<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>', item)
+                if title_match:
+                    return title_match.group(1).strip()
+
+    notes_path = get_show_notes_path(ep_num, lang)
+    if notes_path.exists():
+        notes = notes_path.read_text()
+        section_match = re.search(r"^## Episode Title\s*\n(.+?)(?=\n## |\Z)", notes, re.MULTILINE | re.DOTALL)
+        if section_match:
+            for raw_line in section_match.group(1).splitlines():
+                line = " ".join(raw_line.split()).strip(" *_`")
+                if line:
+                    return line
+        h1_match = re.search(r"^#\s+(.+)$", notes, re.MULTILINE)
+        if h1_match:
+            return h1_match.group(1).strip()
     
-    content = feed_path.read_text()
-    # Find the item with this episode number
-    items = re.findall(r'<item>(.*?)</item>', content, re.DOTALL)
-    for item in items:
-        ep_match = re.search(r'<itunes:episode>(\d+)</itunes:episode>', item)
-        if ep_match and int(ep_match.group(1)) == ep_num:
-            title_match = re.search(r'<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>', item)
-            if title_match:
-                return title_match.group(1).strip()
-    
-    return f"OpenClaw Daily EP{ep_str}"
+    return f"AgentStack Daily EP{ep_str}"
 
 def get_episode_description(ep_num, lang):
     """Get episode description from feed."""
@@ -344,14 +524,14 @@ def get_episode_description(ep_num, lang):
     return ""
 
 
-def get_episode_chapters(ep_num):
-    """Parse YouTube chapter markers from EN show notes.
+def get_episode_chapters(ep_num, lang="en"):
+    """Parse YouTube chapter markers from localized show notes when available.
     Returns a formatted string like:
       00:00 Hook — The Company Layer
       02:10 Story 1 — Paperclip ...
     Returns empty string if no chapters found.
     """
-    show_notes_path = PODCAST_DIR / f"show_notes_episode_{ep_num:03d}.md"
+    show_notes_path = get_show_notes_path(ep_num, lang)
     if not show_notes_path.exists():
         return ""
 
@@ -423,15 +603,33 @@ def get_story_titles(ep_num, lang, limit=5):
     return titles
 
 
+def build_upload_title(ep_num, lang):
+    override = get_packaging_override(ep_num, lang)
+    title = (override.get("title") or get_episode_title(ep_num, lang) or "").strip()
+    if not title:
+        title = f"AgentStack Daily EP{ep_num:03d}"
+
+    if lang != "en":
+        suffix = CHANNEL_CONFIG[lang]["suffix"]
+        if suffix not in title:
+            title += f" | AgentStack Daily EP{ep_num:03d}{suffix}"
+
+    if len(title) > 100:
+        title = title[:97] + "..."
+    return title
+
+
 def build_youtube_description(ep_num, lang):
     copy = YOUTUBE_COPY.get(lang, YOUTUBE_COPY["en"])
-    title = get_episode_title(ep_num, lang)
+    override = get_packaging_override(ep_num, lang)
+    title = (override.get("title") or get_episode_title(ep_num, lang) or "").strip()
     header = f"EP{ep_num:03d} | {title}"
     show_notes_url = get_show_notes_url(ep_num, lang)
     stories = get_story_titles(ep_num, lang)
-    chapters = get_episode_chapters(ep_num)
+    chapters = get_episode_chapters(ep_num, lang)
+    summary = (override.get("summary") or copy["default_desc"]).strip()
 
-    lines = [header, "", copy["default_desc"]]
+    lines = [header, "", summary]
     if stories:
         lines.extend(["", copy["topics"]])
         lines.extend([f"- {story}" for story in stories])
@@ -455,7 +653,7 @@ def build_youtube_description(ep_num, lang):
 
 def build_youtube_tags(ep_num, lang):
     text_parts = [
-        get_episode_title(ep_num, lang) or "",
+        build_upload_title(ep_num, lang) or "",
         get_episode_description(ep_num, lang) or "",
         *get_story_titles(ep_num, lang),
     ]
@@ -504,7 +702,8 @@ def _normalize_handle(value):
     value = (value or "").strip()
     if not value:
         return ""
-    return value if value.startswith("@") else f"@{value}"
+    handle = value if value.startswith("@") else f"@{value}"
+    return handle.lower()
 
 
 def fetch_channel_identity(yt):
@@ -529,9 +728,11 @@ def verify_expected_channel(yt, token_path, expected):
     mismatches = []
     if expected.get("id") and actual["id"] != expected["id"]:
         mismatches.append(f"id expected={expected['id']} actual={actual['id']}")
-    if expected.get("title") and actual["title"] != expected["title"]:
+    expected_titles = [expected.get("title", ""), *expected.get("title_aliases", [])]
+    expected_titles = [t for t in expected_titles if t]
+    if expected_titles and actual["title"] not in expected_titles:
         mismatches.append(
-            f"title expected={expected['title']!r} actual={actual['title']!r}"
+            f"title expected one of={expected_titles!r} actual={actual['title']!r}"
         )
 
     expected_handle = _normalize_handle(expected.get("handle", ""))
@@ -603,7 +804,23 @@ def check_episode_already_uploaded(yt, episode_number):
     return None, None
 
 
-def upload_to_youtube(token_path, title, description, tags, video_path, expected_channel, episode_number=None):
+def set_custom_thumbnail(yt, video_id, thumbnail_path):
+    yt.thumbnails().set(
+        videoId=video_id,
+        media_body=MediaFileUpload(str(thumbnail_path), mimetype="image/jpeg"),
+    ).execute()
+
+
+def upload_to_youtube(
+    token_path,
+    title,
+    description,
+    tags,
+    video_path,
+    expected_channel,
+    episode_number=None,
+    thumbnail_path=None,
+):
     """Upload video to YouTube, return video ID."""
     with open(token_path) as f:
         creds = Credentials.from_authorized_user_info(json.load(f))
@@ -644,19 +861,38 @@ def upload_to_youtube(token_path, title, description, tags, video_path, expected
         status, response = req.next_chunk()
         if status:
             print(f"    {int(status.progress()*100)}%...")
-    
-    return response["id"]
+
+    video_id = response["id"]
+    if thumbnail_path and Path(thumbnail_path).exists():
+        try:
+            set_custom_thumbnail(yt, video_id, thumbnail_path)
+            print(f"    🎨 Thumbnail applied: {Path(thumbnail_path).name}")
+        except Exception as exc:
+            print(f"    ⚠️  Thumbnail upload failed: {exc}")
+
+    return video_id
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Upload an AgentStack Daily episode to YouTube")
+    parser.add_argument("episode", type=int, help="Episode number")
+    parser.add_argument(
+        "--video-mode",
+        choices=sorted(VALID_VIDEO_MODES),
+        default="auto",
+        help="Upload mode: static cover video, flux publish videos, or auto-resolve from state/env (default)",
+    )
+    return parser.parse_args()
+
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 youtube_scheduled_upload.py <episode_number>")
-        sys.exit(1)
-    
-    ep_num = int(sys.argv[1])
+    args = parse_args()
+    ep_num = int(args.episode)
     ep_str = f"{ep_num:03d}"
+    video_mode = resolve_video_mode(ep_num, args.video_mode)
     print(f"\n{'='*60}")
     print(f"YouTube Upload: Episode {ep_num}")
     print(f"{'='*60}")
+    print(f"Video mode: {video_mode}")
     
     results = {}
 
@@ -667,18 +903,31 @@ def main():
     except Exception:
         channel_state = {}
     ep_state = channel_state.get(ep_str, {})
-    use_video_pipeline = episode_has_video_pipeline(ep_num)
+    use_video_pipeline = video_mode == "flux"
     if use_video_pipeline:
+        if not episode_has_video_pipeline(ep_num):
+            raise RuntimeError(
+                f"EP{ep_str} requested flux video mode, but the publish-video pipeline is not available for this episode"
+            )
         print("Preparing localized publish videos from crossfire-series master...")
         build_publish_videos(ep_num)
 
     for lang, config in CHANNEL_CONFIG.items():
         # Skip if this channel already confirmed uploaded for this episode
         if ep_state.get(lang) == "done":
-            print(f"\n--- {lang.upper()} (OpenClaw Daily {config['suffix']}) ---")
-            print(f"  ⏭️  Already uploaded (skipping)")
-            results[lang] = ep_state.get(f"{lang}_url", "already uploaded")
-            continue
+            stored_url = ep_state.get(f"{lang}_url", "")
+            stored_id = extract_video_id(stored_url)
+            print(f"\n--- {lang.upper()} (AgentStack Daily {config['suffix']}) ---")
+            if stored_id and youtube_video_exists(stored_id):
+                print(f"  ⏭️  Already uploaded (skipping)")
+                results[lang] = stored_url or "already uploaded"
+                continue
+
+            print("  ⚠️  Stored upload state is stale or deleted on YouTube — rebuilding/re-uploading")
+            ep_state.pop(lang, None)
+            ep_state.pop(f"{lang}_url", None)
+            channel_state[ep_str] = ep_state
+            persist_channel_state(channel_state_file, channel_state)
         print(f"\n--- {lang.upper()} ({config['channel_name']}) ---")
         
         # Get audio
@@ -689,15 +938,13 @@ def main():
         print(f"  Audio: {audio.name}")
         
         # Get title + description
-        title = get_episode_title(ep_num, lang)
-        if lang != "en" and config["suffix"] not in title:
-            title += f" | OpenClaw Daily EP{ep_str}{config['suffix']}"
-        # YouTube title limit is 100 characters
-        if len(title) > 100:
-            title = title[:97] + "..."
+        title = build_upload_title(ep_num, lang)
         desc = build_youtube_description(ep_num, lang)
+        thumbnail_path = get_custom_thumbnail_path(ep_num, lang)
         
         print(f"  Title: {title[:80]}...")
+        if thumbnail_path:
+            print(f"  Thumbnail: {Path(thumbnail_path).name}")
         
         mp4_path = None
         publish_video = get_publish_video_path(ep_num, lang)
@@ -723,6 +970,12 @@ def main():
                 print(f"  ❌ MP4 render failed: {e}")
                 continue
             upload_video = mp4_path
+
+        try:
+            validate_upload_video(upload_video, audio, f"{lang.upper()} upload source")
+        except Exception as e:
+            print(f"  ❌ Upload source failed validation: {e}")
+            continue
         
         # Upload
         print(f"  Uploading...")
@@ -736,6 +989,7 @@ def main():
                 upload_video,
                 config["expected_channel"],
                 episode_number=ep_num,
+                thumbnail_path=thumbnail_path,
             )
             url = f"https://www.youtube.com/watch?v={vid_id}"
             print(f"  ✅ {url}")
@@ -744,10 +998,7 @@ def main():
             ep_state[lang] = "done"
             ep_state[f"{lang}_url"] = url
             channel_state[ep_str] = ep_state
-            try:
-                channel_state_file.write_text(json.dumps(channel_state, indent=2))
-            except Exception:
-                pass
+            persist_channel_state(channel_state_file, channel_state)
         except Exception as e:
             print(f"  ❌ Upload failed: {e}")
         finally:
@@ -781,8 +1032,11 @@ def main():
             "-d", json.dumps({"content": msg}),
             "https://discord.com/api/v10/channels/1485243812442804327/messages"
         ], capture_output=True)
-    
-    return 0 if len(results) == 5 else 1
+
+    if len(results) == 5:
+        mark_episode_uploaded(ep_num)
+        return 0
+    return 1
 
 if __name__ == "__main__":
     sys.exit(main())

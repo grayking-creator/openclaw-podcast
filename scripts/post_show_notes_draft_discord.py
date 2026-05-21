@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Post an OpenClaw Daily research draft to its Discord episode channel.
+"""Post an AgentStack Daily research draft to its Discord episode channel.
 
 The show-notes draft is uploaded as a Markdown attachment instead of pasted as
 many Discord messages. That keeps formatting intact and avoids retry duplicates
@@ -54,7 +54,7 @@ def discord_request(method: str, path: str, token: str, payload: dict | None = N
 
 
 def ensure_channel(ep_num: int, title: str, token: str) -> dict:
-    name = f"openclaw-ep{ep_num:03d}"
+    name = f"agent-stack-ep{ep_num:03d}"
     channels = discord_request("GET", f"/guilds/{GUILD_ID}/channels", token)
     for channel in channels:
         if channel.get("name") == name:
@@ -66,7 +66,7 @@ def ensure_channel(ep_num: int, title: str, token: str) -> dict:
         {
             "name": name,
             "type": 0,
-            "topic": f"EP {ep_num:03d} - {title} | Research Draft",
+            "topic": f"AgentStack Daily EP {ep_num:03d} - {title} | Research Draft",
         },
     )
 
@@ -76,6 +76,45 @@ def extract_title(notes: str, ep_num: int) -> str:
         if line.startswith("# "):
             return line.strip("# ").strip()
     return f"EP{ep_num:03d} Research Draft"
+
+
+def extract_topic_summary(notes: str, max_items: int = 5) -> str:
+    """Return a short topic summary for Discord review posts."""
+    lines = []
+    in_slate = False
+    for raw in notes.splitlines():
+        line = raw.strip()
+        if line == "## Story Slate":
+            in_slate = True
+            continue
+        if in_slate and line.startswith("## "):
+            break
+        if not in_slate:
+            continue
+        if line.startswith("### "):
+            title = line.lstrip("#").strip()
+            title = title.split("**", 2)[1] if "**" in title else title
+            title = title.strip(" *")
+            if title:
+                lines.append(title)
+        if len(lines) >= max_items:
+            break
+
+    if not lines:
+        tagline = []
+        capture = False
+        for raw in notes.splitlines():
+            line = raw.strip()
+            if line == "## Tagline":
+                capture = True
+                continue
+            if capture and line.startswith("## "):
+                break
+            if capture and line:
+                tagline.append(line)
+        return "Topics: " + (" ".join(tagline)[:500] or "See attached draft.")
+
+    return "Topics:\n" + "\n".join(f"• {item}" for item in lines)
 
 
 def multipart_body(payload: dict, file_path: Path) -> tuple[bytes, str]:
@@ -146,8 +185,10 @@ def main() -> int:
     notes = draft_path.read_text(encoding="utf-8", errors="ignore")
     title = extract_title(notes, args.episode)
     channel = ensure_channel(args.episode, title, token)
+    summary = extract_topic_summary(notes)
     content = (
-        f"EP{ep_str} research draft is ready.\n"
+        f"AgentStack Daily EP{ep_str} research draft is ready.\n"
+        f"{summary}\n"
         f"File: `{draft_path.name}`\n"
         "Review the attached show notes and reply here to approve transcript generation."
     )

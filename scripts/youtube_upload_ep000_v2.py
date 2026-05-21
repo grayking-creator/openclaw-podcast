@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload EP000 to all 5 OpenClaw Daily channels using per-channel tokens."""
+"""Upload EP000 to all 5 AgentStack Daily channels using per-channel tokens."""
 import os, json, time
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -12,45 +12,45 @@ BASE    = os.path.dirname(SCRIPTS)  # openclaw-podcast/
 CHANNELS = {
     "en": {
         "token":   f"{SCRIPTS}/youtube_token_en.json",
-        "title":   "Special: Building a Distributed AI Cluster with exo-labs | OpenClaw Daily EP000",
-        "desc":    "How we built a distributed AI cluster using exo-labs — running large language models across multiple machines.\n\nOpenClaw Daily — AI every day.\n\nPodcast feed: https://grayking-creator.github.io/openclaw-podcast/feed.xml\nWebsite: https://tobyonfitnesstech.com",
-        "tags":    ["openclaw", "exo labs", "distributed AI", "local AI", "LLM", "AI podcast", "tech podcast", "AI cluster"],
+        "title":   "Special: Building a Distributed AI Cluster with exo-labs | AgentStack Daily EP000",
+        "desc":    "How we built a distributed AI cluster using exo-labs — running large language models across multiple machines.\n\nAgentStack Daily — AI every day.\n\nPodcast feed: https://grayking-creator.github.io/openclaw-podcast/feed.xml\nWebsite: https://tobyonfitnesstech.com",
+        "tags":    ["agentstack", "exo labs", "distributed AI", "local AI", "LLM", "AI podcast", "tech podcast", "AI cluster"],
         "video":   "/tmp/ep000_en.mp4",
         "cover":   f"{BASE}/images/episode_000_cover.png",
         "audio":   f"{BASE}/audio/exo_cluster_podcast_nova.mp3",
     },
     "es": {
         "token":   f"{SCRIPTS}/youtube_token_es.json",
-        "title":   "Especial: Construyendo un Clúster de IA con exo-labs | OpenClaw Daily EP000 Español",
-        "desc":    "Cómo construimos un clúster de IA distribuida con exo-labs — ejecutando modelos de lenguaje en múltiples máquinas.\n\nOpenClaw Daily — IA cada día.\n\nFeed del podcast: https://grayking-creator.github.io/openclaw-podcast/translations/feed_es.xml\nVersión en inglés: https://www.youtube.com/@OpenClawDaily",
-        "tags":    ["openclaw", "podcast español", "IA en español", "inteligencia artificial", "exo labs", "IA distribuida", "tech podcast español"],
+        "title":   "Especial: Construyendo un Clúster de IA con exo-labs | AgentStack Daily EP000 Español",
+        "desc":    "Cómo construimos un clúster de IA distribuida con exo-labs — ejecutando modelos de lenguaje en múltiples máquinas.\n\nAgentStack Daily — IA cada día.\n\nFeed del podcast: https://grayking-creator.github.io/openclaw-podcast/translations/feed_es.xml\nVersión en inglés: https://www.youtube.com/@AgentStackDaily",
+        "tags":    ["agentstack", "podcast español", "IA en español", "inteligencia artificial", "exo labs", "IA distribuida", "tech podcast español"],
         "video":   "/tmp/ep000_es.mp4",
         "cover":   f"{BASE}/images/episode_000_cover_es.png",
         "audio":   f"{BASE}/audio/exo_cluster_podcast_nova.mp3",
     },
     "de": {
         "token":   f"{SCRIPTS}/youtube_token_de.json",
-        "title":   "Special: Ein verteiltes KI-Cluster mit exo-labs | OpenClaw Daily EP000 Deutsch",
-        "desc":    "Wie wir mit exo-labs ein verteiltes KI-Cluster gebaut haben — große Sprachmodelle auf mehreren Maschinen.\n\nOpenClaw Daily — KI jeden Tag.\n\nPodcast-Feed: https://grayking-creator.github.io/openclaw-podcast/translations/feed_de.xml\nEnglische Version: https://www.youtube.com/@OpenClawDaily",
-        "tags":    ["openclaw", "KI Podcast", "künstliche Intelligenz", "exo labs", "verteilte KI", "Tech Podcast Deutsch", "deutschsprachiger Podcast"],
+        "title":   "Special: Ein verteiltes KI-Cluster mit exo-labs | AgentStack Daily EP000 Deutsch",
+        "desc":    "Wie wir mit exo-labs ein verteiltes KI-Cluster gebaut haben — große Sprachmodelle auf mehreren Maschinen.\n\nAgentStack Daily — KI jeden Tag.\n\nPodcast-Feed: https://grayking-creator.github.io/openclaw-podcast/translations/feed_de.xml\nEnglische Version: https://www.youtube.com/@AgentStackDaily",
+        "tags":    ["agentstack", "KI Podcast", "künstliche Intelligenz", "exo labs", "verteilte KI", "Tech Podcast Deutsch", "deutschsprachiger Podcast"],
         "video":   "/tmp/ep000_de.mp4",
         "cover":   f"{BASE}/images/episode_000_cover_de.png",
         "audio":   f"{BASE}/audio/exo_cluster_podcast_nova.mp3",
     },
     "pt": {
         "token":   f"{SCRIPTS}/youtube_token_pt.json",
-        "title":   "Especial: Construindo um Cluster de IA com exo-labs | OpenClaw Daily EP000 Português",
-        "desc":    "Como construímos um cluster de IA distribuída com exo-labs — rodando modelos de linguagem em múltiplas máquinas.\n\nOpenClaw Daily — IA todos os dias.\n\nFeed do podcast: https://grayking-creator.github.io/openclaw-podcast/translations/feed_pt.xml\nVersão em inglês: https://www.youtube.com/@OpenClawDaily",
-        "tags":    ["openclaw", "podcast português", "IA em português", "inteligência artificial", "exo labs", "IA distribuída", "tech podcast"],
+        "title":   "Especial: Construindo um Cluster de IA com exo-labs | AgentStack Daily EP000 Português",
+        "desc":    "Como construímos um cluster de IA distribuída com exo-labs — rodando modelos de linguagem em múltiplas máquinas.\n\nAgentStack Daily — IA todos os dias.\n\nFeed do podcast: https://grayking-creator.github.io/openclaw-podcast/translations/feed_pt.xml\nVersão em inglês: https://www.youtube.com/@AgentStackDaily",
+        "tags":    ["agentstack", "podcast português", "IA em português", "inteligência artificial", "exo labs", "IA distribuída", "tech podcast"],
         "video":   "/tmp/ep000_pt.mp4",
         "cover":   f"{BASE}/images/episode_000_cover_pt.png",
         "audio":   f"{BASE}/audio/exo_cluster_podcast_nova.mp3",
     },
     "hi": {
         "token":   f"{SCRIPTS}/youtube_token_hi.json",
-        "title":   "Special: exo-labs के साथ Distributed AI Cluster | OpenClaw Daily EP000 हिंदी",
-        "desc":    "exo-labs के साथ एक Distributed AI Cluster कैसे बनाएं — कई मशीनों पर बड़े भाषा मॉडल चलाना।\n\nOpenClaw Daily — रोज़ाना AI की दुनिया से।\n\nPodcast feed: https://grayking-creator.github.io/openclaw-podcast/translations/feed_hi.xml\nEnglish version: https://www.youtube.com/@OpenClawDaily",
-        "tags":    ["hindi podcast", "हिंदी पॉडकास्ट", "AI hindi", "artificial intelligence hindi", "exo labs", "desi tech podcast", "openclaw", "distributed AI hindi"],
+        "title":   "Special: exo-labs के साथ Distributed AI Cluster | AgentStack Daily EP000 हिंदी",
+        "desc":    "exo-labs के साथ एक Distributed AI Cluster कैसे बनाएं — कई मशीनों पर बड़े भाषा मॉडल चलाना।\n\nAgentStack Daily — रोज़ाना AI की दुनिया से।\n\nPodcast feed: https://grayking-creator.github.io/openclaw-podcast/translations/feed_hi.xml\nEnglish version: https://www.youtube.com/@AgentStackDaily",
+        "tags":    ["hindi podcast", "हिंदी पॉडकास्ट", "AI hindi", "artificial intelligence hindi", "exo labs", "desi tech podcast", "agentstack", "distributed AI hindi"],
         "video":   "/tmp/ep000_hi.mp4",
         "cover":   f"{BASE}/images/episode_000_cover_hi.png",
         "audio":   f"{BASE}/audio/exo_cluster_podcast_nova.mp3",
@@ -62,6 +62,8 @@ def get_yt(token_path):
         creds = Credentials.from_authorized_user_info(json.load(f))
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
+        with open(token_path, "w") as f:
+            f.write(creds.to_json())
     return build("youtube", "v3", credentials=creds)
 
 def make_video(lang, ch):

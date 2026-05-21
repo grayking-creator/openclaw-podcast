@@ -16,6 +16,8 @@ from typing import List
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+from validate_shorts_media import validate_media_file
+
 FFMPEG = "/opt/homebrew/bin/ffmpeg"
 FFPROBE = "/opt/homebrew/bin/ffprobe"
 WHISPER = "/opt/homebrew/bin/whisper-cli"
@@ -170,6 +172,54 @@ def load_words(whisper_json: Path) -> List[Word]:
     return merged
 
 
+def normalize_anchor_words(anchor_words: list[dict], clip_duration: float) -> List[Word]:
+    words: List[Word] = []
+    for item in anchor_words:
+        text = str(item.get("text", "")).strip()
+        if not text:
+            continue
+        start = max(0.0, float(item.get("start", 0.0)))
+        end = max(start + 0.08, float(item.get("end", start + 0.08)))
+        words.append(Word(text=text, start=min(start, clip_duration), end=min(end, clip_duration)))
+    return words
+
+
+def build_windows_from_words(words: List[Word], words_per: int = 6, max_chars: int = 28) -> list[dict]:
+    windows: list[dict] = []
+    current: list[dict] = []
+
+    def flush() -> None:
+        nonlocal current
+        if not current:
+            return
+        windows.append({
+            "start": current[0]["start"],
+            "end": max(current[-1]["end"], current[0]["start"] + 0.18),
+            "tokens": current[:],
+        })
+        current = []
+
+    for word in words:
+        token = {"text": word.text, "start": word.start, "end": word.end}
+        if not current:
+            current.append(token)
+            continue
+        current_text = " ".join(item["text"] for item in current)
+        next_chars = len(current_text) + 1 + len(token["text"])
+        duration = token["end"] - current[0]["start"]
+        punctuation_break = bool(re.search(r"[.!?,]$", current[-1]["text"]))
+        if (
+            len(current) >= words_per
+            or next_chars > max_chars
+            or duration > 2.1
+            or (punctuation_break and duration > 0.9)
+        ):
+            flush()
+        current.append(token)
+    flush()
+    return windows
+
+
 def transcript_to_windows(transcript: str) -> List[List[str]]:
     toks = tokenize_transcript(transcript)
     windows: List[List[str]] = []
@@ -259,7 +309,7 @@ Style: Lane,Arial,54,&H00FFFFFF,&H00FFFFFF,&H00111721,&HAA000000,1,0,0,0,100,100
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 Dialogue: 0,0:00:00.00,{sec_to_ass(duration)},Episode,,0,0,0,,{ass_escape(episode_label)}
 Dialogue: 0,0:00:00.00,{sec_to_ass(duration)},Title,,0,0,0,,{ass_escape(title)}
-Dialogue: 0,0:00:00.00,{sec_to_ass(duration)},Lane,,0,0,90,,{{\p1\bord0\shad0\1c&H101827&\alpha&H18&}}m 110 1460 l 970 1460 970 1800 110 1800{{\p0}}
+Dialogue: 0,0:00:00.00,{sec_to_ass(duration)},Lane,,0,0,90,,{{\\p1\\bord0\\shad0\\1c&H101827&\\alpha&H18&}}m 110 1460 l 970 1460 970 1800 110 1800{{\\p0}}
 """
     lines = [header]
     context_words = 1
@@ -409,6 +459,7 @@ def render_moviepy_short(
     lane_top = 1380
     lane_bottom = 1810
     max_text_width = lane_right - lane_left - 56
+    validate_media_file(clip_audio, expected_duration=duration, expected_tolerance=2.0, require_video=False)
 
     measure = ImageDraw.Draw(Image.new("RGB", (WIDTH, HEIGHT)))
     pill_bbox = measure.textbbox((0, 0), episode_label, font=title_font)
@@ -463,20 +514,27 @@ def render_moviepy_short(
 
         return np.array(img)
 
-    audio_clip = AudioFileClip(str(clip_audio))
-    video_clip = VideoClip(make_frame, duration=duration).with_audio(audio_clip)
-    video_clip.write_videofile(
-        str(final_mp4),
-        fps=FPS,
-        codec="libx264",
-        audio_codec="aac",
-        preset="medium",
-        bitrate="8M",
-        ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "+faststart"],
-        logger=None,
-    )
-    video_clip.close()
-    audio_clip.close()
+    audio_clip = None
+    video_clip = None
+    try:
+        audio_clip = AudioFileClip(str(clip_audio))
+        video_clip = VideoClip(make_frame, duration=duration).with_audio(audio_clip)
+        video_clip.write_videofile(
+            str(final_mp4),
+            fps=FPS,
+            codec="libx264",
+            audio_codec="aac",
+            preset="medium",
+            bitrate="8M",
+            ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "+faststart"],
+            logger=None,
+        )
+    finally:
+        if video_clip is not None:
+            video_clip.close()
+        if audio_clip is not None:
+            audio_clip.close()
+    validate_media_file(final_mp4, expected_duration=duration, expected_tolerance=2.0, require_video=True)
 
 
 def render_short(
@@ -491,6 +549,7 @@ def render_short(
     cover_art: Path | None = None,
     language: str = "en",
     whisper_model: str | None = None,
+    anchor_words: list[dict] | None = None,
 ) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     clip_audio = out_dir / f"{slug}_clip.wav"
@@ -506,14 +565,20 @@ def render_short(
         "-i", str(audio),
         "-ac", "1",
         "-ar", "16000",
+        "-c:a", "pcm_s16le",
         str(clip_audio),
     ])
-    whisper_json = whisper_transcribe(clip_audio, whisper_base, language=language, model=whisper_model)
-    words = load_words(whisper_json)
-    windows = align_windows(transcript, words)
+    actual_duration = probe_duration(clip_audio)
+    whisper_json: Path | None = None
+    if anchor_words:
+        words = normalize_anchor_words(anchor_words, actual_duration)
+        windows = build_windows_from_words(words)
+    else:
+        whisper_json = whisper_transcribe(clip_audio, whisper_base, language=language, model=whisper_model)
+        words = load_words(whisper_json)
+        windows = align_windows(transcript, words)
     if not windows:
         raise RuntimeError(f"No caption windows aligned for {slug}")
-    actual_duration = probe_duration(clip_audio)
     font_bold_path, _ = choose_font_paths(transcript)
     ass_path.write_text(build_ass(episode_label, title, windows, actual_duration))
     if cover_art is None:
@@ -560,11 +625,13 @@ def render_short(
         )
 
     # Clean up intermediate artifacts (keep final MP4 and ASS subtitles only)
-    for artifact in [clip_audio, whisper_json, bg_mp4]:
+    for artifact in [clip_audio, bg_mp4]:
         try:
             artifact.unlink(missing_ok=True)
         except Exception:
             pass
+    if whisper_json is not None:
+        whisper_json.unlink(missing_ok=True)
     if cover_art is not None:
         frame_png = out_dir / f"{slug}_frame.png"
         frame_png.unlink(missing_ok=True)

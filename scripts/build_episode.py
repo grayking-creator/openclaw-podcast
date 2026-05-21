@@ -141,7 +141,7 @@ def ensure_bespoke_art_module(ep_num: int, force: bool = False) -> Path:
         log(f"♻️  Regenerating bespoke art: {art_path.name}")
         post_build_log(f"♻️ EP{ep_str} [5/6] Regenerating bespoke art module…")
     else:
-        log("Generating episode art via Claude...")
+        log("Generating bespoke episode art...")
         post_build_log(f"🎨 EP{ep_str} [5/6] Generating bespoke center art…")
 
     result = subprocess.run(
@@ -149,9 +149,13 @@ def ensure_bespoke_art_module(ep_num: int, force: bool = False) -> Path:
         cwd=str(PODCAST_DIR),
     )
     if result.returncode != 0 or not art_path.exists():
-        msg = f"❌ EP{ep_str} [5/6] Bespoke art module generation failed"
-        post_build_log(f"{msg}\nBuild stops here instead of using fallback cover art.")
-        raise SystemExit(f"{msg} ({art_path.name} missing)")
+        msg = (
+            f"❌ EP{ep_str} [5/6] Bespoke art module generation failed — build stopped; "
+            "fallback cover art is disabled"
+        )
+        log(msg)
+        post_build_log(msg)
+        raise SystemExit(msg)
 
     log(f"✅ Bespoke art generated: {art_path.name}")
     post_build_log(f"✅ EP{ep_str} [5/6] Bespoke art ready — {art_path.name}")
@@ -293,8 +297,9 @@ def generate_en_audio(ep_num, force=False):
         raise SystemExit(f"❌ Audio generation completed but {out_path.name} not found")
 
     size_mb = out_path.stat().st_size // 1024 // 1024
+    audio_url = f"{CDN_BASE}/audio/episode_{ep_str}.mp3"
     log(f"✅ EN audio: {out_path.name} ({size_mb}MB)")
-    post_build_log(f"✅ EP{ep_str} [4/6] EN audio done — {size_mb}MB")
+    post_build_log(f"✅ EP{ep_str} [4/6] EN audio done — {size_mb}MB\n{audio_url}")
     return out_path
 
 
@@ -349,10 +354,10 @@ def render_cdn_index():
         "<head>",
         "  <meta charset=\"utf-8\">",
         "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
-        "  <title>OpenClaw Podcast Audio</title>",
+        "  <title>AgentStack Daily Audio</title>",
         "</head>",
         "<body>",
-        "  <h1>OpenClaw Podcast Audio</h1>",
+        "  <h1>AgentStack Daily Audio</h1>",
     ]
 
     if episodes:
@@ -412,8 +417,12 @@ def sync_to_cdn(ep_num):
     ep_str = f"{ep_num:03d}"
     audio_src = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
     cover_src = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
+    show_notes_src = PODCAST_DIR / f"show_notes_episode_{ep_str}.md"
+    transcript_src = PODCAST_DIR / "episodes" / f"episode_{ep_str}_transcript.md"
     audio_dst = CDN_DIR / "audio" / f"episode_{ep_str}.mp3"
     cover_dst = CDN_DIR / f"episode_{ep_str}_cover.png"
+    show_notes_dst = CDN_DIR / f"show_notes_episode_{ep_str}.md"
+    transcript_dst = CDN_DIR / f"episode_{ep_str}_transcript.md"
 
     log(f"\n── CDN sync ────────────────────────────────────────────────────────────")
 
@@ -423,6 +432,12 @@ def sync_to_cdn(ep_num):
     shutil.copy2(str(cover_src), str(cover_dst))
     log(f"✅ Cover → CDN: {cover_dst.name}")
 
+    shutil.copy2(str(show_notes_src), str(show_notes_dst))
+    log(f"✅ Show notes → CDN: {show_notes_dst.name}")
+
+    shutil.copy2(str(transcript_src), str(transcript_dst))
+    log(f"✅ Transcript → CDN: {transcript_dst.name}")
+
     refresh_github_pages_root()
     log("✅ GitHub Pages root refreshed")
     enforce_pages_size_limit()
@@ -430,7 +445,15 @@ def sync_to_cdn(ep_num):
     # Commit + push CDN repo
     import subprocess as sp
     sp.run(
-        ["git", "add", f"audio/episode_{ep_str}.mp3", f"episode_{ep_str}_cover.png", "index.html", ".nojekyll"],
+        [
+            "git", "add",
+            f"audio/episode_{ep_str}.mp3",
+            f"episode_{ep_str}_cover.png",
+            f"show_notes_episode_{ep_str}.md",
+            f"episode_{ep_str}_transcript.md",
+            "index.html",
+            ".nojekyll",
+        ],
         cwd=str(CDN_DIR),
         check=True,
     )
@@ -522,12 +545,16 @@ def wait_for_pages_build(ep_num, commit_sha):
     )
 
 
-def verify_published_urls(ep_num, audio_url, cover_url, commit_sha=None):
+def verify_published_urls(ep_num, audio_url, cover_url, show_notes_url=None, transcript_url=None, commit_sha=None):
     ep_str = f"{ep_num:03d}"
     urls = [
         ("audio", audio_url, True),
         ("cover", cover_url, False),
     ]
+    if show_notes_url:
+        urls.append(("show notes", show_notes_url, False))
+    if transcript_url:
+        urls.append(("transcript", transcript_url, False))
 
     log(f"\n── URL verification ─────────────────────────────────────────────────────")
     if commit_sha:
@@ -562,9 +589,9 @@ def verify_published_urls(ep_num, audio_url, cover_url, commit_sha=None):
             raise SystemExit(f"❌ URL verification failed after {URL_VERIFY_MAX_ATTEMPTS} attempts\n{details}")
 
 
-def post_discord_listen(ep_num, duration, audio_url, cover_url=None, verified=False):
+def post_discord_listen(ep_num, duration, audio_url, cover_url=None, show_notes_url=None, transcript_url=None, verified=False):
     ep_str = f"{ep_num:03d}"
-    ep_channel_name = f"openclaw-ep{ep_str}"
+    ep_channel_name = f"agent-stack-ep{ep_str}"
     token = load_env_key("DISCORD_BOT_TOKEN")
 
     log(f"\n── Discord post ─────────────────────────────────────────────────────────")
@@ -599,6 +626,10 @@ def post_discord_listen(ep_num, duration, audio_url, cover_url=None, verified=Fa
 
     status = "✅ verified" if verified else "⏳ not yet verified"
     msg = ""
+    if show_notes_url:
+        msg += f"Review show notes ({status}): {show_notes_url}\n"
+    if transcript_url:
+        msg += f"Review transcript ({status}): {transcript_url}\n"
     if cover_url:
         msg += f"Review cover ({status}): {cover_url}\n"
     msg += (
@@ -611,7 +642,7 @@ def post_discord_listen(ep_num, duration, audio_url, cover_url=None, verified=Fa
         f"\nReply ✅ to start the approved release flow (EN publish + translations + video builds), "
         f"or ❌ to rebuild.\n\n"
         f"When approved, run:\n"
-        f"```\npython3 scripts/release_episode_approved.py {ep_num} --pub-date \"...\"\n```"
+        f"```\npython3 scripts/launch_approved_release.py {ep_num} --pub-date \"...\"\n```"
     )
     discord_request("POST", f"/channels/{ep_channel['id']}/messages", {"content": msg})
     log(f"✅ Posted to #{ep_channel_name}")
@@ -638,7 +669,7 @@ def main():
     ep_str = f"{ep_num:03d}"
 
     log(f"\n{'='*60}")
-    log(f"OpenClaw Daily — EP{ep_str} Build")
+    log(f"AgentStack Daily — EP{ep_str} Build")
     log(f"{'='*60}\n")
 
     try:
@@ -663,6 +694,8 @@ def main():
     duration = get_audio_duration(audio_path)
     audio_url = f"{CDN_BASE}/audio/episode_{ep_str}.mp3"
     cover_url = f"{CDN_BASE}/episode_{ep_str}_cover.png"
+    show_notes_url = f"{CDN_BASE}/show_notes_episode_{ep_str}.md"
+    transcript_url = f"{CDN_BASE}/episode_{ep_str}_transcript.md"
     # Discord aggressively caches image embeds by URL. Use the CDN commit as a
     # cache-busting query string for Discord-facing cover links so the thumbnail
     # shown in the review message always matches the asset just pushed.
@@ -678,30 +711,34 @@ def main():
     if args.skip_verify:
         post_build_log(
             f"⚠️ EP{ep_str} CDN pushed — URLs UNVERIFIED because --skip-verify was set | "
-            f"{duration} | #openclaw-ep{ep_str} | {cover_review_url} | {audio_url}"
+            f"{duration} | #agent-stack-ep{ep_str} | {show_notes_url} | {transcript_url} | {cover_review_url} | {audio_url}"
         )
         if args.skip_discord:
-            log(f"\n(--skip-discord --skip-verify) UNVERIFIED URLs for #{f'openclaw-ep{ep_str}'}:")
+            log(f"\n(--skip-discord --skip-verify) UNVERIFIED URLs for #{f'agent-stack-ep{ep_str}'}:")
+            log(f"  Show notes: {show_notes_url}")
+            log(f"  Transcript: {transcript_url}")
             log(f"  Cover: {cover_review_url}")
             log(f"  Audio: {audio_url}")
         else:
-            post_discord_listen(ep_num, duration, audio_url, cover_url=cover_review_url, verified=False)
+            post_discord_listen(ep_num, duration, audio_url, cover_url=cover_review_url, show_notes_url=show_notes_url, transcript_url=transcript_url, verified=False)
     else:
         post_build_log(
             f"⏳ EP{ep_str} CDN pushed — URLs UNVERIFIED, waiting for GitHub Pages | "
-            f"{duration} | #openclaw-ep{ep_str} | {cover_review_url} | {audio_url}"
+            f"{duration} | #agent-stack-ep{ep_str} | {show_notes_url} | {transcript_url} | {cover_review_url} | {audio_url}"
         )
-        verify_published_urls(ep_num, audio_url, cover_url, commit_sha=cdn_commit)
+        verify_published_urls(ep_num, audio_url, cover_url, show_notes_url=show_notes_url, transcript_url=transcript_url, commit_sha=cdn_commit)
         if args.skip_discord:
-            log(f"\n(--skip-discord) VERIFIED URLs for #{f'openclaw-ep{ep_str}'}:")
+            log(f"\n(--skip-discord) VERIFIED URLs for #{f'agent-stack-ep{ep_str}'}:")
+            log(f"  Show notes: {show_notes_url}")
+            log(f"  Transcript: {transcript_url}")
             log(f"  Cover: {cover_review_url}")
             log(f"  Audio: {audio_url}")
         else:
-            post_discord_listen(ep_num, duration, audio_url, cover_url=cover_review_url, verified=True)
-            post_build_log(f"✅ EP{ep_str} done — review URLs verified live | {duration} | #openclaw-ep{ep_str} | {cover_review_url} | {audio_url}")
+            post_discord_listen(ep_num, duration, audio_url, cover_url=cover_review_url, show_notes_url=show_notes_url, transcript_url=transcript_url, verified=True)
+            post_build_log(f"✅ EP{ep_str} done — review URLs verified live | {duration} | #agent-stack-ep{ep_str} | {show_notes_url} | {transcript_url} | {cover_review_url} | {audio_url}")
 
     log(f"\n⛔ STOP — wait for Toby's ✅ in Discord before running:")
-    log(f"   python3 scripts/release_episode_approved.py {ep_num} --pub-date \"...\"")
+    log(f"   python3 scripts/launch_approved_release.py {ep_num} --pub-date \"...\"")
 
 
 if __name__ == "__main__":

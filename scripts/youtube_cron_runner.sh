@@ -72,7 +72,9 @@ TELEGRAM_CHAT="8319992332"
 
 if [ "$NEXT_EP" != "NONE" ] && [ -n "$NEXT_EP" ]; then
     if [ $LONG_EXIT_CODE -eq 0 ]; then
-        echo "$NEXT_EP" >> "${SCRIPT_DIR}/youtube_uploaded.txt"
+        if ! grep -qx "$NEXT_EP" "${SCRIPT_DIR}/youtube_uploaded.txt" 2>/dev/null; then
+            echo "$NEXT_EP" >> "${SCRIPT_DIR}/youtube_uploaded.txt"
+        fi
         echo "[$(date)] ✅ EP${NEXT_EP} upload complete" >> "$LOG"
     else
         echo "[$(date)] ❌ EP${NEXT_EP} upload FAILED (exit $LONG_EXIT_CODE)" >> "$LOG"

@@ -13,6 +13,21 @@ CHECKS = []
 WARNINGS = []
 ERRORS = []
 
+THEME_GLUE_PATTERNS = [
+    r"\btrust layer\b",
+    r"\bcommon thread\b",
+    r"\bnot (?:disconnected|unrelated)\b",
+    r"\bwhat today is really about\b",
+    r"\bmap of the\b",
+    r"\bthese stories are all connected\b",
+    r"\ball of these stories\b",
+    r"\bthese stories all point to\b",
+    r"\bthe real story is\b",
+    r"\bone story told across\b",
+]
+
+RELEASE_TAG_MENTION_LIMIT = 4
+
 def check(label, condition, severity="ERROR", hint=""):
     if condition:
         CHECKS.append(f"  ✅ {label}")
@@ -24,6 +39,50 @@ def check(label, condition, severity="ERROR", hint=""):
             ERRORS.append(msg)
         else:
             WARNINGS.append(msg)
+
+
+def extract_release_tags_for_episode(path):
+    transcript_path = Path(path)
+    match = re.search(r'episode_(\d{3})_transcript', transcript_path.name)
+    if not match:
+        return []
+
+    notes_path = transcript_path.parent.parent / f"show_notes_episode_{match.group(1)}.md"
+    if not notes_path.exists():
+        return []
+
+    notes = notes_path.read_text(encoding='utf-8', errors='ignore')
+    if 'AgentStack Daily' in notes:
+        # Agent Stack tracks several release lanes. The Release Coverage Check can
+        # include ledger/backfill tags that should not all be read aloud in the
+        # opening, so use the selected first story's release source links.
+        slate = re.search(r"^## Story Slate\s*\n(.+?)(?=\n## |\Z)", notes, re.MULTILINE | re.DOTALL)
+        first_story = slate.group(1).split('### 2.', 1)[0] if slate else notes[:3000]
+        tags = re.findall(r'/releases/tag/(v\d{4}\.\d+\.\d+)', first_story)
+    else:
+        tags = re.findall(r'openclaw/openclaw/releases/tag/(v\d{4}\.\d+\.\d+)', notes)
+        if not tags:
+            release_section = re.search(r"^## Release Coverage Check\s*\n(.+?)(?=\n## |\Z)", notes, re.MULTILINE | re.DOTALL)
+            if release_section:
+                tags = re.findall(r'\bv\d{4}\.\d+\.\d+\b', release_section.group(1))
+
+    deduped = []
+    seen = set()
+    for tag in tags:
+        if tag not in seen:
+            deduped.append(tag)
+            seen.add(tag)
+    return deduped
+
+
+def theme_glue_hits(text):
+    hits = []
+    lowered = text.lower()
+    for pattern in THEME_GLUE_PATTERNS:
+        match = re.search(pattern, lowered, re.IGNORECASE)
+        if match:
+            hits.append(match.group(0))
+    return hits
 
 def run_checks(path):
     with open(path, 'r') as f:
@@ -38,25 +97,129 @@ def run_checks(path):
     print(f"   Word count: {word_count:,}")
     print()
 
+
+
+
+    # No editorial-feedback/meta framing leaks. The episode must not narrate Toby's
+    # production instructions, prior rejected drafts, or the chosen editorial mode.
+    meta_leak_patterns = [
+        r"\bno grand theory\b",
+        r"\bno abstract operating model\b",
+        r"\bno long lecture\b",
+        r"\bnot a lecture\b",
+        r"\bdo not waste\b",
+        r"\bdo not invent\b",
+        r"\bnot a long .*recipe\b",
+        r"\bnot a .*consulting\b",
+        r"\bstraight what'?s-new episode\b",
+        r"\bproduct-update briefing\b",
+        r"\barchitecture-advice\b",
+        r"\borchestration version\b",
+        r"\bbuilder workflow version\b",
+        r"\bdrops? the .*framing\b",
+        r"\breturns? to a .*format\b",
+        r"\bchanges? the format\b",
+        r"\bsix[- ]story\b",
+        r"\bsix practical stories\b",
+        r"\btoday'?s six stories\b",
+        r"\bone obvious flagship release\b",
+        r"\bflagship release\b",
+        r"\bnot short on news\b",
+        r"\bstretching one update\b",
+        r"\bbefore audio\b",
+        r"\bbefore .*publish\b",
+        r"\breview before release\b",
+        r"\bshow notes\b",
+        r"\brelease plan\b",
+        r"\bactual artifact\b",
+        r"\bstory in the slate\b",
+        r"\bstory slate\b",
+        r"\btranscript include\b",
+        r"\btranscript includes\b",
+        r"\bwhat changed operationally\b",
+        r"\blist of links\b",
+        r"\bthis rewrite\b",
+        r"\bToby (?:asked|wanted|said|told)\b",
+        r"\byou asked\b",
+        r"\byou told\b",
+        r"\bwe were told\b",
+    ]
+    meta_leaks = []
+    for pat in meta_leak_patterns:
+        meta_leaks.extend(re.findall(pat, content, re.IGNORECASE))
+    check("No editorial-feedback/meta framing leaks", len(meta_leaks) == 0,
+          hint=f"Remove production-instruction/meta phrasing from spoken transcript: {meta_leaks[:8]}")
+
+
+    internal_impl_patterns = [
+        r"\bfetched window\b",
+        r"\bfetched release window\b",
+        r"\brelease window\b",
+        r"\bselected from the fetched\b",
+        r"\bdaily release check\b",
+        r"\bno new stable .*selected\b",
+        r"\bno new stable .*candidate\b",
+        r"\bstrong new .*release block\b",
+        r"\bcurrent stable feed window\b",
+        r"\brecent-version scan\b",
+    ]
+    internal_impl_hits = []
+    for pat in internal_impl_patterns:
+        internal_impl_hits.extend(re.findall(pat, content, re.IGNORECASE))
+    check("No internal research/build implementation language", len(internal_impl_hits) == 0,
+          hint=f"Remove internal process/research/build wording from public episode: {internal_impl_hits[:8]}")
+
+    # No default orchestration-advice overcorrection: unless explicitly requested,
+    # AgentStack Daily should primarily answer "what's new?" in LLMs/agents.
+    # Practical implications are good; long repeated architecture/orchestration advice is not.
+    orchestration_terms = len(re.findall(r"\b(orchestration|workflow|workflows|lane|lanes|which tool owns|builder workflow|recipe|recipes|state machine|approval workflow|handoff|handoffs)\b", content, re.IGNORECASE))
+    whats_new_terms = len(re.findall(r"\b(new|added|updated|released|release|feature|features|version|changed|ships|shipping|now supports|upgrade|preview|launch|announced|capability|capabilities)\b", content, re.IGNORECASE))
+    check("No default orchestration-advice overcorrection", orchestration_terms <= max(90, whats_new_terms),
+          hint=f"Orchestration/advice terms: {orchestration_terms}; what's-new terms: {whats_new_terms}. Rewrite toward feature updates and ecosystem news, not architecture consulting.")
+
+    operator_slog_hits = []
+    for pat in [
+        r"\boperator playbook\b",
+        r"\bturn the .* into a .* workflow\b",
+        r"\bthe first workflow\b",
+        r"\bthe second workflow\b",
+        r"\bthe third workflow\b",
+        r"\bthe fourth workflow\b",
+        r"\bthe fifth workflow\b",
+        r"\bthe sixth workflow\b",
+        r"\bthe seventh workflow\b",
+        r"\bthe eighth workflow\b",
+        r"\bworkflow is .* workflow\b",
+        r"\bconcrete builder workflow\b",
+        r"\bchecklist is simple\b",
+    ]:
+        operator_slog_hits.extend(re.findall(pat, content, re.IGNORECASE))
+    check("No generic operator-playbook slog", len(operator_slog_hits) == 0,
+          hint=f"Remove generic workflow/checklist/playbook phrasing and rewrite toward concrete news/product changes: {operator_slog_hits[:8]}")
+
+    # Boring implementation-minutiae guard: the show should teach builder workflows,
+    # not linger on generic document/file movement or invisible plumbing.
+    boring_terms = len(re.findall(r"\b(document|documents|file|files|folder|folders|copy|copies|moving|move|moved|storage|record|records)\b", content, re.IGNORECASE))
+    workflow_terms = len(re.findall(r"\b(workflow|build|builder|use case|use cases|recipe|pattern|when to use|how to use|wire|ship|deploy|agent task|operator)\b", content, re.IGNORECASE))
+    check("Builder-workflow focus beats file/document minutiae", workflow_terms >= max(35, boring_terms // 2),
+          hint=f"Workflow terms: {workflow_terms}; boring file/document/plumbing terms: {boring_terms}. Rewrite toward what to build and how to use the tools.")
+
+    release_tags = extract_release_tags_for_episode(path)
+
     # ── Cold open + intro checks ───────────────────────────────────────────────
-    # Cold open: unlabelled dramatic prose before first speaker label, within first ~112 words (45 sec @ 150wpm)
-    first_112_words = ' '.join(content.split()[:112])
     first_speaker_match = re.search(r'(\[NOVA\]|\[ALLOY\]|\*?\*?NOVA\*?\*?|\*?\*?ALLOY\*?\*?):', content)
     words_before_first_speaker = len(content[:first_speaker_match.start()].split()) if first_speaker_match else 0
-    has_cold_open = words_before_first_speaker >= 10
-    check("Cold open present before first speaker label", has_cold_open,
-          hint=f"Episode must open with unlabelled dramatic prose (cold open) before NOVA/ALLOY speak. "
-               f"Currently {words_before_first_speaker} words before first speaker label — need at least 10.")
+    check("Cold open, if used, stays brief", words_before_first_speaker <= 80, severity="WARNING",
+          hint=f"Found {words_before_first_speaker} words before the first speaker label. Do not burn the opening on a long dramatic cold open.")
 
-    # Host intro with show name within first 112 words after cold open (≈45 sec)
     first_300_words = ' '.join(content.split()[:300])
-    has_host_intro = bool(re.search(r"I'm NOVA|I am NOVA|Welcome to OpenClaw|This is OpenClaw Daily", first_300_words, re.IGNORECASE))
-    check("Host intro ('I'm NOVA / This is OpenClaw Daily') within first 300 words", has_host_intro,
-          hint="Must include 'I'm NOVA' or 'This is OpenClaw Daily' shortly after the cold open")
+    has_host_intro = bool(re.search(r"I'm NOVA|I am NOVA|Welcome to AgentStack Daily|This is AgentStack Daily", first_300_words, re.IGNORECASE))
+    check("Host intro ('I'm NOVA / show name') within first 300 words", has_host_intro,
+          hint="Must include 'I'm NOVA' plus the show name near the start")
 
-    has_show_name = bool(re.search(r"OpenClaw Daily", first_500_words, re.IGNORECASE))
+    has_show_name = bool(re.search(r"AgentStack Daily", first_500_words, re.IGNORECASE))
     check("Show name mentioned in intro", has_show_name,
-          hint="Must mention 'OpenClaw Daily' near the start")
+          hint="Must mention the show name near the start")
 
     # ALLOY must introduce herself within the first 400 words
     first_400_words = ' '.join(content.split()[:400])
@@ -80,24 +243,80 @@ def run_checks(path):
     check("Episode topic introduced early", has_episode_description,
           hint="First 500 words should tell the listener what this episode is about")
 
+    intro_theme_hits = theme_glue_hits(' '.join(content.split()[:260]))
+    check("Opening is not built around a theme-first umbrella frame", len(intro_theme_hits) == 0,
+          hint=f"Theme-first umbrella framing is banned: {intro_theme_hits[:3]}")
+
+    if not release_tags:
+        first_220_words = ' '.join(content.split()[:220])
+        no_release_opening_hits = []
+        for pattern in [
+            r"\bnot a release episode\b",
+            r"\bno release coverage\b",
+            r"\bno new stable openclaw release\b",
+            r"\bthere is no new stable openclaw release\b",
+            r"\bthe latest stable tags are\b",
+            r"\bcovered in recent episode notes\b",
+            r"\bfive stories today\b",
+            r"\bthis is a builder-stack episode\b",
+        ]:
+            match = re.search(pattern, first_220_words, re.IGNORECASE)
+            if match:
+                no_release_opening_hits.append(match.group(0))
+        check("No-release opening avoids meta throat-clearing", len(no_release_opening_hits) == 0,
+              hint=f"The first minute should hook, not announce mechanics: {no_release_opening_hits[:4]}")
+
+        release_rollcall_hits = re.findall(r"\b(?:v)?\d{4}\.\d+\.\d+\b", first_220_words)
+        check("No-release opening does not read out already-covered release tags", len(release_rollcall_hits) == 0,
+              hint=f"Do not read version tags in a no-release opening: {release_rollcall_hits[:4]}")
+
+    if release_tags:
+        first_220_words = ' '.join(content.split()[:220])
+        first_320_words = ' '.join(content.split()[:320])
+        change_verbs = re.findall(
+            r"\b(adds?|added|moves?|moved|switches?|switched|tightens?|tightened|hardens?|hardened|fixes?|fixed|changes?|changed|improves?|improved|introduces?|introduced|splits?|split|enforces?|enforced|preserves?|preserved|supports?|supported)\b",
+            first_320_words,
+            re.IGNORECASE,
+        )
+        technical_surface_hits = re.findall(
+            r"\b(setup|wizard|logs?|fallback|provider|permissions?|cron|session|plugin|pricing|auth|image|media|browser|slack|command|transport|state|memory|model catalog)\b",
+            first_320_words,
+            re.IGNORECASE,
+        )
+        mention_count = sum(first_500_words.count(tag) for tag in release_tags)
+        check("Release episode names the covered versions immediately",
+              all(tag in first_320_words for tag in release_tags),
+              hint=f"Expected the covered release tags early in the episode: {release_tags}")
+        check("Release episode gets to concrete release changes quickly",
+              len(change_verbs) >= 2 and len(set(x.lower() for x in technical_surface_hits)) >= 2,
+              hint="Within the first ~320 words, move beyond abstract framing and name concrete release changes.")
+        check("Release episode does not hammer version numbers before substance",
+              mention_count <= RELEASE_TAG_MENTION_LIMIT,
+              severity="ERROR",
+              hint=f"Found {mention_count} release-tag mentions in the first 500 words. Name the versions, then get to what changed.")
+
     # ── Outro/close checks ────────────────────────────────────────────────────
-    has_outro = bool(re.search(r"(OpenClaw Daily|that'?s? (it|all|a wrap)|thanks? for listening|next (time|episode)|see you|I'?m NOVA)", last_500_words, re.IGNORECASE))
+    has_outro = bool(re.search(r"(AgentStack Daily|that'?s? (it|all|a wrap)|thanks? for listening|next (time|episode)|see you|I'?m NOVA)", last_500_words, re.IGNORECASE))
     check("Closing/outro present", has_outro,
           hint="Episode must end with a proper sign-off — show name, host name, or 'thanks for listening'")
 
     has_single_ending = True
-    ending_phrases = re.findall(r"(that'?s? (it|all|a wrap)|thanks? for listening|see you next|until next time|I'?m NOVA.*?\.)", content, re.IGNORECASE)
-    if len(ending_phrases) > 3:
+    outro_window = last_500_words
+    ending_phrases = re.findall(r"(that'?s? (it|all|a wrap)|thanks? for listening|see you next|until next time|we'll be back soon|I'?m NOVA.*?\.)", outro_window, re.IGNORECASE)
+    unique_endings = {re.sub(r'\s+', ' ', e[0].lower()).strip() for e in ending_phrases}
+    if len(unique_endings) > 3:
         has_single_ending = False
     check("Not too many 'ending' phrases (dedup check)", has_single_ending, severity="WARNING",
-          hint=f"Found {len(ending_phrases)} closing phrases — may indicate repeated outro sections")
+          hint=f"Found {len(unique_endings)} distinct closing phrases in the outro window — may indicate repeated outro sections")
 
     # ── Content checks ────────────────────────────────────────────────────────
-    check("Minimum length (5,000 words)", word_count >= 5000,
-          hint=f"Got {word_count:,} words — minimum is 5,000 to guarantee 30+ min audio")
+    # AgentStack Daily target: 35-60 minutes. At ~159 wpm,
+    # 35 min needs ~5,565 words; 5,800 gives a safe floor. 60 min is ~9,540 words.
+    check("Minimum length (5,800 words for 35+ min)", word_count >= 5800,
+          hint=f"Got {word_count:,} words — minimum is 5,800 for the new 35-60 minute format (TTS runs ~159 wpm)")
 
-    check("Target length (5,500+ words)", word_count >= 5500, severity="WARNING",
-          hint=f"Got {word_count:,} words — 5,500+ gives comfortable 30-35 min episodes")
+    check("Target length band (6,000-9,600 words for ~38-60 min)", 6000 <= word_count <= 9600, severity="WARNING",
+          hint=f"Got {word_count:,} words — new target band is 6,000-9,600 words for roughly 38-60 minutes")
 
     # Local paths / IPs must never appear in a public transcript
     local_path_matches = re.findall(r'/Users/[^\s\]\"\']+|/home/[^\s\]\"\']+', content)
@@ -129,6 +348,11 @@ def run_checks(path):
     check("Matched [EMPHASIS] tags", not broken_emphasis,
           hint="Mismatched [EMPHASIS] / [/EMPHASIS] tags")
 
+    listy_opening_phrases = re.findall(r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten) stories today\b|\bhere'?s what we'?re covering\b|\blet'?s run through\b", first_220_words, re.IGNORECASE)
+    check("Opening is not a mechanical list lead-in", len(listy_opening_phrases) == 0,
+          severity="ERROR",
+          hint=f"The first minute should sound conversational, not like a rundown: {listy_opening_phrases[:3]}")
+
     # ── Voice / conversational flow checks ──────────────────────────────────
     nova_lines = len(re.findall(r'^(\[NOVA\]|\*?\*?NOVA\*?\*?):\s', content, re.MULTILINE))
     alloy_lines = len(re.findall(r'^(\[ALLOY\]|\*?\*?ALLOY\*?\*?):\s', content, re.MULTILINE))
@@ -159,16 +383,35 @@ def run_checks(path):
     segment_headers = re.findall(r'^#{1,3} \[[\d:–-]+\]', content, re.MULTILINE)
     check(f"Has timestamped segments ({len(segment_headers)} found)", len(segment_headers) >= 3,
           hint="Episode must have at least 3 timestamped segment headers: ## [HH:MM–HH:MM] Title")
+    if release_tags:
+        segment_matches = list(re.finditer(r'^#{1,3} \[([\d:–-]+)\]\s*(.+)$', content, re.MULTILINE))
+        if len(segment_matches) >= 2:
+            first_story_title = segment_matches[0].group(2)
+            first_story_start = segment_matches[0].end()
+            first_story_end = segment_matches[1].start()
+            first_story_words = len(content[first_story_start:first_story_end].split())
+            check("First timestamped segment is the OpenClaw release block",
+                  bool(re.search(r'openclaw|v\d{4}\.\d+\.\d+', first_story_title, re.IGNORECASE)),
+                  hint=f"First real segment should be the OpenClaw release deep dive, got: {first_story_title!r}")
+            check("Front-loaded release segment is detailed enough",
+                  first_story_words >= 420,
+                  hint=f"First release segment is only {first_story_words} words. Push more detailed release coverage to the front.")
+        else:
+            check("Release-led episode has a release segment", False,
+                  hint="Expected a first timestamped release segment in a release-led episode.")
 
     # ── Outro quality checks ─────────────────────────────────────────────────
-    has_website_cta = bool(re.search(r'tobyonfitnesstech\.com|toby on fitness tech dot com', last_500_words, re.IGNORECASE))
-    check("CTA to tobyonfitnesstech.com in outro", has_website_cta,
-          hint="Outro must direct listeners to tobyonfitnesstech.com (or 'Toby On Fitness Tech dot com') for show notes")
+    allowed_site_cta_pattern = r'\bToby On Fitness Tech\s+(?:dot\s+com|\.com)\b'
+    has_notes_cta = bool(re.search(r'(notes and links|show notes|episode notes|source links)', last_500_words, re.IGNORECASE))
+    has_allowed_site_cta = bool(re.search(allowed_site_cta_pattern, last_500_words, re.IGNORECASE))
+    check("Outro has notes CTA; site name is allowed only in the CTA",
+          has_notes_cta or has_allowed_site_cta,
+          hint="Outro should point listeners to episode/show notes. The only allowed owner-name phrase is the exact site CTA at the end.")
 
     has_correct_closing = bool(re.search(r"we'll be back soon", last_500_words, re.IGNORECASE))
     has_wrong_closing = bool(re.search(r"we'll be back next week", last_500_words, re.IGNORECASE))
     check("Correct closing phrase ('we'll be back soon')", has_correct_closing and not has_wrong_closing,
-          hint="Must say 'we'll be back soon' NOT 'we'll be back next week' — this is OpenClaw Daily")
+          hint="Must say 'we'll be back soon' NOT 'we'll be back next week' — this is AgentStack Daily")
 
     last_150_words = ' '.join(content.split()[-150:])
     has_no_discord_in_outro = not bool(re.search(r'discord', last_150_words, re.IGNORECASE))
@@ -176,13 +419,84 @@ def run_checks(path):
           hint="Never mention Discord in the outro — there is no listener Discord. (Mentioning Discord in body content about platform features is fine.)")
 
     # ── Forbidden content checks ─────────────────────────────────────────────
+    content_without_allowed_site_cta = re.sub(allowed_site_cta_pattern, '', content, flags=re.IGNORECASE)
+    owner_name_matches = re.findall(r'\bToby\b|\btobyglenn\w*\b|\btobyonfitnesstech\b|\btoby\s*on\s*fitness\s*tech\b', content_without_allowed_site_cta, re.IGNORECASE)
+    check("Owner name appears only in the allowed site CTA",
+          len(owner_name_matches) == 0,
+          hint=f"Remove owner-name/domain phrasing except exact end CTA: {owner_name_matches[:5]}")
+
+    meta_request_matches = re.findall(
+        r'\b(?:Toby|the\s+owner|the\s+listener|you)\s+(?:asked|wanted|requested|told|specified)\b|\brequested\s+format\b|\bdirect\s+feedback\b|\bwhat\s+(?:Toby|the\s+owner|the\s+listener)\s+(?:asked|wanted|requested|told|specified)\b',
+        content,
+        re.IGNORECASE,
+    )
+    check("Episode contains no meta references to user requests or feedback",
+          len(meta_request_matches) == 0,
+          hint=f"Remove drafting/request meta from speakable content: {meta_request_matches[:5]}")
+
     has_word_count_meta = bool(re.search(r'word count|Word Count|<!-- Word', content))
     check("No word count metadata in transcript body", not has_word_count_meta,
           hint="Remove any word count comments or metadata from the transcript")
 
-    has_episode_footer = bool(re.search(r'^\*OpenClaw Daily — Episode', content, re.MULTILINE))
+    has_episode_footer = bool(re.search(r'^\*AgentStack Daily — Episode', content, re.MULTILINE))
     check("No episode metadata footer", not has_episode_footer,
-          hint="Remove the '*OpenClaw Daily — Episode XX, Date*' footer line")
+          hint="Remove the '*AgentStack Daily — Episode XX, Date*' footer line")
+
+
+    # ── Editorial quality gate: no process recap / prior-episode filler ───────
+    # Toby locked this after EP044 slipped through: release/version housekeeping,
+    # "we already covered...", and user-feedback/process meta are not episode
+    # content. They must fail before audio is generated.
+    prior_episode_meta_patterns = [
+        r"\b(?:last|previous|prior|earlier)\s+(?:episode|episodes|show|shows|show-note|show-note files|show notes)\b.{0,140}\b(?:cover|covered|coverage|already|recent)\b",
+        r"\b(?:already|previously|recently)\s+(?:cover|covered|discussed|talked about)\b",
+        r"\b(?:we|I|this show)\s+(?:already|previously|recently)\s+(?:covered|discussed|talked about)\b",
+        r"\b(?:covered|discussed|talked about)\s+(?:in|on)\s+(?:EP\d+|episode\s+\d+|a previous episode|previous episodes|recent episode notes)\b",
+        r"\b(?:under|because of)\s+the\s+(?:latest-contiguous|contiguous-release|release coverage)\s+rule\b",
+        r"\bEP\d+\s+(?:starts|surfaces|covers|covered|talked|discussed)\b",
+        r"\b(?:show-note files|episode notes|release list)\s+(?:already\s+)?(?:cover|covered|show|indicate)\b",
+        r"\b(?:v\d{4}\.\d+\.\d+[,\s]*(?:and\s+)*){2,}\b.*\b(?:older stable tags|already cover|previous|prior|recent)\b",
+    ]
+    prior_episode_meta_hits = []
+    for pattern in prior_episode_meta_patterns:
+        prior_episode_meta_hits.extend(re.findall(pattern, content, re.IGNORECASE | re.DOTALL))
+    check("No prior-episode / already-covered recap filler",
+          len(prior_episode_meta_hits) == 0,
+          hint=f"Remove release-history/show-process housekeeping from speakable content: {[collapse if isinstance(collapse, str) else ' '.join(collapse) for collapse in prior_episode_meta_hits[:5]]}")
+
+    full_patch_versions = re.findall(r"\b\d+\.\d+\.\d+\b", content)
+    repeated_full_patch_versions = sorted(
+        version for version in set(full_patch_versions)
+        if full_patch_versions.count(version) > 1
+    )
+    check("No repeated full patch release numbers in spoken transcript",
+          len(repeated_full_patch_versions) == 0,
+          hint=(
+              "Use a shortened release identifier once, then say this release/update. "
+              f"Repeated full patch versions are painful in audio: {repeated_full_patch_versions[:8]}"
+          ))
+
+    version_tag_mentions = re.findall(r"\bv\d{4}\.\d+\.\d+\b", content)
+    unique_version_tags = sorted(set(version_tag_mentions))
+    if release_tags:
+        off_slate_version_tags = [tag for tag in unique_version_tags if tag not in release_tags]
+        check("Release episode does not mention off-slate old version tags",
+              len(off_slate_version_tags) == 0,
+              hint=f"Old-version roll calls are banned in the transcript: {off_slate_version_tags[:8]}")
+    else:
+        check("Non-release episode does not mention version-tag roll calls",
+              len(unique_version_tags) <= 1,
+              hint=f"Version-tag housekeeping is not listener value: {unique_version_tags[:8]}")
+
+    tech_concrete_terms = re.findall(
+        r"\b(API|SDK|runtime|request|response|schema|parameter|config(?:uration)?|flag|permission|auth|token|provider|adapter|transport|queue|scheduler|timeout|retry|fallback|state|memory|session|trace|log|metric|benchmark|evaluation|latency|throughput|cache|database|migration|sandbox|security|privacy|model card|system card|changelog|release notes|failure mode)\b",
+        content,
+        re.IGNORECASE,
+    )
+    check("Transcript has enough hard technical mechanism density",
+          len(tech_concrete_terms) >= max(35, word_count // 180),
+          severity="ERROR",
+          hint=f"Found {len(tech_concrete_terms)} technical-mechanism terms; replace recap/fluff with concrete APIs, runtime behavior, config, failure modes, security boundaries, evals, or operator tradeoffs.")
 
     # ── Runtime/metadata leak checks ────────────────────────────────────────
     has_transcript_end_leak = bool(re.search(r'end of transcript|approximately \d+ minutes|\d,\d{3} words', content, re.IGNORECASE))
@@ -229,6 +543,21 @@ def run_checks(path):
         check("TTS render has no spoken speaker labels",
               len(spoken_label_lines) == 0,
               hint=f"nova.md has {len(spoken_label_lines)} line(s) where 'NOVA:' or 'ALLOY:' would be spoken aloud. Re-run render_nova.py after fixing generate_audio.py scrub.")
+
+        nova_without_allowed_site_cta = re.sub(allowed_site_cta_pattern, '', nova_content, flags=re.IGNORECASE)
+        nova_owner_name_matches = re.findall(r'\bToby\b|\btobyglenn\w*\b|\btobyonfitnesstech\b|\btoby\s*on\s*fitness\s*tech\b', nova_without_allowed_site_cta, re.IGNORECASE)
+        check("TTS render owner name appears only in allowed site CTA",
+              len(nova_owner_name_matches) == 0,
+              hint=f"Re-render after removing owner-name/domain phrasing except exact end CTA: {nova_owner_name_matches[:5]}")
+
+        nova_meta_request_matches = re.findall(
+            r'\b(?:Toby|the\s+owner|the\s+listener|you)\s+(?:asked|wanted|requested|told|specified)\b|\brequested\s+format\b|\bdirect\s+feedback\b|\bwhat\s+(?:Toby|the\s+owner|the\s+listener)\s+(?:asked|wanted|requested|told|specified)\b',
+            nova_content,
+            re.IGNORECASE,
+        )
+        check("TTS render contains no meta references to user requests or feedback",
+              len(nova_meta_request_matches) == 0,
+              hint=f"Re-render after removing drafting/request meta from transcript: {nova_meta_request_matches[:5]}")
     else:
         check("TTS render file exists (_nova.md)",
               False,

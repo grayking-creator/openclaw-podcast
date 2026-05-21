@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-YouTube Shorts pipeline helper for OpenClaw Daily.
+YouTube Shorts pipeline helper for AgentStack Daily.
 
 Current behavior (safe by default):
-- Generates/stages 10 EN shorts candidates from the latest uploaded episode transcript.
+- Generates/stages the best 2 EN shorts candidates from the latest uploaded episode transcript.
 - Creates a cross-channel queue (EN + ES/DE/PT/HI) with 2 shorts/day schedule slots.
 - Enforces an EN review gate before any auto-upload rollout.
 - Does NOT upload anything yet.
@@ -19,15 +19,20 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from collections import Counter
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict
 
+try:
+    import make_podcast_shorts as shorts_work
+except Exception:
+    shorts_work = None
+
 ET = "-04:00"
 SHORT_SLOTS = ["10:00:00", "18:00:00"]
-TARGET_SHORTS = 10
+TARGET_SHORTS = 2
+WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
@@ -35,6 +40,7 @@ EPISODES_DIR = PODCAST_DIR / "episodes"
 STAGING_ROOT = PODCAST_DIR / "content_staging" / "shorts"
 STATE_PATH = SCRIPTS_DIR / "youtube_shorts_state.json"
 UPLOADED_PATH = SCRIPTS_DIR / "youtube_uploaded.txt"
+AUDIO_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio/audio"
 
 CHANNELS = ["en", "es", "de", "pt", "hi"]
 STOPWORDS = {
@@ -60,6 +66,11 @@ class ShortCandidate:
     snippet: str
     rationale: str
     source_episode: int
+    start_sec: float = 0.0
+    end_sec: float = 0.0
+    duration_sec: float = 0.0
+    source_story: str = ""
+    score_details: list[str] = field(default_factory=list)
     language: str = "en"
     score: float = 0.0
 
@@ -110,6 +121,39 @@ def transcript_path(ep: int) -> Path:
     return EPISODES_DIR / f"episode_{ep:03d}_transcript.md"
 
 
+def episode_audio_path(ep: int) -> Path | None:
+    candidates = [
+        AUDIO_DIR / f"episode_{ep:03d}.mp3",
+        AUDIO_DIR / f"episode_{ep:03d}_full.mp3",
+        AUDIO_DIR / f"episode_{ep:03d}_full_v2.mp3",
+        AUDIO_DIR / f"episode_{ep:03d}_v2.mp3",
+        AUDIO_DIR / "latest.mp3",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def get_episode_title(ep_num: int, lang: str = "en") -> str:
+    ep_str = f"{ep_num:03d}"
+    if lang == "en":
+        feed_path = PODCAST_DIR / "feed.xml"
+    else:
+        feed_path = PODCAST_DIR / "translations" / f"feed_{lang}.xml"
+    if not feed_path.exists():
+        return f"AgentStack Daily EP{ep_str}"
+    content = feed_path.read_text()
+    items = re.findall(r"<item>(.*?)</item>", content, re.DOTALL)
+    for item in items:
+        ep_match = re.search(r"<itunes:episode>(\d+)</itunes:episode>", item)
+        if ep_match and int(ep_match.group(1)) == ep_num:
+            title_match = re.search(r"<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>", item)
+            if title_match:
+                return title_match.group(1).strip()
+    return f"AgentStack Daily EP{ep_str}"
+
+
 def episode_text_path(ep: int) -> Path | None:
     candidates = [
         transcript_path(ep),
@@ -147,92 +191,151 @@ def word_tokens(text: str) -> List[str]:
     return re.findall(r"[A-Za-z0-9']+", text.lower())
 
 
-def score_line(line: str) -> float:
-    tokens = word_tokens(line)
-    filtered = [t for t in tokens if t not in STOPWORDS]
-    counts = Counter(filtered)
-    unique_ratio = len(set(filtered)) / max(1, len(filtered))
-    hook_hits = sum(1 for t in filtered if t in HOOK_WORDS)
-    repeat_penalty = max(counts.values(), default=0) / max(1, len(filtered))
-    quote_bonus = 0.8 if ":" in line else 0.0
-    punctuation_bonus = 0.5 * line.count("—") + 0.3 * line.count("!")
-    return (
-        len(filtered) * 0.12
-        + unique_ratio * 4.0
-        + hook_hits * 1.1
-        + quote_bonus
-        + punctuation_bonus
-        - repeat_penalty * 3.0
-    )
-
-
 def make_hook(line: str) -> str:
     # Grab first sentence-ish fragment and shape into a short hook.
     fragment = re.split(r"(?<=[.!?])\s+", line)[0].strip()
-    fragment = fragment[:105].rstrip(" ,;:")
+    fragment = fragment[:90].rstrip(" ,;:")
     if not re.search(r"[.!?]$", fragment):
         fragment += "…"
     return fragment
 
 
-def build_candidates(ep: int, transcript_text: str) -> List[ShortCandidate]:
-    lines = clean_lines(transcript_text)
-    if not lines:
+def parse_timestamp(raw: str) -> int:
+    parts = [int(part) for part in raw.split(":")]
+    if len(parts) == 2:
+        mins, secs = parts
+        return mins * 60 + secs
+    hours, mins, secs = parts
+    return hours * 3600 + mins * 60 + secs
+
+
+def story_boundaries(ep: int) -> list[tuple[int, str]]:
+    show_notes = PODCAST_DIR / f"show_notes_episode_{ep:03d}.md"
+    if not show_notes.exists():
         return []
+    boundaries: list[tuple[int, str]] = []
+    for raw_line in show_notes.read_text().splitlines():
+        line = raw_line.strip()
+        match = re.match(r"^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.+)$", line)
+        if not match:
+            continue
+        stamp, title = match.groups()
+        title = title.strip()
+        if "—" in title:
+            title = title.split("—", 1)[1].strip()
+        boundaries.append((parse_timestamp(stamp), title))
+    return boundaries
 
-    # Spread picks across transcript for variety.
-    step = max(1, len(lines) // TARGET_SHORTS)
-    picks = []
-    idx = 0
-    while len(picks) < TARGET_SHORTS and idx < len(lines):
-        picks.append(lines[idx])
-        idx += step
-    while len(picks) < TARGET_SHORTS:
-        picks.append(lines[min(len(lines) - 1, len(picks))])
 
+def source_story_for_time(ep: int, start_sec: float) -> str:
+    boundaries = story_boundaries(ep)
+    current = ""
+    for boundary_sec, title in boundaries:
+        if start_sec + 0.01 < boundary_sec:
+            break
+        current = title
+    return current
+
+
+def choose_top_candidates(candidates: list, limit: int = TARGET_SHORTS) -> list:
+    picked: list[shorts_work.Candidate] = []
+    ranked = sorted(candidates, key=lambda item: item.score, reverse=True)
+    for candidate in ranked:
+        if any(shorts_work.overlap(candidate, existing) > shorts_work.SELECTION_OVERLAP_MAX for existing in picked):
+            continue
+        if any(shorts_work.content_similarity(candidate.text, existing.text) > 0.58 for existing in picked):
+            continue
+        picked.append(candidate)
+        if len(picked) >= limit:
+            break
+    return picked
+
+
+def build_candidates(ep: int) -> List[ShortCandidate]:
+    if shorts_work is None:
+        path = episode_text_path(ep)
+        if path is None:
+            return []
+        lines = clean_lines(path.read_text())
+        return [
+            ShortCandidate(
+                short_id=f"short-en-{idx:03d}",
+                hook=make_hook(line),
+                snippet=line[:220].rstrip(),
+                rationale="Transcript-only fallback because the audio scoring environment was unavailable.",
+                source_episode=ep,
+                score=float(len(lines) - idx),
+            )
+            for idx, line in enumerate(lines[:TARGET_SHORTS], start=1)
+        ]
+
+    audio_path = episode_audio_path(ep)
+    if audio_path is None:
+        path = episode_text_path(ep)
+        if path is None:
+            return []
+        lines = clean_lines(path.read_text())
+        return [
+            ShortCandidate(
+                short_id=f"short-en-{idx:03d}",
+                hook=make_hook(line),
+                snippet=line[:220].rstrip(),
+                rationale="Fallback transcript-only candidate because no episode audio was available.",
+                source_episode=ep,
+                score=float(idx),
+            )
+            for idx, line in enumerate(lines[:TARGET_SHORTS], start=1)
+        ]
+
+    analysis_dir = STAGING_ROOT / f"episode_{ep:03d}" / "_analysis"
+    analysis_dir.mkdir(parents=True, exist_ok=True)
+    wav_path = analysis_dir / f"episode_{ep:03d}.wav"
+    transcript_json = analysis_dir / "transcript.json"
+
+    shorts_work.extract_audio(audio_path, wav_path)
+    transcript = shorts_work.transcribe_audio(wav_path, transcript_json, WHISPER_MODEL)
+    rms, bucket_seconds = shorts_work.load_energy(wav_path)
+    raw_candidates = [
+        candidate
+        for candidate in shorts_work.build_candidates(transcript.get("segments", []), rms, bucket_seconds)
+        if candidate.start >= 90.0
+    ]
+    if not raw_candidates:
+        raw_candidates = shorts_work.build_candidates(transcript.get("segments", []), rms, bucket_seconds)
+    ranked = choose_top_candidates(raw_candidates, TARGET_SHORTS)
+
+    episode_title = get_episode_title(ep, "en")
     results: List[ShortCandidate] = []
-    for i, line in enumerate(picks[:TARGET_SHORTS], start=1):
-        short_id = f"short-en-{i:03d}"
-        hook = make_hook(line)
-        snippet = line[:260].rstrip()
+    for idx, candidate in enumerate(ranked, start=1):
+        story_title = source_story_for_time(ep, candidate.start)
         rationale = (
-            "Built for strong Shorts retention: concise hook + high-information claim "
-            "from the latest episode narrative."
+            "Audio-scored candidate tuned from channel analytics: 35-55s target, "
+            "strong opening hook, dense payoff, and non-overlapping with the other episode pick."
         )
         results.append(
             ShortCandidate(
-                short_id=short_id,
-                hook=hook,
-                snippet=snippet,
+                short_id=f"short-en-{idx:03d}",
+                hook=make_hook(candidate.text),
+                snippet=candidate.text[:240].rstrip(),
                 rationale=rationale,
                 source_episode=ep,
-                score=score_line(line),
+                start_sec=round(candidate.start, 2),
+                end_sec=round(candidate.end, 2),
+                duration_sec=round(candidate.end - candidate.start, 2),
+                source_story=story_title or episode_title,
+                score_details=candidate.reasons,
+                score=round(candidate.score, 3),
             )
         )
     return results
 
 
-def build_range_candidates(start_ep: int, end_ep: int, limit: int = 10) -> List[ShortCandidate]:
+def build_range_candidates(start_ep: int, end_ep: int, limit: int = TARGET_SHORTS) -> List[ShortCandidate]:
     pool: List[ShortCandidate] = []
     for ep in range(start_ep, end_ep + 1):
-        path = episode_text_path(ep)
-        if path is None:
-            continue
-        lines = clean_lines(path.read_text())
-        scored = sorted(lines, key=score_line, reverse=True)
-        for idx, line in enumerate(scored[:3], start=1):
-            pool.append(
-                ShortCandidate(
-                    short_id=f"short-en-ep{ep:03d}-{idx:02d}",
-                    hook=make_hook(line),
-                    snippet=line[:260].rstrip(),
-                    rationale=f"High-signal candidate from episode {ep} selected from source text.",
-                    source_episode=ep,
-                    score=score_line(line),
-                )
-            )
-    ranked = sorted(pool, key=lambda c: c.score, reverse=True)
-    return ranked[:limit]
+        ranked = sorted(build_candidates(ep), key=lambda c: c.score, reverse=True)
+        pool.extend(ranked[:limit])
+    return pool
 
 
 def next_slot_times(start_dt: datetime, count: int) -> List[str]:
@@ -268,6 +371,12 @@ def write_episode_artifacts(ep: int, candidates: List[ShortCandidate]) -> Path:
             "source_episode": ep,
             "hook": c.hook,
             "snippet": c.snippet,
+            "start_sec": c.start_sec,
+            "end_sec": c.end_sec,
+            "duration_sec": c.duration_sec,
+            "source_story": c.source_story,
+            "score": c.score,
+            "retry_after_days": 2,
             "status": "staged_review_required" if i < 2 else "staged",
             "requires_manual_review": i < 2,
             "scheduled_publish_at": scheduled_times[i],
@@ -284,6 +393,7 @@ def write_episode_artifacts(ep: int, candidates: List[ShortCandidate]) -> Path:
                 "status": "pending_translation",
                 "language": lang,
                 "scheduled_publish_at": scheduled_times[i],
+                "retry_after_days": 2,
             })
 
     queue_path = ep_dir / "shorts_upload_queue.json"
@@ -294,12 +404,17 @@ def write_episode_artifacts(ep: int, candidates: List[ShortCandidate]) -> Path:
         "# Shorts Review (EN gate)\n\n"
         f"Episode: {ep}\n\n"
         "Manual review required before auto-upload rollout.\n"
-        "First two EN shorts are gate items:\n\n"
+        "Selection rubric: 35-55s duration, hard first-two-second hook, dense payoff, no hashtags in titles.\n"
+        "The two EN shorts below are the episode package and review gate:\n\n"
         + "\n".join(
             [
                 f"- **{c.short_id}**\n"
+                f"  - Story: {c.source_story or 'Unknown'}\n"
+                f"  - Timing: {c.start_sec:.2f}s–{c.end_sec:.2f}s ({c.duration_sec:.2f}s)\n"
                 f"  - Hook: {c.hook}\n"
                 f"  - Snippet: {c.snippet}\n"
+                f"  - Score: {c.score}\n"
+                f"  - Signals: {', '.join(c.score_details[:5])}\n"
                 for c in candidates[:2]
             ]
         )
@@ -329,6 +444,8 @@ def write_range_artifacts(start_ep: int, end_ep: int, candidates: List[ShortCand
             [
                 f"- **{c.short_id}**\n"
                 f"  - Episode: {c.source_episode}\n"
+                f"  - Story: {c.source_story or 'Unknown'}\n"
+                f"  - Timing: {c.start_sec:.2f}s–{c.end_sec:.2f}s ({c.duration_sec:.2f}s)\n"
                 f"  - Hook: {c.hook}\n"
                 f"  - Snippet: {c.snippet}\n"
                 f"  - Score: {c.score:.2f}\n"
@@ -352,7 +469,7 @@ def ensure_prepared_latest_episode(state: Dict) -> str:
     if not tpath.exists():
         return f"Transcript missing for episode {ep}: {tpath}"
 
-    candidates = build_candidates(ep, tpath.read_text())
+    candidates = build_candidates(ep)
     if len(candidates) < TARGET_SHORTS:
         return f"Could not create {TARGET_SHORTS} shorts for episode {ep}."
 

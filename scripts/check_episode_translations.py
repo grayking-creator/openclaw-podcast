@@ -60,37 +60,57 @@ def check_lang(ep_num, lang, en_title):
     ep_str = f"{ep_num:03d}"
     lang_name = LANG_NAMES[lang]
     prefix = f"[{lang.upper()}]"
+    local_errors = []
+    local_warnings = []
+    local_passes = []
+
+    def ok_local(msg):
+        entry = f"  ✅ {msg}"
+        passes.append(entry)
+        local_passes.append(entry)
+
+    def err_local(msg, hint=""):
+        full = f"  ❌ {msg}"
+        if hint:
+            full += f"\n     → {hint}"
+        errors.append(full)
+        local_errors.append(full)
+
+    def warn_local(msg):
+        entry = f"  ⚠️  {msg}"
+        warnings.append(entry)
+        local_warnings.append(entry)
 
     # 1. Feed entry exists
     feed = PODCAST_DIR / "translations" / f"feed_{lang}.xml"
     if not feed.exists():
-        err(f"{prefix} Feed file missing: feed_{lang}.xml")
-        return
+        err_local(f"{prefix} Feed file missing: feed_{lang}.xml")
+        return {"errors": local_errors, "warnings": local_warnings, "passes": local_passes}
     feed_text = feed.read_text()
     ep_pattern = rf'{TITLE_PREFIXES[lang]}\s+{ep_num}'
     if not re.search(ep_pattern, feed_text):
-        err(f"{prefix} No EP{ep_num} entry in feed_{lang}.xml",
+        err_local(f"{prefix} No EP{ep_num} entry in feed_{lang}.xml",
             f"Expected title starting with '{TITLE_PREFIXES[lang]} {ep_num}:'")
-        return
-    ok(f"{prefix} Feed entry exists")
+        return {"errors": local_errors, "warnings": local_warnings, "passes": local_passes}
+    ok_local(f"{prefix} Feed entry exists")
 
     # 2. Title is translated (not same as EN)
     translated_title = get_feed_title(ep_num, lang)
     if translated_title and en_title:
         if translated_title.lower() == en_title.lower():
-            err(f"{prefix} Title NOT translated — still English: '{translated_title}'",
+            err_local(f"{prefix} Title NOT translated — still English: '{translated_title}'",
                 f"Translate '{en_title}' to {lang_name}")
         else:
-            ok(f"{prefix} Title translated: '{translated_title}'")
+            ok_local(f"{prefix} Title translated: '{translated_title}'")
     elif not translated_title:
-        warn(f"{prefix} Could not parse title from feed")
+        warn_local(f"{prefix} Could not parse title from feed")
 
     # 3. Show notes exist
     show_notes = PODCAST_DIR / "translations" / lang / f"show_notes_episode_{ep_str}_{lang}.md"
     if show_notes.exists():
-        ok(f"{prefix} Show notes exist")
+        ok_local(f"{prefix} Show notes exist")
     else:
-        err(f"{prefix} Show notes missing: translations/{lang}/show_notes_episode_{ep_str}_{lang}.md")
+        err_local(f"{prefix} Show notes missing: translations/{lang}/show_notes_episode_{ep_str}_{lang}.md")
 
     # 4. Transcript exists (audio can't exist without a transcript — check all known locations)
     transcript_candidates = [
@@ -102,9 +122,9 @@ def check_lang(ep_num, lang, en_title):
         PODCAST_DIR / "content_staging" / "translations" / f"episode_{ep_str}_{lang}_nova.md",
     ]
     if any(t.exists() for t in transcript_candidates):
-        ok(f"{prefix} Transcript exists")
+        ok_local(f"{prefix} Transcript exists")
     else:
-        err(f"{prefix} Transcript missing — checked: translations/{lang}/episode_{ep_str}_{lang}.md")
+        err_local(f"{prefix} Transcript missing — checked: translations/{lang}/episode_{ep_str}_{lang}.md")
 
     # 5. Audio exists (CDN or podcast dir)
     audio_candidates = [
@@ -113,9 +133,9 @@ def check_lang(ep_num, lang, en_title):
         PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3",
     ]
     if any(a.exists() for a in audio_candidates):
-        ok(f"{prefix} Audio exists")
+        ok_local(f"{prefix} Audio exists")
     else:
-        err(f"{prefix} Audio missing — no episode_{ep_str}_{lang}.mp3 found in CDN or podcast dirs")
+        err_local(f"{prefix} Audio missing — no episode_{ep_str}_{lang}.mp3 found in CDN or podcast dirs")
 
     # 6. Cover art exists with translated text
     cover_candidates = [
@@ -123,16 +143,16 @@ def check_lang(ep_num, lang, en_title):
         CDN_DIR / f"episode_{ep_str}_cover_{lang}.png",
     ]
     if any(c.exists() for c in cover_candidates):
-        ok(f"{prefix} Cover art exists")
+        ok_local(f"{prefix} Cover art exists")
     else:
-        err(f"{prefix} Cover art missing: images/episode_{ep_str}_cover_{lang}.png")
+        err_local(f"{prefix} Cover art missing: images/episode_{ep_str}_cover_{lang}.png")
 
     # 7. Cover in website dir
     website_cover = WEBSITE_DIR / f"episode_{ep_str}_cover_{lang}.png"
     if website_cover.exists():
-        ok(f"{prefix} Cover in website dir")
+        ok_local(f"{prefix} Cover in website dir")
     else:
-        warn(f"{prefix} Cover missing from website: {website_cover.name}")
+        warn_local(f"{prefix} Cover missing from website: {website_cover.name}")
 
     # 8. Description translated (check it's not identical to EN)
     en_feed = PODCAST_DIR / "feed.xml"
@@ -144,15 +164,18 @@ def check_lang(ep_num, lang, en_title):
             en_desc = en_desc_match.group(1)[:100]
             lang_desc = lang_desc_match.group(1)[:100]
             if en_desc == lang_desc:
-                err(f"{prefix} Description NOT translated — identical to EN",
+                err_local(f"{prefix} Description NOT translated — identical to EN",
                     f"First 100 chars match: '{en_desc[:50]}...'")
             else:
-                ok(f"{prefix} Description translated")
+                ok_local(f"{prefix} Description translated")
+
+    return {"errors": local_errors, "warnings": local_warnings, "passes": local_passes}
 
 def main():
     parser = argparse.ArgumentParser(description="Episode Translation QC Gate")
     parser.add_argument("episode", type=int, help="Episode number to check")
     parser.add_argument("--fix", action="store_true", help="Show fix suggestions")
+    parser.add_argument("--lang", choices=LANGS, help="Check only one language")
     args = parser.parse_args()
 
     ep_num = args.episode
@@ -163,17 +186,19 @@ def main():
     print(f"   Languages: {', '.join(LANGS)}")
     print()
 
-    for lang in LANGS:
+    langs_to_check = [args.lang] if args.lang else LANGS
+    for lang in langs_to_check:
         check_lang(ep_num, lang, en_title)
 
-    # Also check EN cover in website
+    # Also check EN cover in website for full-run only
     ep_str = f"{ep_num:03d}"
-    en_website_cover = WEBSITE_DIR / f"episode_{ep_str}_cover.png"
-    if en_website_cover.exists():
-        ok("[EN] Cover in website dir")
-    else:
-        err("[EN] Cover missing from website dir",
-            f"cp images/episode_{ep_str}_cover.png → websiteBuilder/.../podcast/")
+    if not args.lang:
+        en_website_cover = WEBSITE_DIR / f"episode_{ep_str}_cover.png"
+        if en_website_cover.exists():
+            ok("[EN] Cover in website dir")
+        else:
+            err("[EN] Cover missing from website dir",
+                f"cp images/episode_{ep_str}_cover.png → websiteBuilder/.../podcast/")
 
     print("── Results ──")
     for p in passes:

@@ -30,13 +30,15 @@ def render(transcript_path: str) -> str:
     paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
 
     def tag_paragraph(p):
-        # Detect speaker from leading "ALLOY:" or "NOVA:" prefix, then strip it from spoken text
-        if re.match(r'^ALLOY:', p):
-            spoken = re.sub(r'^ALLOY:\s*', '', p)
-            return f'[ALLOY]: {spoken}'
-        elif re.match(r'^NOVA:', p):
-            spoken = re.sub(r'^NOVA:\s*', '', p)
-            return f'[NOVA]: {spoken}'
+        # Detect speaker from either markdown (**NOVA:**) or bracket ([NOVA]:) style labels
+        if re.match(r'^\[(ALLOY|NOVA)\]:', p):
+            speaker = re.match(r'^\[(ALLOY|NOVA)\]:', p).group(1)
+            spoken = re.sub(r'^\[(ALLOY|NOVA)\]:\s*', '', p)
+            return f'[{speaker}]: {spoken}'
+        elif re.match(r'^(ALLOY|NOVA):', p):
+            speaker = re.match(r'^(ALLOY|NOVA):', p).group(1)
+            spoken = re.sub(r'^(ALLOY|NOVA):\s*', '', p)
+            return f'[{speaker}]: {spoken}'
         else:
             return f'[NOVA]: {p}'
 

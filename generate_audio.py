@@ -9,6 +9,7 @@ import argparse
 import os
 import re
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -21,20 +22,94 @@ VOICES = {
 }
 
 AUDIO_DIR = Path(__file__).parent / "audio"
+PODCAST_ROOT = Path(__file__).resolve().parent
+SCRIPTS_DIR = PODCAST_ROOT / "scripts"
+EPISODE_TRANSCRIPT_RE = re.compile(r"episode_\d{3}_transcript(?:_nova)?\.md$")
+SPEAKER_MARKER_RE = re.compile(r"^\[(NOVA|ALLOY)\]:", re.MULTILINE)
+OUTLINE_LINE_RE = re.compile(
+    r"^(#{1,6}\s+.+|---+$|\*{0,2}(Title|Runtime|Producer Notes)\*{0,2}$|\[[0-9:–-]+\].+|[-*]\s+\S+)$",
+    re.IGNORECASE,
+)
+
+
+def is_canonical_episode_script(script_path: Path) -> bool:
+    return script_path.parent.name == "episodes" and EPISODE_TRANSCRIPT_RE.fullmatch(script_path.name) is not None
+
+
+def canonical_transcript_path(script_path: Path) -> Path:
+    if script_path.name.endswith("_transcript_nova.md"):
+        return script_path.with_name(script_path.name.replace("_transcript_nova.md", "_transcript.md"))
+    return script_path
+
+
+def prepare_script_for_generation(script_path: Path) -> Path:
+    """
+    Fail closed for canonical EN episode scripts.
+
+    Direct audio generation from episode transcripts must pass the same QC gate
+    and fresh nova render used by the supported build pipeline.
+    """
+    if not is_canonical_episode_script(script_path):
+        return script_path
+
+    transcript_path = canonical_transcript_path(script_path)
+    qc_script = SCRIPTS_DIR / "check_episode.py"
+    render_script = SCRIPTS_DIR / "render_nova.py"
+
+    if not transcript_path.exists():
+        raise SystemExit(f"❌ Episode transcript not found: {transcript_path}")
+    if not qc_script.exists() or not render_script.exists():
+        missing = [p.name for p in (qc_script, render_script) if not p.exists()]
+        raise SystemExit(
+            f"❌ Missing podcast preflight helper(s): {', '.join(missing)}. "
+            "Use scripts/build_episode.py from the podcast repo."
+        )
+
+    print(f"Running QC preflight for {transcript_path.name}...", flush=True)
+    qc_result = subprocess.run([sys.executable, str(qc_script), str(transcript_path)])
+    if qc_result.returncode != 0:
+        raise SystemExit(
+            "❌ Refusing to generate audio from an episode transcript that failed QC.\n"
+            "   Fix the transcript and rerun `python3 scripts/build_episode.py <N>`."
+        )
+
+    print(f"Rendering fresh nova transcript for {transcript_path.name}...", flush=True)
+    render_result = subprocess.run([sys.executable, str(render_script), str(transcript_path)])
+    if render_result.returncode != 0:
+        raise SystemExit(
+            "❌ Failed to render a fresh nova transcript before audio generation.\n"
+            "   Rerun `python3 scripts/build_episode.py <N>` after fixing the transcript."
+        )
+
+    nova_path = transcript_path.with_name(transcript_path.stem + "_nova.md")
+    if not nova_path.exists():
+        raise SystemExit(
+            f"❌ Expected rendered transcript not found: {nova_path.name}. "
+            "Use scripts/build_episode.py from the podcast repo."
+        )
+
+    print(f"Using validated transcript render: {nova_path.name}", flush=True)
+    return nova_path
 
 
 async def generate_audio(text: str, voice: str, output_path: str):
     """Generate audio for a single text segment using edge-tts.
 
     edge-tts occasionally returns transient 503s; we retry with backoff.
+    Very short segments can hang intermittently, so we synthesize them inline.
     """
     from edge_tts import Communicate
+
+    cleaned = text.strip()
+    if len(cleaned) <= 16 and cleaned[-1:] not in ".!?":
+        # Keep very short utterances natural without feeding raw SSML to edge-tts.
+        cleaned = cleaned.rstrip(",;:") + "."
 
     last_err = None
     for attempt in range(1, 6):
         try:
-            communicate = Communicate(text, voice)
-            await communicate.save(output_path)
+            communicate = Communicate(cleaned, voice)
+            await asyncio.wait_for(communicate.save(output_path), timeout=180)
             return
         except Exception as e:
             last_err = e
@@ -46,10 +121,51 @@ async def generate_audio(text: str, voice: str, output_path: str):
     raise last_err
 
 
+def normalize_script_content(content: str) -> str:
+    content = re.sub(r'^\*\*(NOVA|ALLOY):\*\*', r'[\1]:', content, flags=re.MULTILINE)
+    content = re.sub(r'^(NOVA|ALLOY):\s*', r'[\1]: ', content, flags=re.MULTILINE)
+    return content
+
+
+def collect_outline_samples(content: str, limit: int = 5) -> list[str]:
+    samples = []
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if OUTLINE_LINE_RE.match(stripped):
+            samples.append(stripped)
+        if len(samples) >= limit:
+            break
+    return samples
+
+
+def assert_dialogue_transcript(content: str, script_path: str) -> None:
+    speaker_markers = SPEAKER_MARKER_RE.findall(content)
+    if len(speaker_markers) >= 4:
+        return
+
+    outline_samples = collect_outline_samples(content)
+    if outline_samples:
+        raise SystemExit(
+            "❌ Refusing to generate audio from outline-style notes.\n"
+            f"   {Path(script_path).name} does not look like a speaker-tagged transcript.\n"
+            "   Expected repeated [NOVA]: / [ALLOY]: lines, but found outline markers like:\n"
+            f"   - " + "\n   - ".join(outline_samples)
+        )
+
+    raise SystemExit(
+        "❌ Refusing to generate audio because the script does not contain enough speaker-tagged dialogue.\n"
+        f"   Add repeated [NOVA]: / [ALLOY]: lines to {Path(script_path).name}."
+    )
+
+
 def parse_script(script_path: str) -> list:
     """Parse podcast script and extract dialogue segments."""
     with open(script_path, 'r', encoding='utf-8') as f:
-        content = f.read()
+        content = normalize_script_content(f.read())
+
+    assert_dialogue_transcript(content, script_path)
     
     # Split by speaker tags
     parts = re.split(r'(\[NOVA\]:|\[ALLOY\]:)', content)
@@ -66,26 +182,38 @@ def parse_script(script_path: str) -> list:
         text = re.sub(r'^\s*#{1,6}\s+.*$', '', text, flags=re.MULTILINE)
         # Remove fenced code blocks entirely
         text = re.sub(r'```[\s\S]*?```', '', text, flags=re.MULTILINE)
+        text = re.sub(r'\[EMPHASIS\](.*?)\[/EMPHASIS\]', r'\1', text, flags=re.DOTALL)
+        text = text.replace('[PAUSE]', '...')
         # Remove leftover markdown emphasis markers
         text = text.replace('**', '')
         # Collapse extra blank lines
         text = re.sub(r'\n{3,}', '\n\n', text).strip()
 
-        if text and speaker in VOICES:
+        # Skip segments that have no actual speakable words (e.g. "......" pause markers)
+        has_words = bool(re.search(r'[A-Za-z\u00C0-\u024F\u0900-\u097F\u0600-\u06FF]', text))
+        if text and speaker in VOICES and has_words:
             dialogue.append((speaker, text))
+
+    if len(dialogue) < 4:
+        raise SystemExit(
+            "❌ Refusing to generate audio because the parsed dialogue is too thin.\n"
+            f"   Parsed only {len(dialogue)} speakable segments from {Path(script_path).name}."
+        )
     
     return dialogue
 
 
 async def generate_podcast_audio(script_path: str, output_name: str = None):
     """Generate full podcast audio with alternating voices."""
-    script_path = Path(script_path)
-    
+    requested_path = Path(script_path).resolve()
+
     if output_name is None:
-        output_name = script_path.stem
-    
+        output_name = requested_path.stem
+
+    script_path = prepare_script_for_generation(requested_path)
+
     # Parse script
-    dialogue = parse_script(script_path)
+    dialogue = parse_script(str(script_path))
     print(f"Found {len(dialogue)} dialogue segments")
 
     # --- Narrative lint: prevent false-finish phrasing from slipping through ---
@@ -188,7 +316,9 @@ async def generate_podcast_audio(script_path: str, output_name: str = None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate podcast audio from script")
+    parser = argparse.ArgumentParser(
+        description="Generate podcast audio from script (canonical episode transcripts auto-run QC + render_nova)"
+    )
     parser.add_argument("script", help="Path to podcast script markdown file")
     parser.add_argument("-o", "--output", help="Output filename (without extension)")
     args = parser.parse_args()
