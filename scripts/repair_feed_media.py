@@ -26,6 +26,7 @@ from urllib.parse import unquote, urlparse
 WORKSPACE = Path.home() / ".openclaw" / "workspace"
 PODCAST_DIR = WORKSPACE / "openclaw-podcast"
 AUDIO_REPO_DIR = WORKSPACE / "openclaw-podcast-audio"
+MEDIA_EN_REPO_DIR = WORKSPACE / "openclaw-podcast-media-en"
 ARCHIVE_AUDIO_DIR = (
     WORKSPACE
     / ".archive"
@@ -45,6 +46,7 @@ ITUNES_NS = {"itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd"}
 OP3_PREFIX = "https://op3.dev/e/"
 TRANSLATED_AUDIO_PROXY_BASE = "https://openclaw-audio-proxy.tobypeters.workers.dev"
 PAGES_AUDIO_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/"
+PAGES_MEDIA_EN_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-media-en/"
 RAW_AUDIO_BASE = (
     "https://raw.githubusercontent.com/"
     "clawdassistant85-netizen/openclaw-podcast-audio/main/"
@@ -56,6 +58,13 @@ OLD_AUDIO_PREFIXES = (
     "https://github.com/clawdassistant85-netizen/openclaw-podcast-audio/raw/main/",
     "https://media.githubusercontent.com/media/"
     "clawdassistant85-netizen/openclaw-podcast-audio/main/",
+)
+MEDIA_EN_PREFIXES = (
+    PAGES_MEDIA_EN_BASE,
+    "https://raw.githubusercontent.com/clawdassistant85-netizen/openclaw-podcast-media-en/main/",
+    "https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/raw/main/",
+    "https://media.githubusercontent.com/media/"
+    "clawdassistant85-netizen/openclaw-podcast-media-en/main/",
 )
 OLD_PODCAST_PREFIXES = (
     "https://grayking-creator.github.io/openclaw-podcast/",
@@ -72,6 +81,7 @@ RAW_ONLY_RELATIVE_PATHS = {
     "audio/episode_002_full.mp3",
     "audio/episode_001_full_v2.mp3",
 }
+EN_ARCHIVE_MAX_EPISODE = 32
 
 
 def unwrap_op3(url: str) -> str:
@@ -96,6 +106,12 @@ def resolve_local_path(url: str, lang: str) -> Path | None:
         if candidate.exists():
             return candidate
 
+    stripped = strip_known_prefix(direct, MEDIA_EN_PREFIXES)
+    if stripped:
+        candidate = MEDIA_EN_REPO_DIR / unquote(stripped)
+        if candidate.exists():
+            return candidate
+
     stripped = strip_known_prefix(direct, OLD_PODCAST_PREFIXES)
     if stripped:
         candidate = PODCAST_DIR / unquote(stripped)
@@ -106,6 +122,8 @@ def resolve_local_path(url: str, lang: str) -> Path | None:
     path = unquote(parsed.path.lstrip("/"))
     basename = Path(path).name
     candidates = [
+        MEDIA_EN_REPO_DIR / path,
+        MEDIA_EN_REPO_DIR / "audio" / basename,
         AUDIO_REPO_DIR / path,
         AUDIO_REPO_DIR / "audio" / basename,
         AUDIO_REPO_DIR / "translations" / lang / basename,
@@ -123,6 +141,9 @@ def resolve_local_path(url: str, lang: str) -> Path | None:
 
 
 def preferred_relative_path(current_url: str, local_path: Path, lang: str) -> str | None:
+    if local_path.is_relative_to(MEDIA_EN_REPO_DIR):
+        return local_path.relative_to(MEDIA_EN_REPO_DIR).as_posix()
+
     if local_path.is_relative_to(AUDIO_REPO_DIR):
         rel = local_path.relative_to(AUDIO_REPO_DIR).as_posix()
         if lang == "en" and rel in {"audio/episode_013.mp3", "audio/episode_014.mp3"}:
@@ -158,38 +179,42 @@ def preferred_public_url(rel_path: str, lang: str) -> str:
                 f"{OP3_PREFIX}{TRANSLATED_AUDIO_PROXY_BASE}/audio/{lang}/"
                 f"episode_{match.group(1)}.mp3"
             )
+    if lang == "en":
+        match = re.search(r"episode_(\d{3})", rel_path)
+        if match and int(match.group(1)) <= EN_ARCHIVE_MAX_EPISODE:
+            return f"{OP3_PREFIX}{PAGES_MEDIA_EN_BASE}{rel_path}"
     if lang != "en" or rel_path in RAW_ONLY_RELATIVE_PATHS:
         return f"{OP3_PREFIX}{RAW_AUDIO_BASE}{rel_path}"
     return f"{OP3_PREFIX}{PAGES_AUDIO_BASE}{rel_path}"
 
 
-def canonical_relative_path_for_episode(lang: str, episode: int) -> str | None:
+def canonical_local_path_for_episode(lang: str, episode: int) -> Path | None:
     ep = f"{episode:03d}"
-    candidate_rels = []
 
     if lang == "en":
-        candidate_rels.extend(
-            [
-                f"audio/episode_{ep}.mp3",
-                f"episode_{ep}.mp3",
-                f"audio/episode_{ep}_full.mp3",
-                f"audio/episode_{ep}_full_v2.mp3",
-            ]
+        rels = [
+            f"audio/episode_{ep}.mp3",
+            f"episode_{ep}.mp3",
+            f"audio/episode_{ep}_full.mp3",
+            f"audio/episode_{ep}_full_v2.mp3",
+        ]
+        roots = (
+            [MEDIA_EN_REPO_DIR, AUDIO_REPO_DIR, PODCAST_DIR, ARCHIVE_AUDIO_DIR]
+            if episode <= EN_ARCHIVE_MAX_EPISODE
+            else [AUDIO_REPO_DIR, PODCAST_DIR, ARCHIVE_AUDIO_DIR, MEDIA_EN_REPO_DIR]
         )
     else:
-        candidate_rels.extend(
-            [
-                f"audio/episode_{ep}_{lang}.mp3",
-                f"translations/{lang}/episode_{ep}_{lang}.mp3",
-                f"episode_{ep}_{lang}.mp3",
-            ]
-        )
+        rels = [
+            f"audio/episode_{ep}_{lang}.mp3",
+            f"translations/{lang}/episode_{ep}_{lang}.mp3",
+            f"episode_{ep}_{lang}.mp3",
+        ]
+        roots = [AUDIO_REPO_DIR, PODCAST_DIR, ARCHIVE_AUDIO_DIR]
 
-    search_roots = [AUDIO_REPO_DIR, PODCAST_DIR, ARCHIVE_AUDIO_DIR]
-    for rel in candidate_rels:
-        for root in search_roots:
+    for rel in rels:
+        for root in roots:
             if (root / rel).exists():
-                return rel
+                return root / rel
     return None
 
 
@@ -254,21 +279,22 @@ def repair_feed(feed_key: str, dry_run: bool = False) -> int:
         local_path = None
 
         if episode_text:
-            expected_rel = canonical_relative_path_for_episode(feed_key, int(episode_text))
-            if expected_rel:
+            expected_path = canonical_local_path_for_episode(feed_key, int(episode_text))
+            if expected_path:
+                rel_path = preferred_relative_path(current_url, expected_path, feed_key)
+                local_path = expected_path
                 current_ep_match = re.search(r"episode_(\d{3})", current_url)
                 current_ep = int(current_ep_match.group(1)) if current_ep_match else None
                 current_lang_match = re.search(r"episode_\d{3}(?:_([a-z]{2}))?\.mp3", current_url)
                 current_lang = current_lang_match.group(1) if current_lang_match else None
-                if current_ep != int(episode_text) or (
-                    feed_key != "en" and current_lang not in {feed_key}
+                expected_url = preferred_public_url(rel_path, feed_key) if rel_path else None
+                if (
+                    current_ep == int(episode_text)
+                    and (feed_key == "en" or current_lang in {feed_key})
+                    and current_url == expected_url
                 ):
-                    rel_path = expected_rel
-                    local_path = (
-                        AUDIO_REPO_DIR / rel_path
-                        if (AUDIO_REPO_DIR / rel_path).exists()
-                        else PODCAST_DIR / rel_path
-                    )
+                    rel_path = None
+                    local_path = None
 
         if rel_path is None:
             local_path = resolve_local_path(current_url, feed_key)

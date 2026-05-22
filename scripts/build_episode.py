@@ -396,6 +396,22 @@ def refresh_github_pages_root():
 
 
 def cdn_payload_bytes():
+    result = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=str(CDN_DIR),
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        total = 0
+        for raw_rel in result.stdout.split(b"\0"):
+            if not raw_rel:
+                continue
+            path = CDN_DIR / raw_rel.decode()
+            if path.is_file():
+                total += path.stat().st_size
+        return total
+
     total = 0
     for path in CDN_DIR.rglob("*"):
         if path.is_file() and ".git" not in path.parts:
