@@ -1,0 +1,52 @@
+Codex `rust-v0.136.0` lidera EP062 como o release estável da CLI para 1º de junho, seguido pelas diretrizes virais de agentes de IA da Stanford, OpenAI no AWS Bedrock, e um projeto de eficiência de GPU apoiado pelo YC. O radar de projetos cobre SO de agentes para hardware, arquivos de contexto de terminal, e agendadores de agentes físicos.
+
+[00:00] Abertura: releases de CLI, diretrizes institucionais e distribuição em nuvem
+A faixa útil para EP062 é uma combinação de ferramentas CLI, validação institucional e infraestrutura do mundo real. Codex `rust-v0.136.0` é o release estável que impulsionou melhorias em diagnósticos TUI, ciclo de vida do app-server, escopo de hooks e SDK. O documento de diretrizes de agentes de IA do CS336 da Stanford é a história inesperada — um curso acadêmico que publicou convenções de agentes de IA e alcançou 1.863 estrelas em menos de 24 horas, o que nos diz que formalizar como agentes devem funcionar não é mais uma preocupação educacional de nicho. A OpenAI colocando modelos frontier e Codex no AWS Bedrock completa o padrão dual-lab do Bedrock que stacks de agentes enterprise estão começando a depender. Expanse do YC P26 resolve um problema específico e caro: prever quanta GPU um job realmente precisa e superando modelos frontier em 8x nessa tarefa ao treinar com telemetria real de clusters.
+
+[03:00] Análise aprofundada do release do Codex rust-v0.136.0
+Codex `rust-v0.136.0` é o release estável de 1º de junho, e é uma onda de diagnósticos e confiabilidade. A mudança mais operativamente útil está na saída do `codex doctor` — mensagens de erro agora carregam melhor informação de localização e causa, o que importa para agentes locais onde uma falha pode vir do ambiente shell, do transporte remoto, do estado do app-server, do repositório Git, ou do próprio modelo. Quando algo quebra, a diferença entre "algo falhou" e "o check de inventário de threads expirou porque o transporte remoto não se recuperou de uma oscilação de rede" é a diferença entre depuração e adivinhação.
+
+O tratamento do ciclo de vida do app-server está mais rígido. O servidor inicia e para de forma mais limpa, a seleção de modelo no startup é mais confiável entre configurações de provedores, e conexões de transporte remoto se recuperam mais rápido após um problema temporário de rede. Esse último ponto merece atenção porque trabalho remoto com Codex — supervisionar um host Windows de um iPhone, por exemplo — só é prático se o transporte pode se recuperar de uma oscilação de WiFi sem exigir um reinício completo. O release aborda isso.
+
+A configuração de hooks ganha hooks nomeados e escopos de permissão. Anteriormente, um operador que queria o mesmo comportamento de hook em vários projetos precisava copiar o bloco de configuração do hook em cada arquivo de projeto. Hooks nomeados permitem definir o comportamento uma vez e referenciá-lo por nome em configurações. Escopos de permissão fazem o mesmo para o endpoint `/permissions` — em vez de um conjunto plano de permissões, operadores podem definir escopos que representam diferentes níveis de confiança ou diferentes contextos de projeto.
+
+O Python SDK e o Node SDK ambos recebem melhorias em gerenciamento de threads, tratamento de turnos e propagação de erros. A instalação não-interativa via `CODEX_NON_INTERACTIVE=1` funciona de forma mais confiável, o que importa para equipes que querem implementar o Codex através de uma ferramenta de gerenciamento de configuração em vez de um script de instalação interativo.
+
+A recomendação de upgrade é direta: teste a saída do `codex doctor` contra uma configuração de falha conhecida, defina um hook nomeado para um padrão que você usa em projetos, e verifique que a instalação não-interativa funciona no seu pipeline de CI antes de depender dela para deploy automatizado.
+
+[11:00] Diretrizes de agentes de IA do Stanford CS336: quando validação institucional se torna viral
+O curso CS336 da Stanford — "Language Modeling from Scratch" — publicou um documento formal de diretrizes de agentes de IA que a comunidade do GitHub tratou como um recurso de engenharia viral. O documento cobre como estudantes devem decompor tarefas, usar ferramentas, gerenciar contexto, verificar saídas e raciocinar sobre qualidade de agentes em um ambiente acadêmico. Ele alcançou 1.863 estrelas em menos de 24 horas, que é um sinal incomumente forte para um artefato de tarefa de curso.
+
+A história aqui não é sobre o documento ser perfeito ou abrangente. É sobre o fato de que a comunidade o viu e tratou como uma referência, não apenas uma amostra de curso. Isso nos diz algo sobre onde a indústria está: equipes estão escrevendo arquivos AGENTS.md, arquivos CLAUDE.md e convenções similares, mas estão fazendo isso do zero e sem um ponto de referência claro. O documento da Stanford lhes dá um, mesmo que venha de um contexto acadêmico.
+
+O movimento prático é lê-lo, extrair as convenções que se aplicam à sua equipe e usá-las como ponto de partida para o seu próprio AGENTS.md. O formato é adaptável — os princípios se aplicam além do contexto do curso — e o fato de ser licenciado em MIT significa que pode ser usado livremente como base.
+
+[18:00] OpenAI no AWS Bedrock: o padrão dual-lab está completo
+A OpenAI disponibilizou GPT-4.5, os modelos da série o e Codex através do AWS Bedrock. O Claude da Anthropic já está no Bedrock há um tempo. Isso significa que stacks de agentes enterprise agora podem provisionar modelos de ambos os principais laboratórios através da mesma credencial AWS, mesmo VPC, mesmos controles IAM e mesmo logging do CloudWatch.
+
+A implicação prática para operadores do OpenClaw, Hermes e Codex é direta: roteamento de modelos multi-lab se torna uma escolha de configuração em vez de um projeto de integração customizada. Uma equipe que quer usar Claude para tarefas de planejamento e OpenAI para geração de código pode fazer isso dentro da mesma conta AWS, com a mesma rotação de credenciais, os mesmos limites de conformidade.
+
+O padrão de distribuição em nuvem vale notar: ambos os laboratórios escolheram a AWS primeiro. Isso diz algo sobre onde o gasto com IA enterprise está concentrado e qual provedor de nuvem tem mais confiança das equipes que compram capacidades de IA em escala.
+
+[25:00] Expanse: 8x melhor previsão de GPU treinando com telemetria de cluster
+Expanse do YC P26 resolve um problema que operadores de HPC conhecem bem mas equipes de software gerais frequentemente ignoram: jobs de GPU solicitam mais recursos do que realmente precisam porque quem submete não tem uma boa forma de prever o uso real. O resultado é compute desperdiçado — a equipe do Expanse mediu 59% de desperdício de compute em clusters HPC nacionais, aproximadamente $8,5 milhões por mês em um único cluster.
+
+O Expanse funciona instalando um daemon leve em nós SLURM e Kubernetes, ingerindo telemetria de hardware através de DCGM e CUPTI, e prevendo as necessidades de VRAM, utilização e memória de cada job antes de sua execução. O modelo é específico por cluster — ele faz fine-tuning no histórico real de submissões daquele cluster específico, então melhora com o tempo conforme acumula mais dados.
+
+O resultado do benchmark é impressionante: Expanse supera GPT-4.5, Claude Opus 4.8, Gemini 3.5 Pro e Codex 5.3 em 8x na precisão de previsão de recursos de GPU. O detalhe interessante para ouvintes de stack de agentes é que o tamanho do modelo não prevê precisão aqui. Claude Haiku supera Opus em algumas cargas de trabalho porque o fine-tuning em telemetria de cluster importa mais que capacidade geral de raciocínio.
+
+Para equipes executando cargas de trabalho de GPU — treinamento, fine-tuning, inference, processamento em lote — o ROI é concreto. A integração é não-invasiva: instale o daemon em um nó, execute previsões contra uso real de recursos por duas semanas, e compare.
+
+[33:00] Radar de projetos: SO de agentes, contexto de terminal e agendamento físico
+O radar de projetos cobre três camadas diferentes do stack de agentes.
+
+Anima é um SO de Agentes open-source para inteligência de hardware. A maioria das discussões sobre agentes assume VMs em nuvem, mas agentes que rodam em dispositivos IoT, robótica e hardware de borda precisam de uma camada de SO diferente — uma que possa raciocinar sobre dados de sensores, estado físico e restrições de tempo real ao lado de chamadas de ferramentas digitais. Anima está no início com 116 estrelas, lançado em 2 de junho, mas a forma do problema é real.
+
+ctx é um gerenciador de contexto de terminal que gera arquivos `.ctx.md`. O padrão é simples: um arquivo no repo que o agente lê como contexto de sistema no início de cada sessão, carregando adiante convenções, estado de tarefas e notas do projeto. Isso é menos poderoso que um sistema completo de memória de grafo de conhecimento, mas também menos complexo de configurar e manter. Para equipes que querem continuidade de contexto sem se comprometer com uma arquitetura de memória completa, `.ctx.md` é um ponto de entrada pragmático.
+
+agentgrid é uma camada de agendamento aberta para máquinas físicas operadas por IA, ferramentas e desktops. Ela fica abaixo do runtime do agente e decide quando e como as ações físicas são despachadas. Para agentes que precisam coordenar o tempo de hardware físico — não apenas chamar ferramentas digitais — uma camada de agendamento que entende restrições físicas é mais apropriada do que um loop de ação puramente dirigido por LLM.
+
+[41:00] Fila prática
+Para o Codex, execute `codex doctor` e compare a saída, defina um hook nomeado para um padrão entre projetos e verifique a instalação não interativa no CI. Para as diretrizes de Stanford, leia o documento, extraia o que se aplica à sua equipe e atualize seu AGENTS.md. Para roteamento de modelo na AWS, teste os endpoints do Bedrock para Anthropic e OpenAI antes de se comprometer com um lab como único provedor. Para o Expanse, instale em um nó de cluster se você executar cargas de trabalho GPU em escala. Para o radar de projetos, experimente o Anima em um dispositivo edge, adicione um `.ctx.md` a um repositório e avalie o agentgrid quando a tarefa envolver tempo de hardware físico.
+
+O tema ao longo do EP062 é a infraestrutura se tornando visível: diagnósticos tornam falhas explicáveis, diretrizes tornam expectativas legíveis, distribuição em nuvem torna roteamento de modelo uma escolha de configuração, e ML específica de cluster torna o desperdício de computação mensurável e corrigível. A stack de agentes está crescendo nos aspectos que importam para operadores.
