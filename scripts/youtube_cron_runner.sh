@@ -67,8 +67,8 @@ else
     LONG_EXIT_CODE=$?
 fi
 
-TELEGRAM_TOKEN=$(grep TELEGRAM_BOT_TOKEN ~/.openclaw/.env 2>/dev/null | cut -d= -f2 | tr -d '"')
-TELEGRAM_CHAT="8319992332"
+DISCORD_TOKEN=$(grep DISCORD_BOT_TOKEN ~/.openclaw/.env 2>/dev/null | cut -d= -f2 | tr -d '"')
+DISCORD_BUILD_LOG="1485243812442804327"
 
 if [ "$NEXT_EP" != "NONE" ] && [ -n "$NEXT_EP" ]; then
     if [ $LONG_EXIT_CODE -eq 0 ]; then
@@ -78,11 +78,13 @@ if [ "$NEXT_EP" != "NONE" ] && [ -n "$NEXT_EP" ]; then
         echo "[$(date)] ✅ EP${NEXT_EP} upload complete" >> "$LOG"
     else
         echo "[$(date)] ❌ EP${NEXT_EP} upload FAILED (exit $LONG_EXIT_CODE)" >> "$LOG"
-        # Alert Toby via Telegram
-        FAIL_MSG="❌ YouTube EP${NEXT_EP} upload failed. Check /tmp/youtube_upload_cron.log"
-        if [ -n "$TELEGRAM_TOKEN" ]; then
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-                -d "chat_id=${TELEGRAM_CHAT}&text=${FAIL_MSG}" > /dev/null 2>&1
+        # Alert via Discord #build-log
+        FAIL_MSG="❌ YouTube EP${NEXT_EP} upload failed (exit ${LONG_EXIT_CODE}). Check /tmp/youtube_upload_cron.log on $(hostname -s)."
+        if [ -n "$DISCORD_TOKEN" ]; then
+            curl -s -X POST "https://discord.com/api/v10/channels/${DISCORD_BUILD_LOG}/messages" \
+                -H "Authorization: Bot ${DISCORD_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "{\"content\":\"${FAIL_MSG}\"}" > /dev/null 2>&1
         fi
         # Do NOT mark as done — retry on next cron run
         echo "[$(date)] Will retry EP${NEXT_EP} on next run" >> "$LOG"

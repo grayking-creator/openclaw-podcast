@@ -1,23 +1,15 @@
 #!/usr/bin/env python3
-"""
-YouTube Shorts pipeline helper for AgentStack Daily.
+"""AgentStack Daily Shorts staging and cron helper.
 
-Current behavior (safe by default):
-- Generates/stages the best 2 EN shorts candidates from the latest uploaded episode transcript.
-- Creates a cross-channel queue (EN + ES/DE/PT/HI) with 2 shorts/day schedule slots.
-- Enforces an EN review gate before any auto-upload rollout.
-- Does NOT upload anything yet.
-
-Usage:
-  python3 youtube_shorts_pipeline.py --mode cron
-  python3 youtube_shorts_pipeline.py --show-review
-  python3 youtube_shorts_pipeline.py --approve-en short-en-001
+Stages short candidates for each new episode, tracks the EN review gate,
+and reports failures to #build-log on Discord.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timedelta
@@ -33,6 +25,7 @@ ET = "-04:00"
 SHORT_SLOTS = ["10:00:00", "18:00:00"]
 TARGET_SHORTS = 2
 WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
+BUILD_LOG_CHANNEL_ID = "1485243812442804327"
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
@@ -41,6 +34,7 @@ STAGING_ROOT = PODCAST_DIR / "content_staging" / "shorts"
 STATE_PATH = SCRIPTS_DIR / "youtube_shorts_state.json"
 UPLOADED_PATH = SCRIPTS_DIR / "youtube_uploaded.txt"
 AUDIO_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio/audio"
+MEDIA_EN_AUDIO_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-media-en/audio"
 
 CHANNELS = ["en", "es", "de", "pt", "hi"]
 STOPWORDS = {
@@ -88,6 +82,38 @@ def load_state() -> Dict:
     }
 
 
+def _load_env_key(name: str) -> str:
+    env_file = os.path.expanduser("~/.openclaw/.env")
+    if os.path.exists(env_file):
+        for line in open(env_file):
+            if name in line and "=" in line:
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return os.environ.get(name, "")
+
+
+def discord_build_log(msg: str) -> None:
+    """Post a one-liner to #build-log on Discord. Fire-and-forget — never raises."""
+    try:
+        import urllib.request
+        token = _load_env_key("DISCORD_BOT_TOKEN")
+        if not token:
+            return
+        payload = json.dumps({"content": msg}).encode()
+        req = urllib.request.Request(
+            f"https://discord.com/api/v10/channels/{BUILD_LOG_CHANNEL_ID}/messages",
+            data=payload,
+            headers={
+                "Authorization": f"Bot {token}",
+                "Content-Type": "application/json",
+                "User-Agent": "DiscordBot (https://github.com/openclaw/openclaw, 1.0)",
+            },
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=8)
+    except Exception:
+        pass
+
+
 def save_state(state: Dict) -> None:
     STATE_PATH.write_text(json.dumps(state, indent=2) + "\n")
 
@@ -123,10 +149,12 @@ def transcript_path(ep: int) -> Path:
 
 def episode_audio_path(ep: int) -> Path | None:
     candidates = [
+        MEDIA_EN_AUDIO_DIR / f"episode_{ep:03d}.mp3",
         AUDIO_DIR / f"episode_{ep:03d}.mp3",
         AUDIO_DIR / f"episode_{ep:03d}_full.mp3",
         AUDIO_DIR / f"episode_{ep:03d}_full_v2.mp3",
         AUDIO_DIR / f"episode_{ep:03d}_v2.mp3",
+        PODCAST_DIR / "audio" / f"episode_{ep:03d}.mp3",
         AUDIO_DIR / "latest.mp3",
     ]
     for candidate in candidates:
@@ -526,14 +554,25 @@ def main() -> int:
     state = load_state()
 
     if args.mode == "cron":
-        print(ensure_prepared_latest_episode(state))
-        gate = state.get("review_gate", {})
-        print(
-            f"Review gate: approved {len(gate.get('approved_en_short_ids', []))}/"
-            f"{gate.get('required_en_approvals', 2)}, "
-            f"auto_upload_enabled={gate.get('auto_upload_enabled', False)}"
-        )
-        print("Auto-upload for shorts is not executed by this script yet.")
+        try:
+            result = ensure_prepared_latest_episode(state)
+            print(result)
+            gate = state.get("review_gate", {})
+            gate_summary = (
+                f"Review gate: approved {len(gate.get('approved_en_short_ids', []))}/"
+                f"{gate.get('required_en_approvals', 2)}, "
+                f"auto_upload_enabled={gate.get('auto_upload_enabled', False)}"
+            )
+            print(gate_summary)
+            if result.startswith("Could not create") or result.startswith("Transcript missing"):
+                discord_build_log(f"⚠️ [AgentStack Shorts] Staging incomplete: {result}")
+            elif "already prepared" not in result and "skipping" not in result:
+                discord_build_log(f"✅ [AgentStack Shorts] {result}")
+        except Exception as exc:
+            msg = f"❌ [AgentStack Shorts] cron failed: {exc}"
+            print(msg)
+            discord_build_log(msg)
+            return 1
         return 0
 
     if args.episode_range:

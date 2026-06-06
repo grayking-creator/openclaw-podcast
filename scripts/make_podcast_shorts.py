@@ -19,8 +19,8 @@ import soundfile as sf
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from moviepy import CompositeVideoClip, ImageClip, VideoFileClip
 
-import mlx_whisper
 from validate_shorts_media import validate_media_file
+import mlx_whisper
 
 STOPWORDS = {
     'a','an','and','are','as','at','be','but','by','for','from','had','has','have','he','her','here','hers','him','his','how','i','if','in','into','is','it','its','just','me','my','of','on','or','our','out','she','so','that','the','their','them','there','they','this','to','up','was','we','were','what','when','where','who','why','with','you','your',
