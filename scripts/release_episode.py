@@ -19,22 +19,33 @@ import json
 import math
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import migrate_media_releases as media_releases
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
-CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio"
+AUDIO_CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio"
+MEDIA_EN_CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-media-en"
+CDN_DIR = AUDIO_CDN_DIR
 WEBSITE_DIR = Path.home() / ".openclaw/workspace/websiteBuilder"
 WEBSITE_PODCAST_IMG = WEBSITE_DIR / "frontend/public/images/podcast"
 WORKSPACE_DIR = Path.home() / ".openclaw/workspace"
+WEBSITE_DEPLOY_HOST = os.environ.get("OPENCLAW_WEBSITE_DEPLOY_HOST", "gx10-594d")
+WEBSITE_DEPLOY_TIMEOUT_SECONDS = int(os.environ.get("OPENCLAW_WEBSITE_DEPLOY_TIMEOUT_SECONDS", "180"))
+WEBSITE_DEPLOY_SCRIPT = os.environ.get(
+    "OPENCLAW_WEBSITE_DEPLOY_SCRIPT",
+    "/home/toby/.openclaw/workspace/scripts/publish_podcast_website_update.py",
+)
 
 LANGS = ["es", "de", "pt", "hi"]
 LANG_NAMES = {
@@ -56,7 +67,65 @@ LANG_LINKS = {
     "pt": "https://tobyonfitnesstech.com/pt/podcasts/episode-{ep}/",
     "hi": "https://tobyonfitnesstech.com/hi/podcasts/episode-{ep}/",
 }
-CDN_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio"
+AUDIO_CDN_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio"
+MEDIA_EN_CDN_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-media-en"
+PODCAST_FEED_URL = "https://grayking-creator.github.io/openclaw-podcast/feed.xml"
+CDN_BASE = AUDIO_CDN_BASE
+MEDIA_EN_START_EPISODE = 57
+EN_RELEASE_ASSET_START_EPISODE = 65
+
+
+def en_media_target(ep_num):
+    """Return the EN media repo that hosts this episode's approved assets."""
+    if ep_num >= MEDIA_EN_START_EPISODE:
+        return {"dir": MEDIA_EN_CDN_DIR, "base": MEDIA_EN_CDN_BASE}
+    return {"dir": AUDIO_CDN_DIR, "base": AUDIO_CDN_BASE}
+
+
+def is_en_release_asset_episode(ep_num):
+    return ep_num >= EN_RELEASE_ASSET_START_EPISODE
+
+
+def en_release_repo():
+    return media_releases.LANG_REPOS["en"]
+
+
+def en_release_tag(ep_num):
+    return f"ep{ep_num:03d}"
+
+
+def en_release_audio_name(ep_num):
+    return f"episode_{ep_num:03d}.mp3"
+
+
+def en_release_cover_name(ep_num):
+    return f"episode_{ep_num:03d}_cover.png"
+
+
+def en_release_show_notes_name(ep_num):
+    return f"show_notes_episode_{ep_num:03d}.md"
+
+
+def en_release_transcript_name(ep_num):
+    return f"episode_{ep_num:03d}_transcript.md"
+
+
+def en_release_asset_url(ep_num, asset_name):
+    return media_releases.release_asset_url(en_release_repo(), en_release_tag(ep_num), asset_name)
+
+
+def en_audio_url(ep_num):
+    ep_str = f"{ep_num:03d}"
+    if is_en_release_asset_episode(ep_num):
+        return en_release_asset_url(ep_num, en_release_audio_name(ep_num))
+    return f"{en_media_target(ep_num)['base']}/audio/episode_{ep_str}.mp3"
+
+
+def en_cover_url(ep_num):
+    ep_str = f"{ep_num:03d}"
+    if is_en_release_asset_episode(ep_num):
+        return en_release_asset_url(ep_num, en_release_cover_name(ep_num))
+    return f"{en_media_target(ep_num)['base']}/episode_{ep_str}_cover.png"
 
 SERIAL_PHASES = [
     "setup",
@@ -135,11 +204,35 @@ def build_log(msg, ep_num=None):
     except Exception:
         pass  # never block the pipeline over a log post
 
-def run(cmd, cwd=None, check=True, env=None):
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
+def run(cmd, cwd=None, check=True, env=None, timeout=None):
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"Command timed out after {timeout}s: {' '.join(str(c) for c in cmd)}"
+        ) from exc
     if check and result.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(str(c) for c in cmd)}\n{result.stderr}")
     return result
+
+def sync_repo_before_publish(repo_dir):
+    """Fast-forward/rebase from upstream before the release lane stages files."""
+    upstream = run(
+        ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+        cwd=str(repo_dir),
+        check=False,
+    )
+    if upstream.returncode != 0:
+        return
+    run(["git", "pull", "--rebase", "--autostash"], cwd=str(repo_dir))
 
 def ffprobe_duration_str(path):
     """Returns HH:MM:SS or MM:SS string."""
@@ -154,10 +247,33 @@ def ffprobe_duration_str(path):
 
 def load_env_key(name):
     env_file = Path.home() / ".openclaw/.env"
-    for line in env_file.read_text().splitlines():
-        if line.startswith(f"{name}="):
-            return line.split("=", 1)[1].strip()
-    return os.environ.get(name, "")
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            if line.startswith(f"{name}="):
+                return line.split("=", 1)[1].strip()
+    env_value = os.environ.get(name, "")
+    if env_value:
+        return env_value
+
+    provider_by_env = {
+        "MINIMAX_API_KEY": "minimax",
+        "GEMINI_API_KEY": "google",
+        "GOOGLE_API_KEY": "google",
+        "NVIDIA_API_KEY": "nvidia",
+        "MISTRAL_API_KEY": "mistral",
+    }
+    provider = provider_by_env.get(name)
+    config_file = Path.home() / ".openclaw/openclaw.json"
+    if provider and config_file.exists():
+        try:
+            data = json.loads(config_file.read_text())
+            providers = data.get("providers") or data.get("models", {}).get("providers") or {}
+            value = (providers.get(provider) or {}).get("apiKey") or ""
+            if value and not value.endswith("_API_KEY"):
+                return value
+        except Exception:
+            return ""
+    return ""
 
 def normalize_phase_name(name):
     phase = (name or "").strip().lower()
@@ -204,20 +320,18 @@ def push_current_branch_if_ahead(repo_dir):
     log(f"  ✅ Podcast repo pushed ({ahead_count} local commit(s) ahead)")
     return True
 
-def ensure_website_cover(ep_num, lang=None):
+def podcast_cover_path(ep_num, lang=None):
     ep_str = f"{ep_num:03d}"
     if lang:
-        src = PODCAST_DIR / "images" / f"episode_{ep_str}_cover_{lang}.png"
-        dst = WEBSITE_PODCAST_IMG / f"episode_{ep_str}_cover_{lang}.png"
-    else:
-        src = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
-        dst = WEBSITE_PODCAST_IMG / f"episode_{ep_str}_cover.png"
-    if src.exists():
-        WEBSITE_PODCAST_IMG.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(str(src), str(dst))
-    return dst
+        return PODCAST_DIR / "images" / f"episode_{ep_str}_cover_{lang}.png"
+    return PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
+
+def ensure_website_cover(ep_num, lang=None):
+    """Compatibility helper: return the podcast cover that DGX will publish to the website."""
+    return podcast_cover_path(ep_num, lang)
 
 def git_commit_if_needed(repo_dir, message, env=None, extra_paths=None, allow_empty=False):
+    sync_repo_before_publish(repo_dir)
     git_add_paths(repo_dir, list(extra_paths or []))
     diff = run(["git", "diff", "--cached", "--quiet"], cwd=str(repo_dir), check=False)
     if diff.returncode == 0 and not allow_empty:
@@ -244,15 +358,26 @@ def extract_episode_title(notes, ep_num):
             line = collapse_ws(raw_line).strip("*_` ")
             if line:
                 return line
+    inline = re.search(r"^\*\*Title:\*\*\s*(.+?)\s*$", notes, re.MULTILINE)
+    if inline:
+        return collapse_ws(inline.group(1))
     return f"Episode {ep_num}"
 
 def extract_tagline(notes):
-    return collapse_ws(extract_section(notes, "Tagline"))
+    tagline = collapse_ws(extract_section(notes, "Tagline"))
+    if tagline:
+        return tagline
+    inline = re.search(r"^\*\*Tagline:\*\*\s*(.+?)\s*$", notes, re.MULTILINE)
+    return collapse_ws(inline.group(1)) if inline else ""
 
 def extract_feed_description(notes):
     feed_desc = collapse_ws(extract_section(notes, "Feed Description"))
     if feed_desc:
         return feed_desc
+
+    inline = re.search(r"^\*\*Feed description:\*\*\s*(.+?)\s*$", notes, re.MULTILINE | re.IGNORECASE)
+    if inline:
+        return collapse_ws(inline.group(1))
 
     tagline = extract_tagline(notes)
     if tagline:
@@ -294,12 +419,26 @@ def derive_cover_lines_from_title(title):
 
 def normalize_translated_metadata(meta, ep_num, prefix, fallback_title, fallback_tagline):
     normalized = dict(meta or {})
-    title = collapse_ws(normalized.get("title", "")) or f"{prefix} {ep_num}: {fallback_title}"
-    normalized["title"] = title
-    normalized["description"] = collapse_ws(normalized.get("description", "")) or fallback_tagline or fallback_title
 
-    line1 = collapse_ws(normalized.get("cover_line1", "")).upper()
-    line2 = collapse_ws(normalized.get("cover_line2", "")).upper()
+    def clean_or_empty(value):
+        text = collapse_ws(value)
+        low = text.lower()
+        if not text:
+            return ""
+        if "<" in text or ">" in text:
+            return ""
+        if "translated episode title" in low or "translated 2-3 sentence description" in low:
+            return ""
+        if "translated line" in low or "translated short tagline" in low:
+            return ""
+        return text
+
+    title = clean_or_empty(normalized.get("title", "")) or f"{prefix} {ep_num}: {fallback_title}"
+    normalized["title"] = title
+    normalized["description"] = clean_or_empty(normalized.get("description", "")) or fallback_tagline or fallback_title
+
+    line1 = clean_or_empty(normalized.get("cover_line1", "")).upper()
+    line2 = clean_or_empty(normalized.get("cover_line2", "")).upper()
     generic_line1 = line1 in {"OPENCLAW", "AGENTSTACK DAILY", "ओपनक्लॉ"}
     if not line1 or generic_line1 or not line2:
         derived_line1, derived_line2 = derive_cover_lines_from_title(title)
@@ -310,7 +449,7 @@ def normalize_translated_metadata(meta, ep_num, prefix, fallback_title, fallback
     normalized["cover_line1"] = line1
     normalized["cover_line2"] = line2
 
-    tagline = collapse_ws(normalized.get("cover_tagline", ""))
+    tagline = clean_or_empty(normalized.get("cover_tagline", ""))
     normalized["cover_tagline"] = tagline or strip_title_prefix(title)
     return normalized
 
@@ -973,6 +1112,14 @@ def get_en_release_metadata(ep_num, state):
     ep_str = f"{ep_num:03d}"
     notes = (PODCAST_DIR / f"show_notes_episode_{ep_str}.md").read_text()
     en_episode_title = extract_episode_title(notes, ep_num)
+    if en_episode_title.strip() == f"Episode {ep_num}":
+        raise RuntimeError(
+            f"EP{ep_num}: episode title did not resolve from show notes — extract_episode_title "
+            f"fell back to the bare 'Episode {ep_num}' placeholder. Refusing to emit a feed entry "
+            f"with a placeholder title (this produced the 'Episode {ep_num}: Episode {ep_num}' feed "
+            f"bug). Ensure show_notes_episode_{ep_str}.md has an '## Episode Title' section or a "
+            f"'**Title:**' line before publishing."
+        )
     en_title = f"Episode {ep_num}: {en_episode_title}"
     en_desc = extract_feed_description(notes) or en_episode_title
     duration = state.get("audio_duration", "33:00")
@@ -1120,23 +1267,91 @@ def upload_translated_release_assets(ep_num, lang):
         },
     )
 
-def deploy_website(ep_num, message, extra_paths):
-    log("  Building website...")
 
-    pushed = git_commit_if_needed(
-        WEBSITE_DIR,
-        message,
-        extra_paths=extra_paths,
+def upload_en_release_assets(ep_num, include_review_docs=True):
+    ep_str = f"{ep_num:03d}"
+    audio_path = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
+    cover_path = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
+    show_notes_path = PODCAST_DIR / f"show_notes_episode_{ep_str}.md"
+    transcript_path = PODCAST_DIR / "episodes" / f"episode_{ep_str}_transcript.md"
+
+    if not audio_path.exists():
+        raise FileNotFoundError(f"Missing EN audio: {audio_path}")
+    if not cover_path.exists():
+        raise FileNotFoundError(f"Missing EN cover: {cover_path}")
+
+    assets = {
+        en_release_audio_name(ep_num): audio_path,
+        en_release_cover_name(ep_num): cover_path,
+    }
+    if include_review_docs:
+        if show_notes_path.exists():
+            assets[en_release_show_notes_name(ep_num)] = show_notes_path
+        if transcript_path.exists():
+            assets[en_release_transcript_name(ep_num)] = transcript_path
+
+    repo = en_release_repo()
+    media_releases.ensure_repo_initialized(repo)
+    media_releases.ensure_release_with_assets(
+        repo,
+        en_release_tag(ep_num),
+        f"EP{ep_str}",
+        assets,
     )
-    if pushed:
-        log("  ✅ Website pushed")
-    else:
-        git_commit_if_needed(
-            WEBSITE_DIR,
-            f"EP{ep_num}: trigger website deploy",
-            allow_empty=True,
+
+
+def deploy_website(ep_num, message, extra_paths):
+    log(f"  Delegating website deploy to {WEBSITE_DEPLOY_HOST}...")
+
+    cover_names = []
+    cover_paths = []
+    for path in extra_paths:
+        name = Path(path).name
+        src = PODCAST_DIR / "images" / name
+        if not src.exists():
+            raise FileNotFoundError(f"Missing podcast cover for website deploy: {src}")
+        cover_names.append(name)
+        cover_paths.append(src)
+    if not cover_paths:
+        raise RuntimeError("No website cover assets provided for delegated deploy")
+
+    remote_staging = f"/tmp/openclaw_podcast_website_update_ep{ep_num:03d}_{os.getpid()}_{uuid.uuid4().hex[:8]}"
+    ssh_base = [
+        "ssh",
+        "-o", "BatchMode=yes",
+        "-o", "ConnectTimeout=15",
+        "-o", "ServerAliveInterval=10",
+        "-o", "ServerAliveCountMax=2",
+        WEBSITE_DEPLOY_HOST,
+    ]
+    try:
+        run(ssh_base + ["mkdir", "-p", remote_staging], timeout=WEBSITE_DEPLOY_TIMEOUT_SECONDS)
+        run(
+            ["rsync", "-az"] + [str(path) for path in cover_paths] + [f"{WEBSITE_DEPLOY_HOST}:{remote_staging}/"],
+            timeout=WEBSITE_DEPLOY_TIMEOUT_SECONDS,
         )
-        log("  ✅ Website deploy triggered (empty commit)")
+        remote_cmd = [
+            "python3",
+            WEBSITE_DEPLOY_SCRIPT,
+            "--episode",
+            str(ep_num),
+            "--message",
+            message,
+            "--empty-message",
+            f"EP{ep_num}: trigger website deploy",
+            "--staging-dir",
+            remote_staging,
+        ] + [arg for name in cover_names for arg in ("--cover", name)]
+        result = run(ssh_base + [shlex.join(remote_cmd)], timeout=WEBSITE_DEPLOY_TIMEOUT_SECONDS)
+        if result.stdout.strip():
+            for line in result.stdout.strip().splitlines():
+                log(f"  {line}")
+        log("  ✅ Website deploy handled by DGX")
+    except Exception as exc:
+        build_log(f"❌ [WEBSITE] blocking deploy failure: {exc}", ep_num)
+        raise
+    finally:
+        run(ssh_base + ["rm", "-rf", remote_staging], check=False, timeout=30)
 
 # ── Phase implementations ─────────────────────────────────────────────────────
 
@@ -1308,7 +1523,7 @@ def phase_covers(ep_num, state, langs=None):
 
     # Also copy EN cover to CDN
     en_cover_src = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
-    en_cover_cdn = CDN_DIR / f"episode_{ep_str}_cover.png"
+    en_cover_cdn = en_media_target(ep_num)["dir"] / f"episode_{ep_str}_cover.png"
     if cover_stale_against_art(en_cover_src, art_mod_path):
         log(f"  ♻️  EN cover is older than {art_mod_path.name} — re-rendering")
         generate_en_cover(ep_num)
@@ -1360,13 +1575,59 @@ def phase_feeds(ep_num, state, pub_date):
     state = phase_translated_feeds(ep_num, state, pub_date)
     return state
 
+
+def ensure_en_feed_item_media(feed_path, ep_num, audio_url, cover_url, duration, length):
+    """Keep an existing EN feed item pointed at the current media host."""
+    text = feed_path.read_text(encoding="utf-8")
+    episode_pat = re.escape(f"<itunes:episode>{ep_num}</itunes:episode>")
+    item_re = re.compile(r"(?P<item><item>.*?" + episode_pat + r".*?</item>)", re.DOTALL)
+    match = item_re.search(text)
+    if not match:
+        return False
+
+    item = match.group("item")
+    direct_enclosure = f"https://op3.dev/e/{audio_url}"
+    updated = re.sub(
+        r'<enclosure url="[^"]*" length="[^"]*" type="audio/mpeg"\s*/>',
+        f'<enclosure url="{direct_enclosure}" length="{length}" type="audio/mpeg"/>',
+        item,
+        count=1,
+    )
+    updated = re.sub(
+        r"<itunes:duration>[^<]*</itunes:duration>",
+        f"<itunes:duration>{duration}</itunes:duration>",
+        updated,
+        count=1,
+    )
+    updated = re.sub(
+        r'<itunes:image href="[^"]*"\s*/>',
+        f'<itunes:image href="{cover_url}"/>',
+        updated,
+        count=1,
+    )
+    if updated == item:
+        return False
+
+    new_text = text[: match.start("item")] + updated + text[match.end("item") :]
+    feed_path.write_text(new_text, encoding="utf-8")
+    ET.parse(feed_path)
+    return True
+
+
 def phase_en_feed(ep_num, state, pub_date):
     log("[ FEEDS / EN ] Adding EN feed entry...")
     ep_str = f"{ep_num:03d}"
     meta = get_en_release_metadata(ep_num, state)
     add_feed_script = str(SCRIPTS_DIR / "add_feed_entry.py")
-    review_audio = CDN_DIR / "audio" / f"episode_{ep_str}.mp3"
-    review_cover = CDN_DIR / f"episode_{ep_str}_cover.png"
+    if is_en_release_asset_episode(ep_num):
+        upload_en_release_assets(ep_num)
+        review_audio = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
+        review_cover = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
+        log(f"  ✅ EN media release assets uploaded: {en_release_tag(ep_num)}")
+    else:
+        en_target = en_media_target(ep_num)
+        review_audio = en_target["dir"] / "audio" / f"episode_{ep_str}.mp3"
+        review_cover = en_target["dir"] / f"episode_{ep_str}_cover.png"
     if not review_audio.exists() or not review_cover.exists():
         raise FileNotFoundError(
             "Missing pre-approval CDN review assets. "
@@ -1374,8 +1635,8 @@ def phase_en_feed(ep_num, state, pub_date):
         )
 
     # EN feed
-    en_audio_url = f"{CDN_BASE}/audio/episode_{ep_str}.mp3"
-    en_cover_url = f"{CDN_BASE}/episode_{ep_str}_cover.png"
+    en_audio_url_value = en_audio_url(ep_num)
+    en_cover_url_value = en_cover_url(ep_num)
     en_link = f"https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/"
 
     en_feed = PODCAST_DIR / "feed.xml"
@@ -1390,13 +1651,22 @@ def phase_en_feed(ep_num, state, pub_date):
             "--title", meta["title"],
             "--description", meta["description"],
             "--pub-date", pub_date,
-            "--audio-url", en_audio_url,
-            "--cover-url", en_cover_url,
+            "--audio-url", en_audio_url_value,
+            "--cover-url", en_cover_url_value,
             "--duration", meta["duration"],
             "--link", en_link,
             "--length", str(meta["size"]),
         ])
         log(f"  ✅ EN feed updated")
+    elif ensure_en_feed_item_media(
+        en_feed,
+        ep_num,
+        en_audio_url_value,
+        en_cover_url_value,
+        meta["duration"],
+        str(meta["size"]),
+    ):
+        log(f"  ✅ EN feed media URLs repaired")
     else:
         log(f"  ⏭  EN feed already has EP{ep_num}")
 
@@ -1429,8 +1699,15 @@ def phase_translated_feeds(ep_num, state, pub_date, langs=None):
         if not meta:
             log(f"  ℹ️  No cached metadata for {lang.upper()} — fetching...", indent=1)
             meta = translate_metadata(ep_num, lang)
-            translations.setdefault(lang, {})["meta"] = meta
-            state["translations"] = translations
+        meta = normalize_translated_metadata(
+            meta,
+            ep_num,
+            prefix,
+            en_meta["episode_title"],
+            en_meta["description"],
+        )
+        translations.setdefault(lang, {})["meta"] = meta
+        state["translations"] = translations
         lang_title = meta.get("title", f"{prefix} {ep_num}: {en_meta['episode_title']}")
         lang_desc_base = meta.get("description", en_meta["description"])
         lang_link = LANG_LINKS[lang].format(ep=ep_num)
@@ -1796,8 +2073,8 @@ def main():
     ep_str = f"{ep_num:03d}"
     log(f"\n{'='*60}")
     log(f"✅ EP{ep_num:03d} release complete!")
-    log(f"  Feed: https://clawdassistant85-netizen.github.io/openclaw-podcast/feed.xml")
-    log(f"  Audio: {CDN_BASE}/audio/episode_{ep_str}.mp3")
+    log(f"  Feed: {PODCAST_FEED_URL}")
+    log(f"  Audio: {en_audio_url(ep_num)}")
     log(f"  Website: https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/")
     build_log(
         f"🎙️ Release complete! "
