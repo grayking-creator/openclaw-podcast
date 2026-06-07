@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """AgentStack Daily Shorts staging and cron helper.
 
-Stages short candidates for each new episode, tracks the EN review gate,
-and reports failures to #build-log on Discord.
+Stages short candidates for each new episode and reports failures to #build-log
+on Discord. Daily shorts are active; staging metadata is for audit/review, not a
+manual upload gate.
 """
 
 from __future__ import annotations
@@ -71,15 +72,24 @@ class ShortCandidate:
 
 def load_state() -> Dict:
     if STATE_PATH.exists():
-        return json.loads(STATE_PATH.read_text())
-    return {
+        return normalize_state(json.loads(STATE_PATH.read_text()))
+    return normalize_state({
         "review_gate": {
-            "required_en_approvals": 2,
+            "required_en_approvals": 0,
             "approved_en_short_ids": [],
-            "auto_upload_enabled": False,
+            "auto_upload_enabled": True,
         },
         "prepared_episodes": [],
-    }
+    })
+
+
+def normalize_state(state: Dict) -> Dict:
+    gate = state.setdefault("review_gate", {})
+    gate["required_en_approvals"] = 0
+    gate["auto_upload_enabled"] = True
+    gate.setdefault("approved_en_short_ids", [])
+    state.setdefault("prepared_episodes", [])
+    return state
 
 
 def _load_env_key(name: str) -> str:
@@ -405,8 +415,8 @@ def write_episode_artifacts(ep: int, candidates: List[ShortCandidate]) -> Path:
             "source_story": c.source_story,
             "score": c.score,
             "retry_after_days": 2,
-            "status": "staged_review_required" if i < 2 else "staged",
-            "requires_manual_review": i < 2,
+            "status": "staged",
+            "requires_manual_review": False,
             "scheduled_publish_at": scheduled_times[i],
             "language": "en",
         })
@@ -429,11 +439,11 @@ def write_episode_artifacts(ep: int, candidates: List[ShortCandidate]) -> Path:
 
     review_md = ep_dir / "REVIEW.md"
     review_md.write_text(
-        "# Shorts Review (EN gate)\n\n"
+        "# Shorts Review (Auto Rollout)\n\n"
         f"Episode: {ep}\n\n"
-        "Manual review required before auto-upload rollout.\n"
+        "Daily shorts are active; this file records the selected clips for audit/review.\n"
         "Selection rubric: 35-55s duration, hard first-two-second hook, dense payoff, no hashtags in titles.\n"
-        "The two EN shorts below are the episode package and review gate:\n\n"
+        "The two EN shorts below are the episode package queued for rollout:\n\n"
         + "\n".join(
             [
                 f"- **{c.short_id}**\n"
@@ -446,11 +456,7 @@ def write_episode_artifacts(ep: int, candidates: List[ShortCandidate]) -> Path:
                 for c in candidates[:2]
             ]
         )
-        + "\n\nApprove with:\n"
-        "```bash\n"
-        "python3 scripts/youtube_shorts_pipeline.py --approve-en short-en-001\n"
-        "python3 scripts/youtube_shorts_pipeline.py --approve-en short-en-002\n"
-        "```\n",
+        + "\n",
     )
 
     return ep_dir
@@ -559,9 +565,8 @@ def main() -> int:
             print(result)
             gate = state.get("review_gate", {})
             gate_summary = (
-                f"Review gate: approved {len(gate.get('approved_en_short_ids', []))}/"
-                f"{gate.get('required_en_approvals', 2)}, "
-                f"auto_upload_enabled={gate.get('auto_upload_enabled', False)}"
+                "Auto-upload: active "
+                f"(manual approval required={gate.get('required_en_approvals', 0)})"
             )
             print(gate_summary)
             if result.startswith("Could not create") or result.startswith("Transcript missing"):
