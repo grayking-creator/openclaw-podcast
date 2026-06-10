@@ -44,6 +44,7 @@ import uuid
 
 import build_youtube_episode_videos as video_build
 import release_episode as rel
+import release_approval_gate as approval_gate
 
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -87,6 +88,7 @@ STEP_EN_VIDEO = "lane_en_video"
 STEP_TRANSLATED_VIDEOS = "translated_videos"
 STEP_YOUTUBE = "youtube"
 STEP_DISCORD = "discord"
+STEP_SHORTS = "shorts"
 
 STEP_ORDER = [
     STEP_SETUP,
@@ -97,6 +99,7 @@ STEP_ORDER = [
     STEP_TRANSLATED_VIDEOS,
     STEP_YOUTUBE,
     STEP_DISCORD,
+    STEP_SHORTS,
 ]
 
 VALID_YOUTUBE_VIDEO_MODES = {"static", "flux"}
@@ -291,7 +294,7 @@ def merge_release_state(base: dict[str, Any], incoming: dict[str, Any]) -> dict[
 def run_streaming(cmd: list[str], cwd: Path | None = None) -> None:
     rendered = " ".join(str(part) for part in cmd)
     log(f"$ {rendered}")
-    subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True)
+    subprocess.run(cmd, cwd=str(cwd) if cwd else None, stdin=subprocess.DEVNULL, check=True)
 
 
 def paragraph_count(path: Path) -> int:
@@ -797,6 +800,32 @@ def run_step(ep_num: int, state: dict[str, Any], step: str, label: str, fn, *arg
     return state
 
 
+def run_shorts(ep_num: int, state: dict[str, Any]) -> dict[str, Any]:
+    log("[ SHORTS ] Staging shorts candidates and metadata...")
+    post_build_log(ep_num, "⏳ [SHORTS] Staging shorts candidates and metadata...")
+
+    stage_script = SCRIPTS_DIR / "youtube_shorts_pipeline.py"
+    if not stage_script.exists():
+        raise FileNotFoundError(f"Missing youtube_shorts_pipeline.py script: {stage_script}")
+
+    cmd_stage = [sys.executable, str(stage_script), "--mode", "cron"]
+    run_streaming(cmd_stage, cwd=PODCAST_DIR)
+
+    log("[ SHORTS ] Starting distributed shorts build...")
+    post_build_log(ep_num, "⏳ [SHORTS] Starting distributed shorts build...")
+
+    dist_script = SCRIPTS_DIR / "distribute_shorts_build.sh"
+    if not dist_script.exists():
+        raise FileNotFoundError(f"Missing distribute_shorts_build.sh script: {dist_script}")
+
+    cmd = ["/bin/bash", str(dist_script), str(ep_num)]
+    run_streaming(cmd, cwd=PODCAST_DIR)
+
+    log("[ SHORTS ] Distributed shorts build complete")
+    post_build_log(ep_num, "✅ [SHORTS] Distributed shorts build complete")
+    return state
+
+
 def run_local_cleanup(ep_num: int, state: dict[str, Any]) -> None:
     cleanup_script = SCRIPTS_DIR / "cleanup_local_artifacts.py"
     if not cleanup_script.exists():
@@ -845,6 +874,15 @@ def parse_args() -> argparse.Namespace:
         help="Clear only this orchestrator's progress markers and keep existing release state",
     )
     parser.add_argument(
+        "--audio-approved-by-toby",
+        action="store_true",
+        help="Record Toby's explicit approval of the current EN review audio before releasing; requires --approval-message-id",
+    )
+    parser.add_argument(
+        "--approval-message-id",
+        help="Discord message id for Toby's approving reply in the episode review channel",
+    )
+    parser.add_argument(
         "--from-step",
         choices=STEP_ORDER,
         help="Rewind this orchestrator from the chosen step onward before running",
@@ -869,6 +907,19 @@ def main() -> int:
     through_idx = STEP_ORDER.index(args.through_step) if args.through_step else None
 
     state = rel.load_state(ep_num)
+    audio_path = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
+    if args.audio_approved_by_toby and not args.approval_message_id:
+        raise SystemExit("--audio-approved-by-toby requires --approval-message-id from Toby's review-channel reply")
+    if args.approval_message_id:
+        approval_gate.mark_audio_approved_from_discord(
+            state,
+            audio_path=audio_path,
+            ep_num=ep_num,
+            approval_message_id=args.approval_message_id,
+            token=rel.load_env_key("DISCORD_BOT_TOKEN"),
+        )
+        rel.save_state(ep_num, state)
+    approval_gate.assert_audio_approved(state, audio_path=audio_path, ep_num=ep_num)
     video_mode = str(
         args.youtube_video_mode
         or state.get("youtube_video_mode")
@@ -1029,15 +1080,24 @@ def main() -> int:
             state = run_step(ep_num, state, STEP_DISCORD, "DISCORD", rel.phase_discord)
         else:
             log("[ DISCORD ] Already complete, skipping")
+        if should_stop_after(STEP_DISCORD):
+            mark_run_status(ep_num, state, "paused", STEP_DISCORD)
+            post_build_log(ep_num, f"⏸ Approved release paused after {STEP_DISCORD}")
+            return 0
+
+        if STEP_SHORTS not in completed_steps(state):
+            state = run_step(ep_num, state, STEP_SHORTS, "SHORTS", run_shorts)
+        else:
+            log("[ SHORTS ] Already complete, skipping")
 
         run_local_cleanup(ep_num, state)
 
         log(f"\n{'=' * 68}")
         log(f"✅ EP{ep_str} approved release complete")
         log(f"  Website: https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/")
-        log(f"  Feed: https://clawdassistant85-netizen.github.io/openclaw-podcast/feed.xml")
+        log(f"  Feed: {rel.PODCAST_FEED_URL}")
         log(f"{'=' * 68}")
-        mark_run_status(ep_num, state, "complete", STEP_DISCORD, {"completed_at": utc_now()})
+        mark_run_status(ep_num, state, "complete", STEP_SHORTS, {"completed_at": utc_now()})
         post_build_log(ep_num, f"🎙️ Approved release complete — <https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/>")
         return 0
 

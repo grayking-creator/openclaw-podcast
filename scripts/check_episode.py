@@ -84,6 +84,28 @@ def theme_glue_hits(text):
             hits.append(match.group(0))
     return hits
 
+
+def timestamped_segments(content):
+    matches = list(re.finditer(r"^##\s+\[(\d{2}:\d{2}(?:[–-]\d{2}:\d{2})?)\]\s*(.+)$", content, re.MULTILINE))
+    segments = []
+    for i, match in enumerate(matches):
+        start = match.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+        segments.append((match.group(1), match.group(2).strip(), content[start:end].strip()))
+    return segments
+
+def shorten_release_tag(tag):
+    """Spoken short form of a release tag: 'v2026.5.28' -> '5.28', 'v2026.5.29.2' -> '5.29.2'.
+    Toby wants shortened versions read aloud, never the full year-prefixed tag."""
+    m = re.match(r'v?20\d{2}\.(\d+)\.(\d+)(?:\.(\d+))?$', tag)
+    if m:
+        short = f"{m.group(1)}.{m.group(2)}"
+        if m.group(3):
+            short += f".{m.group(3)}"
+        return short
+    return tag
+
+
 def run_checks(path):
     with open(path, 'r') as f:
         content = f.read()
@@ -92,6 +114,9 @@ def run_checks(path):
     first_500_words = ' '.join(content.split()[:500])
     last_500_words = ' '.join(content.split()[-500:])
     word_count = len(content.split())
+    ep_match = re.search(r"episode_(\d{3})_transcript", str(path))
+    ep_num = int(ep_match.group(1)) if ep_match else 0
+    segments = timestamped_segments(content)
 
     print(f"\n📋 Episode QC: {path}")
     print(f"   Word count: {word_count:,}")
@@ -129,11 +154,23 @@ def run_checks(path):
         r"\bbefore audio\b",
         r"\bbefore .*publish\b",
         r"\breview before release\b",
-        r"\bshow notes\b",
+        # NOTE: "show notes" is intentionally NOT banned — the outro CTA
+        # ("look at the show notes at Toby On Fitness Tech dot com") is allowed
+        # and is required by the outro check below. What is not allowed is
+        # reading the show-notes text or source links/URLs aloud, which is
+        # caught by the spoken-URL guard.
         r"\brelease plan\b",
         r"\bactual artifact\b",
         r"\bstory in the slate\b",
         r"\bstory slate\b",
+        # Narrating the episode's own editorial construction exposes how it's
+        # built. Never reference "homework", or "this/today's episode" as a format.
+        r"\bhomework\b",
+        r"\bno homework\b",
+        r"\bthis episode\b",
+        r"\btoday'?s episode\b",
+        r"\bin this (?:episode|block|segment)\b",
+        r"\bthe (?:model|news|tooling) story (?:in|of) this\b",
         r"\btranscript include\b",
         r"\btranscript includes\b",
         r"\bwhat changed operationally\b",
@@ -197,11 +234,35 @@ def run_checks(path):
     check("No generic operator-playbook slog", len(operator_slog_hits) == 0,
           hint=f"Remove generic workflow/checklist/playbook phrasing and rewrite toward concrete news/product changes: {operator_slog_hits[:8]}")
 
+    homework_hits = re.findall(
+        r"\b(?:recommended test|operator test|upgrade test|test here is|test is|actionability drill|checklist|run this test|run these tests|try this drill|do it in this order|do this,? then do that|run [^.\n]{0,30}checks?|run [^.\n]{0,30}tests?|confirm [^.\n]{0,40}and [^.\n]{0,40}confirm|verify [^.\n]{0,40}and [^.\n]{0,40}verify)\b",
+        content,
+        re.IGNORECASE,
+    )
+    check("Episode does not feel like homework",
+          len(homework_hits) <= 2,
+          hint=f"Too many test/checklist/drill phrases ({len(homework_hits)}). Replace repeated assignments with capabilities, observed reactions, real-world experiences, and implications: {homework_hits[:8]}")
+
+    if ep_num >= 61:
+        # The episode ALWAYS starts with the agent-harness updates, but that
+        # front must stay concise/informational — not a long procedural/test
+        # block. Cap the first two timestamped segments so the harness coverage
+        # doesn't sprawl before the model/news stories.
+        first_two_segment_text = "\n\n".join(seg[2] for seg in segments[:2])
+        first_two_words = len(first_two_segment_text.split())
+        check("Agent-harness front stays concise (not a long procedural block)",
+              first_two_words <= 2800,
+              hint=f"The first two timestamped segments are {first_two_words} words. Keep the harness updates concise and informational — cut release procedure/tests, do not move the model story ahead of the harness updates.")
+
     # Boring implementation-minutiae guard: the show should teach builder workflows,
     # not linger on generic document/file movement or invisible plumbing.
     boring_terms = len(re.findall(r"\b(document|documents|file|files|folder|folders|copy|copies|moving|move|moved|storage|record|records)\b", content, re.IGNORECASE))
-    workflow_terms = len(re.findall(r"\b(workflow|build|builder|use case|use cases|recipe|pattern|when to use|how to use|wire|ship|deploy|agent task|operator)\b", content, re.IGNORECASE))
-    check("Builder-workflow focus beats file/document minutiae", workflow_terms >= max(35, boring_terms // 2),
+    workflow_terms = len(re.findall(
+        r"\b(workflow|build|builder|use case|use cases|recipe|pattern|when to use|how to use|how you use|you use|using it|use it|set up|configure|in practice|what it provides|what you get|wire|ship|deploy|agent task|operator)\b",
+        content, re.IGNORECASE))
+    # Recalibrated for the tighter 5,000-7,500 word format and broadened to
+    # recognize practical "how you use it" phrasing, not just literal "workflow".
+    check("Builder-workflow focus beats file/document minutiae", workflow_terms >= max(10, boring_terms // 3),
           hint=f"Workflow terms: {workflow_terms}; boring file/document/plumbing terms: {boring_terms}. Rewrite toward what to build and how to use the tools.")
 
     release_tags = extract_release_tags_for_episode(path)
@@ -283,10 +344,11 @@ def run_checks(path):
             first_320_words,
             re.IGNORECASE,
         )
-        mention_count = sum(first_500_words.count(tag) for tag in release_tags)
-        check("Release episode names the covered versions immediately",
-              all(tag in first_320_words for tag in release_tags),
-              hint=f"Expected the covered release tags early in the episode: {release_tags}")
+        short_tags = [shorten_release_tag(tag) for tag in release_tags]
+        mention_count = sum(first_500_words.count(short) for short in short_tags)
+        check("Release episode names the covered versions immediately (shortened form)",
+              all(short in first_320_words for short in short_tags),
+              hint=f"Name the shortened release version early (e.g. {short_tags}); do not read the full year-prefixed tag aloud.")
         check("Release episode gets to concrete release changes quickly",
               len(change_verbs) >= 2 and len(set(x.lower() for x in technical_surface_hits)) >= 2,
               hint="Within the first ~320 words, move beyond abstract framing and name concrete release changes.")
@@ -310,13 +372,14 @@ def run_checks(path):
           hint=f"Found {len(unique_endings)} distinct closing phrases in the outro window — may indicate repeated outro sections")
 
     # ── Content checks ────────────────────────────────────────────────────────
-    # AgentStack Daily target: 35-60 minutes. At ~159 wpm,
-    # 35 min needs ~5,565 words; 5,800 gives a safe floor. 60 min is ~9,540 words.
-    check("Minimum length (5,800 words for 35+ min)", word_count >= 5800,
-          hint=f"Got {word_count:,} words — minimum is 5,800 for the new 35-60 minute format (TTS runs ~159 wpm)")
+    # AgentStack Daily target: tight, dense, no homework filler. Toby prefers a
+    # shorter episode that gets to the point over a padded one, so the floor is
+    # ~5,000 words (~31 min at ~159 wpm). 60 min is ~9,540 words.
+    check("Minimum length (5,000 words)", word_count >= 5000,
+          hint=f"Got {word_count:,} words — minimum is 5,000. Add informational substance (capabilities, real-world reactions), never homework/test filler.")
 
-    check("Target length band (6,000-9,600 words for ~38-60 min)", 6000 <= word_count <= 9600, severity="WARNING",
-          hint=f"Got {word_count:,} words — new target band is 6,000-9,600 words for roughly 38-60 minutes")
+    check("Target length band (5,000-7,500 words for ~31-47 min)", 5000 <= word_count <= 7500, severity="WARNING",
+          hint=f"Got {word_count:,} words — target band is 5,000-7,500 words (tight, dense, no filler)")
 
     # Local paths / IPs must never appear in a public transcript
     local_path_matches = re.findall(r'/Users/[^\s\]\"\']+|/home/[^\s\]\"\']+', content)
@@ -326,18 +389,120 @@ def run_checks(path):
     check("No local IP addresses or localhost ports in transcript", len(local_ip_matches) == 0,
           hint=f"Found local addresses: {local_ip_matches[:3]}")
 
+    # Reading source links / URLs aloud is brutal to listen to. The CTA may
+    # point listeners to the show notes at the site, but raw URLs and spoken
+    # link strings must not appear in the spoken transcript — the only allowed
+    # site reference is the "Toby On Fitness Tech dot com" CTA.
+    spoken_url_matches = re.findall(
+        r'https?://\S+|www\.\S+|\b[a-z0-9-]+\.(?:com|io|ai|dev|org|net|app)/\S+',
+        content,
+        re.IGNORECASE,
+    )
+    spoken_url_matches = [u for u in spoken_url_matches if "toby on fitness tech" not in u.lower()]
+    check("No source links / URLs read aloud in transcript", len(spoken_url_matches) == 0,
+          hint=f"Do not read links/URLs aloud — describe what's at the source instead. Found: {spoken_url_matches[:4]}")
+
+    # ── TTS-hostile content ban (locked 2026-06-05, EP064) ───────────────────
+    # The TTS engine reads the following literally as garbled character output,
+    # not as natural speech. Banned anywhere in the spoken transcript body.
+    tts_hostile_patterns = {
+        'inline backticks': (r'`[^\s`][^`]*[^\s`]?`', 3),
+        'escaped dollar signs (\\$)': (r'\\\$', 0),
+        'literal shell variable ($X)': (r'\$[A-Z_][A-Z0-9_]*', 0),
+        'literal shell flag (--x)': (r'--[a-z][a-z0-9-]+', 0),
+        'slash command (/plugin, /tmp)': (r'/(?:plugin|tmp|usr|opt|home|var|etc)/?\w*', 0),
+        'dotted identifier in code form (x.y.z)': (r'\b[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*\b', 0),
+    }
+    tts_hostile_hits = {}
+    for label, (pat, allow) in tts_hostile_patterns.items():
+        matches = re.findall(pat, content)
+        # Filter out code-fence blocks (which the TTS does not read) and standard
+        # multi-language identifiers that are common spoken English ("Node.js").
+        # TTS only consumes speaker turns; here we operate on full content so we
+        # allow 3 backticks (math/code references) but block individual spans.
+        if label == 'inline backticks':
+            # Multi-backtick code fences are not spoken; collapse to 0.
+            fences = len(re.findall(r'^```', content, re.MULTILINE))
+            matches = [m for m in matches if not m.startswith('```')]
+            # Allow a tiny number of harmless backticks (e.g. literal in the
+            # closing CTA's plain text); zero is the target.
+        if label == 'dotted identifier in code form (x.y.z)':
+            # Common spoken forms like "Node.js", "Bash", "Sonia" are not
+            # banned by this rule.
+            matches = [m for m in matches if m.lower() not in {'node.js', 'github.com'}]
+        if len(matches) > allow:
+            tts_hostile_hits[label] = matches[:6]
+    check("No TTS-hostile content (backticks, escaped $, shell flags, slash commands, dotted identifiers)",
+          len(tts_hostile_hits) == 0,
+          hint=(
+              "TTS reads these literally as garbled character-by-character output. "
+              "Strip backticks, expand escaped $ / literal $VAR to spoken English, "
+              "and remove code-style dotted identifiers. "
+              f"Found: {tts_hostile_hits}"
+          ))
+
+    # ── Spoken-English naturalness ban (locked 2026-06-05, EP064 round 2) ───────
+    # Catches the ungrammatical substitutions that mechanical regex passes leave
+    # behind when stripping TTS-hostile artifacts. Phrases like "deep the temp
+    # directory" or "restoring correct the temp directory behavior" read OK on
+    # a screen but sound like complete gibberish when spoken aloud. Always
+    # hand-edit the surrounding sentence so substitutions make grammatical
+    # sense in context — regex substitution is a starting point, not a final pass.
+    naturalness_patterns = {
+        'doubled article (the the X)': (r'\b[Tt]he the [a-zA-Z]', 0),
+        'doubled noun (X X)': (r'\b(temp directory temp directory|filter filters|command command|directory directory|plugin plugin)\b', 0),
+        'regex-artifact: deep the temp': (r'\bdeep the temp directory', 0),
+        'regex-artifact: correct the temp': (r'\bcorrect the temp directory', 0),
+        'regex-artifact: a Claude temp': (r'\ba Claude temp directory\b', 0),
+        'regex-artifact: on the resume flag': (r'\bon the resume flag\b', 0),
+        'regex-artifact: hook specific output': (r'\bhook specific output\b', 0),
+    }
+    naturalness_hits = {}
+    for label, (pat, allow) in naturalness_patterns.items():
+        matches = re.findall(pat, content, re.IGNORECASE)
+        if len(matches) > allow:
+            naturalness_hits[label] = matches[:6]
+    check("No regex-substitution artifacts (natural spoken English)",
+          len(naturalness_hits) == 0,
+          hint=(
+              "Phrases like 'deep the temp directory' or 'restoring correct the temp "
+              "directory behavior' sound like gibberish to listeners even though the "
+              "words are real. Hand-edit the surrounding sentence so substitutions "
+              "make grammatical sense in context. Read each edited paragraph aloud "
+              "before posting review audio. "
+              f"Found: {naturalness_hits}"
+          ))
+
     # ── Duplicate detection ───────────────────────────────────────────────────
     paragraphs = [p.strip() for p in content.split('\n\n') if len(p.strip()) > 100]
     seen = {}
     dupes = []
     for i, p in enumerate(paragraphs):
-        key = p[:80].lower()
+        key = re.sub(r'\s+', ' ', p).lower()[:120]
         if key in seen:
             dupes.append(f"paragraph ~{i+1} duplicates ~{seen[key]+1}")
         else:
             seen[key] = i
-    check("No duplicate paragraphs detected", len(dupes) == 0, severity="WARNING",
+    check("No duplicate paragraphs detected", len(dupes) == 0,
           hint='\n     '.join(dupes[:5]) if dupes else "")
+
+    repeated_runs = []
+    normalized_paragraphs = [
+        re.sub(r'\s+', ' ', re.sub(r'^\[(NOVA|ALLOY)\]:\s*', '', p, flags=re.IGNORECASE)).strip().lower()
+        for p in paragraphs
+    ]
+    for window in range(3, 9):
+        seen_runs = {}
+        for i in range(0, max(0, len(normalized_paragraphs) - window + 1)):
+            key = '\n'.join(normalized_paragraphs[i:i + window])
+            if key in seen_runs:
+                repeated_runs.append(f"{window}-paragraph run ~{i+1} repeats ~{seen_runs[key]+1}")
+                break
+            seen_runs[key] = i
+        if repeated_runs:
+            break
+    check("No repeated multi-paragraph tail loops", len(repeated_runs) == 0,
+          hint='\n     '.join(repeated_runs[:5]) if repeated_runs else "")
 
     # ── Format checks ─────────────────────────────────────────────────────────
     has_pause_tags = '[PAUSE]' in content
@@ -404,9 +569,9 @@ def run_checks(path):
     allowed_site_cta_pattern = r'\bToby On Fitness Tech\s+(?:dot\s+com|\.com)\b'
     has_notes_cta = bool(re.search(r'(notes and links|show notes|episode notes|source links)', last_500_words, re.IGNORECASE))
     has_allowed_site_cta = bool(re.search(allowed_site_cta_pattern, last_500_words, re.IGNORECASE))
-    check("Outro has notes CTA; site name is allowed only in the CTA",
-          has_notes_cta or has_allowed_site_cta,
-          hint="Outro should point listeners to episode/show notes. The only allowed owner-name phrase is the exact site CTA at the end.")
+    check("Outro points to notes/source links at the allowed site CTA",
+          ep_num <= 60 or (has_notes_cta and has_allowed_site_cta),
+          hint="Outro must point listeners to show notes/source links/episode notes at the exact CTA: Toby On Fitness Tech dot com.")
 
     has_correct_closing = bool(re.search(r"we'll be back soon", last_500_words, re.IGNORECASE))
     has_wrong_closing = bool(re.search(r"we'll be back next week", last_500_words, re.IGNORECASE))
@@ -464,7 +629,24 @@ def run_checks(path):
           len(prior_episode_meta_hits) == 0,
           hint=f"Remove release-history/show-process housekeeping from speakable content: {[collapse if isinstance(collapse, str) else ' '.join(collapse) for collapse in prior_episode_meta_hits[:5]]}")
 
-    full_patch_versions = re.findall(r"\b\d+\.\d+\.\d+\b", content)
+    ep_match = re.search(r"episode_(\d{3})_transcript", str(path))
+    ep_num = int(ep_match.group(1)) if ep_match else 0
+
+    # Toby wants shortened versions spoken (e.g. "5.28", ".159") and NO full
+    # forms — neither "2.1.159" nor the year-prefixed calver "2026.5.28". Flag
+    # any three-part dotted version except the legitimate shortened release tags.
+    allowed_short_tags = {shorten_release_tag(t) for t in (release_tags or [])}
+    full_patch_versions = [
+        version for version in re.findall(r"\b\d+\.\d+\.\d+\b", content)
+        if version not in allowed_short_tags
+    ]
+    if ep_num >= 58:
+        check("No full version numbers in spoken transcript (use shortened forms)",
+              len(full_patch_versions) == 0,
+              hint=(
+                  "Use a shortened version aloud (e.g. '5.28', '.159', 'two point one'), never full dot "
+                  f"notation or year-prefixed tags: {sorted(set(full_patch_versions))[:8]}"
+              ))
     repeated_full_patch_versions = sorted(
         version for version in set(full_patch_versions)
         if full_patch_versions.count(version) > 1
@@ -478,6 +660,15 @@ def run_checks(path):
 
     version_tag_mentions = re.findall(r"\bv\d{4}\.\d+\.\d+\b", content)
     unique_version_tags = sorted(set(version_tag_mentions))
+    # Prerelease / beta / alpha / rc tags are banned in spoken transcript (EP066 incident 2026-06-08).
+    # Say "the prerelease", "the June beta", or "the upcoming release" — never "v2026.6.5-beta.2".
+    prerelease_tag_mentions = re.findall(r"v\d{4}\.\d+\.\d+-(?:alpha|beta|rc|dev|pre)\.\d+|v\d{4}\.\d+-(?:alpha|beta|rc|dev|pre)(?:\.\d+)?", content, re.IGNORECASE)
+    prerelease_tag_mentions = sorted(set(prerelease_tag_mentions))
+    check("No prerelease / beta tag mentions in spoken transcript",
+          len(prerelease_tag_mentions) == 0,
+          hint=f"Prerelease versions belong in internal Release Coverage Check only. "
+               f"Replace with 'the prerelease', 'the June beta', or 'the upcoming release' in spoken copy. "
+               f"Found: {prerelease_tag_mentions[:8]}")
     if release_tags:
         off_slate_version_tags = [tag for tag in unique_version_tags if tag not in release_tags]
         check("Release episode does not mention off-slate old version tags",
@@ -563,6 +754,51 @@ def run_checks(path):
               False,
               severity="WARNING",
               hint=f"Run render_nova.py to create {nova_path.name} before generating audio")
+
+    # ── Rule A — CLI release coverage = released stable tags only ────────────
+    # Block the dist-tag framing from the spoken transcript
+    forbidden_dist_tag_phrases = [
+        r"\bnpm latest\b",
+        r"\breceived via update\b",
+        r"\blatest versus received\b",
+        r"\blatest vs\.? received\b",
+        r"\blatest or received\b",
+        r"\bthe latest (?:stable )?(?:npm )?(?:tag|channel|dist-tag|build)\b",
+        r"\bAnthropic.{0,8}stable channel\b",
+    ]
+    for pat in forbidden_dist_tag_phrases:
+        check(
+            f"No dist-tag framing in transcript ({pat!r})",
+            not re.search(pat, content, re.IGNORECASE),
+            severity="ERROR",
+            hint="CLI release coverage = released stable tags only. Drop 'npm latest', 'received via update', 'latest vs. received', or any dist-tag framing. Talk about the released stable tag itself, not which channel it appeared on.",
+        )
+
+    # ── Rule B — Claude Code / Codex CLI must be framed as terminal-based AI coding agents ─
+    # First mention per episode must include the "terminal-based" + "AI coding agent" framing
+    def _has_terminal_based_ai_coding_agent_intro(text, product_pattern):
+        """Return True if every mention of product_pattern is preceded (within ~200 chars)
+        by a phrase containing both 'terminal-based' and 'AI coding agent' OR if the product
+        is never mentioned at all (vacuous truth)."""
+        for m in re.finditer(product_pattern, text, re.IGNORECASE):
+            window = text[max(0, m.start() - 200):m.start()]
+            if not (re.search(r"terminal[- ]based", window, re.IGNORECASE) and
+                    re.search(r"AI coding agent", window, re.IGNORECASE)):
+                return False
+        return True
+
+    check(
+        "Claude Code is framed as a terminal-based AI coding agent",
+        _has_terminal_based_ai_coding_agent_intro(content, r"\bClaude Code\b"),
+        severity="ERROR",
+        hint="The first time 'Claude Code' is named in the spoken transcript, it must be introduced as a 'terminal-based AI coding agent'. Re-introduce the product with the full framing phrase if you have already used the bare name.",
+    )
+    check(
+        "Codex CLI is framed as a terminal-based coding agent",
+        _has_terminal_based_ai_coding_agent_intro(content, r"\bCodex CLI\b"),
+        severity="ERROR",
+        hint="The first time 'Codex CLI' is named in the spoken transcript, it must be introduced as a 'terminal-based coding agent' (terminal-based + AI/coding agent). Re-introduce the product with the full framing phrase if you have already used the bare name.",
+    )
 
     # ── Summary ───────────────────────────────────────────────────────────────
     print("Results:")

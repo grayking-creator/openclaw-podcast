@@ -32,6 +32,14 @@ OUTLINE_LINE_RE = re.compile(
 )
 
 
+def run_ffmpeg(cmd):
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "no ffmpeg output").strip()
+        raise RuntimeError(f"ffmpeg failed ({result.returncode}): {detail}")
+    return result
+
+
 def is_canonical_episode_script(script_path: Path) -> bool:
     return script_path.parent.name == "episodes" and EPISODE_TRANSCRIPT_RE.fullmatch(script_path.name) is not None
 
@@ -260,11 +268,11 @@ async def generate_podcast_audio(script_path: str, output_name: str = None):
         for i, (speaker, seg_file) in enumerate(segment_files):
             wav_file = temp_path / f"seg_{i:03d}.wav"
             # Convert webm to wav (edge-tts outputs webm with opus)
-            subprocess.run([
+            run_ffmpeg([
                 'ffmpeg', '-y', '-i', str(seg_file),
                 '-acodec', 'pcm_s16le', '-ar', '22050', '-ac', '1',
                 str(wav_file)
-            ], capture_output=True)
+            ])
             wav_files.append(str(wav_file))
             # Add to concat file
             with open(concat_file, 'a') as f:
@@ -272,18 +280,20 @@ async def generate_podcast_audio(script_path: str, output_name: str = None):
         
         # Concatenate all wav files
         combined_wav = temp_path / "combined.wav"
-        subprocess.run([
+        run_ffmpeg([
             'ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', str(concat_file),
             '-c', 'copy', str(combined_wav)
-        ], capture_output=True)
+        ])
         
         # Convert to mp3
         output_mp3 = AUDIO_DIR / f"{output_name}.mp3"
-        subprocess.run([
+        run_ffmpeg([
             'ffmpeg', '-y', '-i', str(combined_wav),
             '-b:a', '128k', '-ar', '22050',
             str(output_mp3)
-        ], capture_output=True)
+        ])
+        if not output_mp3.exists() or output_mp3.stat().st_size < 100_000:
+            raise RuntimeError(f"ffmpeg completed but did not create a valid MP3: {output_mp3}")
         
         print(f"✅ Generated: {output_mp3}")
         
@@ -298,17 +308,19 @@ async def generate_podcast_audio(script_path: str, output_name: str = None):
                         f.write(f"file '{wf}'\n")
                 
                 combined_speaker_wav = temp_path / f"combined_{speaker}.wav"
-                subprocess.run([
+                run_ffmpeg([
                     'ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', str(speaker_concat),
                     '-c', 'copy', str(combined_speaker_wav)
-                ], capture_output=True)
+                ])
                 
                 output_speaker_mp3 = AUDIO_DIR / f"{output_name}_{speaker.lower()}.mp3"
-                subprocess.run([
+                run_ffmpeg([
                     'ffmpeg', '-y', '-i', str(combined_speaker_wav),
                     '-b:a', '128k', '-ar', '22050',
                     str(output_speaker_mp3)
-                ], capture_output=True)
+                ])
+                if not output_speaker_mp3.exists() or output_speaker_mp3.stat().st_size < 100_000:
+                    raise RuntimeError(f"ffmpeg completed but did not create a valid MP3: {output_speaker_mp3}")
                 
                 print(f"✅ Generated: {output_speaker_mp3}")
         

@@ -16,6 +16,7 @@ AUDIO_DIR = WORKSPACE / "openclaw-podcast-audio"
 
 OP3_PREFIX = "https://op3.dev/e/"
 ARCHIVE_MAX_EPISODE = 32
+MEDIA_EN_CURRENT_START_EPISODE = 57
 MEDIA_EN_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-media-en/"
 AUDIO_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/"
 ITUNES_NS = {"itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd"}
@@ -28,7 +29,7 @@ def unwrap_op3(url: str) -> str:
 def expected_for_episode(episode: int) -> tuple[str, Path]:
     ep = f"{episode:03d}"
     rel = f"audio/episode_{ep}.mp3"
-    if episode <= ARCHIVE_MAX_EPISODE:
+    if episode <= ARCHIVE_MAX_EPISODE or episode >= MEDIA_EN_CURRENT_START_EPISODE:
         return f"{MEDIA_EN_BASE}{rel}", MEDIA_EN_DIR / rel
     return f"{AUDIO_BASE}{rel}", AUDIO_DIR / rel
 

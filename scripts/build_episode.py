@@ -23,6 +23,7 @@ Usage:
 
 import argparse
 import asyncio
+import hashlib
 import json
 import re
 import shutil
@@ -33,11 +34,18 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import release_approval_gate as approval_gate
+import release_episode as rel
+
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
-CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio"
-CDN_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio"
-CDN_REPO = "clawdassistant85-netizen/openclaw-podcast-audio"
+AUDIO_CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio"
+AUDIO_CDN_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-audio"
+AUDIO_CDN_REPO = "clawdassistant85-netizen/openclaw-podcast-audio"
+MEDIA_EN_CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-media-en"
+MEDIA_EN_CDN_BASE = "https://clawdassistant85-netizen.github.io/openclaw-podcast-media-en"
+MEDIA_EN_CDN_REPO = "clawdassistant85-netizen/openclaw-podcast-media-en"
+MEDIA_EN_START_EPISODE = 57
 DISCORD_GUILD_ID = "1475905694145318944"
 BUILD_LOG_CHANNEL = "1485243812442804327"
 GITHUB_PAGES_SITE_LIMIT_BYTES = 1024 * 1024 * 1024
@@ -45,6 +53,45 @@ PAGES_BUILD_POLL_SECONDS = 30
 PAGES_BUILD_TIMEOUT_SECONDS = 1800
 URL_VERIFY_RETRY_WAIT_SECONDS = 30
 URL_VERIFY_MAX_ATTEMPTS = 10
+
+
+def en_media_target(ep_num):
+    """Return the EN media repo that should host this episode's review assets."""
+    if ep_num >= MEDIA_EN_START_EPISODE:
+        return {
+            "dir": MEDIA_EN_CDN_DIR,
+            "base": MEDIA_EN_CDN_BASE,
+            "repo": MEDIA_EN_CDN_REPO,
+            "label": "media-en",
+        }
+    return {
+        "dir": AUDIO_CDN_DIR,
+        "base": AUDIO_CDN_BASE,
+        "repo": AUDIO_CDN_REPO,
+        "label": "audio",
+    }
+
+
+def en_audio_url(ep_num):
+    return rel.en_audio_url(ep_num)
+
+
+def en_cover_url(ep_num):
+    return rel.en_cover_url(ep_num)
+
+
+def en_show_notes_url(ep_num):
+    ep_str = f"{ep_num:03d}"
+    if rel.is_en_release_asset_episode(ep_num):
+        return rel.en_release_asset_url(ep_num, rel.en_release_show_notes_name(ep_num))
+    return f"{en_media_target(ep_num)['base']}/show_notes_episode_{ep_str}.md"
+
+
+def en_transcript_url(ep_num):
+    ep_str = f"{ep_num:03d}"
+    if rel.is_en_release_asset_episode(ep_num):
+        return rel.en_release_asset_url(ep_num, rel.en_release_transcript_name(ep_num))
+    return f"{en_media_target(ep_num)['base']}/episode_{ep_str}_transcript.md"
 
 
 def log(msg):
@@ -70,6 +117,18 @@ def post_build_log(msg, token=None):
             pass
     except Exception as e:
         log(f"⚠️  build-log post failed: {e}")
+
+
+def save_review_gate(ep_num, audio_path, duration, audio_url, cover_url):
+    state = rel.load_state(ep_num)
+    approval_gate.record_review_audio(
+        state,
+        audio_path=Path(audio_path),
+        duration=duration,
+        audio_url=audio_url,
+        cover_url=cover_url,
+    )
+    rel.save_state(ep_num, state)
 
 
 def run(cmd, cwd=None):
@@ -217,14 +276,28 @@ def verify_story_slate(ep_num):
 
     transcript_text = transcript.read_text().lower()
     missing = []
+    def slate_match_words(title):
+        """Return title words worth matching against spoken transcript text.
+
+        Show notes use exact release tags in story titles, but spoken transcripts
+        must shorten or omit those tags for audio QC. Match on the meaningful
+        title words instead of forcing full version strings into the script.
+        """
+        core = re.sub(r"[—–].*", "", title).strip().lower()
+        raw_words = re.findall(r"[a-z0-9.]+", core)
+        return [
+            word
+            for word in raw_words
+            if not re.fullmatch(r"v?\d+(?:\.\d+){1,}", word)
+        ]
+
     for title in story_titles:
-        # Strip everything after an em-dash (subtitle/detail) and check 3-word phrase
-        core = re.sub(r"[—–].*", "", title).strip()
-        words = core.lower().split()
+        words = slate_match_words(title)
         if len(words) >= 3:
-            # Check that at least 3 consecutive words appear in the transcript
-            phrase = " ".join(words[:3])
-            if phrase not in transcript_text:
+            # Check that the first significant title words appear in the transcript.
+            # This catches stale/wrong transcripts without requiring the audio to
+            # read show-note titles verbatim.
+            if not all(word in transcript_text for word in words[:3]):
                 missing.append(title)
         elif words:
             if words[0] not in transcript_text:
@@ -274,6 +347,8 @@ def generate_en_audio(ep_num, force=False):
     ep_str = f"{ep_num:03d}"
     nova = PODCAST_DIR / "episodes" / f"episode_{ep_str}_transcript_nova.md"
     out_path = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
+    started_at = time.time()
+    prior_hash = hashlib.sha256(out_path.read_bytes()).hexdigest() if out_path.exists() else None
 
     log(f"\n── EN audio ────────────────────────────────────────────────────────────")
 
@@ -295,9 +370,15 @@ def generate_en_audio(ep_num, force=False):
     if not out_path.exists():
         post_build_log(f"❌ EP{ep_str} [4/6] Audio generation finished but {out_path.name} not found")
         raise SystemExit(f"❌ Audio generation completed but {out_path.name} not found")
+    if force and out_path.stat().st_mtime < started_at:
+        post_build_log(f"❌ EP{ep_str} [4/6] Audio generation did not refresh {out_path.name}")
+        raise SystemExit(f"❌ Audio generation did not refresh {out_path.name}")
+    if force and prior_hash and hashlib.sha256(out_path.read_bytes()).hexdigest() == prior_hash:
+        post_build_log(f"❌ EP{ep_str} [4/6] Audio generation left {out_path.name} unchanged")
+        raise SystemExit(f"❌ Audio generation left {out_path.name} unchanged")
 
     size_mb = out_path.stat().st_size // 1024 // 1024
-    audio_url = f"{CDN_BASE}/audio/episode_{ep_str}.mp3"
+    audio_url = en_audio_url(ep_num)
     log(f"✅ EN audio: {out_path.name} ({size_mb}MB)")
     post_build_log(f"✅ EP{ep_str} [4/6] EN audio done — {size_mb}MB\n{audio_url}")
     return out_path
@@ -340,9 +421,9 @@ def generate_en_cover(ep_num, force=False):
 
 # ── Step 6: CDN sync ─────────────────────────────────────────────────────────
 
-def render_cdn_index():
+def render_cdn_index(cdn_dir):
     episodes = []
-    for audio_path in (CDN_DIR / "audio").glob("episode_*.mp3"):
+    for audio_path in (cdn_dir / "audio").glob("episode_*.mp3"):
         match = re.fullmatch(r"episode_(\d{3})\.mp3", audio_path.name)
         if match:
             episodes.append(int(match.group(1)))
@@ -385,20 +466,20 @@ def render_cdn_index():
     return "\n".join(lines)
 
 
-def refresh_github_pages_root():
-    index_html = CDN_DIR / "index.html"
-    nojekyll = CDN_DIR / ".nojekyll"
+def refresh_github_pages_root(cdn_dir):
+    index_html = cdn_dir / "index.html"
+    nojekyll = cdn_dir / ".nojekyll"
 
-    index_html.write_text(render_cdn_index(), encoding="utf-8")
+    index_html.write_text(render_cdn_index(cdn_dir), encoding="utf-8")
 
     if not nojekyll.exists() or nojekyll.read_text() != "site enabled\n":
         nojekyll.write_text("site enabled\n", encoding="utf-8")
 
 
-def cdn_payload_bytes():
+def cdn_payload_bytes(cdn_dir):
     result = subprocess.run(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-        cwd=str(CDN_DIR),
+        cwd=str(cdn_dir),
         capture_output=True,
         check=False,
     )
@@ -407,20 +488,20 @@ def cdn_payload_bytes():
         for raw_rel in result.stdout.split(b"\0"):
             if not raw_rel:
                 continue
-            path = CDN_DIR / raw_rel.decode()
+            path = cdn_dir / raw_rel.decode()
             if path.is_file():
                 total += path.stat().st_size
         return total
 
     total = 0
-    for path in CDN_DIR.rglob("*"):
+    for path in cdn_dir.rglob("*"):
         if path.is_file() and ".git" not in path.parts:
             total += path.stat().st_size
     return total
 
 
-def enforce_pages_size_limit():
-    total = cdn_payload_bytes()
+def enforce_pages_size_limit(cdn_dir):
+    total = cdn_payload_bytes(cdn_dir)
     if total > GITHUB_PAGES_SITE_LIMIT_BYTES:
         raise SystemExit(
             "❌ GitHub Pages CDN is too large to publish reliably "
@@ -431,17 +512,28 @@ def enforce_pages_size_limit():
 
 def sync_to_cdn(ep_num):
     ep_str = f"{ep_num:03d}"
+    if rel.is_en_release_asset_episode(ep_num):
+        log(f"\n── CDN sync ────────────────────────────────────────────────────────────")
+        log(f"Target: EN release assets ({rel.en_release_repo()} / {rel.en_release_tag(ep_num)})")
+        rel.upload_en_release_assets(ep_num, include_review_docs=True)
+        log("✅ EN release assets uploaded")
+        return None
+
+    target = en_media_target(ep_num)
+    cdn_dir = target["dir"]
     audio_src = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
     cover_src = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
     show_notes_src = PODCAST_DIR / f"show_notes_episode_{ep_str}.md"
     transcript_src = PODCAST_DIR / "episodes" / f"episode_{ep_str}_transcript.md"
-    audio_dst = CDN_DIR / "audio" / f"episode_{ep_str}.mp3"
-    cover_dst = CDN_DIR / f"episode_{ep_str}_cover.png"
-    show_notes_dst = CDN_DIR / f"show_notes_episode_{ep_str}.md"
-    transcript_dst = CDN_DIR / f"episode_{ep_str}_transcript.md"
+    audio_dst = cdn_dir / "audio" / f"episode_{ep_str}.mp3"
+    cover_dst = cdn_dir / f"episode_{ep_str}_cover.png"
+    show_notes_dst = cdn_dir / f"show_notes_episode_{ep_str}.md"
+    transcript_dst = cdn_dir / f"episode_{ep_str}_transcript.md"
 
     log(f"\n── CDN sync ────────────────────────────────────────────────────────────")
+    log(f"Target: {target['label']} ({target['repo']})")
 
+    audio_dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(str(audio_src), str(audio_dst))
     log(f"✅ Audio → CDN: {audio_dst.name}")
 
@@ -454,9 +546,9 @@ def sync_to_cdn(ep_num):
     shutil.copy2(str(transcript_src), str(transcript_dst))
     log(f"✅ Transcript → CDN: {transcript_dst.name}")
 
-    refresh_github_pages_root()
+    refresh_github_pages_root(cdn_dir)
     log("✅ GitHub Pages root refreshed")
-    enforce_pages_size_limit()
+    enforce_pages_size_limit(cdn_dir)
 
     # Commit + push CDN repo
     import subprocess as sp
@@ -470,19 +562,19 @@ def sync_to_cdn(ep_num):
             "index.html",
             ".nojekyll",
         ],
-        cwd=str(CDN_DIR),
+        cwd=str(cdn_dir),
         check=True,
     )
-    result = sp.run(["git", "diff", "--cached", "--quiet"], cwd=str(CDN_DIR))
+    result = sp.run(["git", "diff", "--cached", "--quiet"], cwd=str(cdn_dir))
     if result.returncode != 0:
         sp.run(["git", "commit", "-m", f"EP{ep_num}: pre-greenlight audio + cover"],
-               cwd=str(CDN_DIR), check=True)
-        sp.run(["git", "push"], cwd=str(CDN_DIR), check=True)
+               cwd=str(cdn_dir), check=True)
+        sp.run(["git", "push"], cwd=str(cdn_dir), check=True)
         log(f"✅ CDN repo pushed")
     else:
         log(f"ℹ️  CDN repo already up to date")
 
-    return sp.check_output(["git", "rev-parse", "HEAD"], cwd=str(CDN_DIR), text=True).strip()
+    return sp.check_output(["git", "rev-parse", "HEAD"], cwd=str(cdn_dir), text=True).strip()
 
 
 # ── Step 7: Discord ──────────────────────────────────────────────────────────
@@ -513,10 +605,10 @@ def verify_url(url, timeout=20, stream_check=False):
         return r.status, dict(r.headers)
 
 
-def get_pages_build(commit_sha):
+def get_pages_build(commit_sha, cdn_repo):
     try:
         result = subprocess.run(
-            ["gh", "api", f"repos/{CDN_REPO}/pages/builds?per_page=10"],
+            ["gh", "api", f"repos/{cdn_repo}/pages/builds?per_page=10"],
             capture_output=True,
             text=True,
             check=True,
@@ -531,14 +623,31 @@ def get_pages_build(commit_sha):
     return None
 
 
-def wait_for_pages_build(ep_num, commit_sha):
+def get_pages_build_type(cdn_repo):
+    try:
+        result = subprocess.run(
+            ["gh", "api", f"repos/{cdn_repo}/pages", "--jq", ".build_type"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except Exception:
+        return ""
+
+
+def wait_for_pages_build(ep_num, commit_sha, cdn_repo):
     ep_str = f"{ep_num:03d}"
     deadline = time.time() + PAGES_BUILD_TIMEOUT_SECONDS
     last_status = None
 
+    if get_pages_build_type(cdn_repo) == "workflow":
+        log("ℹ️  GitHub Pages uses Actions deployment — falling through to direct URL polling")
+        return
+
     log(f"Waiting for GitHub Pages build for commit {commit_sha[:7]}...")
     while time.time() < deadline:
-        build = get_pages_build(commit_sha)
+        build = get_pages_build(commit_sha, cdn_repo)
         if build:
             status = build.get("status") or "unknown"
             if status != last_status:
@@ -561,7 +670,7 @@ def wait_for_pages_build(ep_num, commit_sha):
     )
 
 
-def verify_published_urls(ep_num, audio_url, cover_url, show_notes_url=None, transcript_url=None, commit_sha=None):
+def verify_published_urls(ep_num, audio_url, cover_url, show_notes_url=None, transcript_url=None, commit_sha=None, cdn_repo=None):
     ep_str = f"{ep_num:03d}"
     urls = [
         ("audio", audio_url, True),
@@ -575,7 +684,7 @@ def verify_published_urls(ep_num, audio_url, cover_url, show_notes_url=None, tra
     log(f"\n── URL verification ─────────────────────────────────────────────────────")
     if commit_sha:
         post_build_log(f"⏳ EP{ep_str} URL verification pending — waiting for GitHub Pages build {commit_sha[:7]}")
-        wait_for_pages_build(ep_num, commit_sha)
+        wait_for_pages_build(ep_num, commit_sha, cdn_repo or en_media_target(ep_num)["repo"])
     else:
         log("⚠️  No CDN commit SHA available; falling back to direct URL verification")
 
@@ -657,10 +766,17 @@ def post_discord_listen(ep_num, duration, audio_url, cover_url=None, show_notes_
         "\nWebsite/feed publish does not happen until approval.\n"
         f"\nReply ✅ to start the approved release flow (EN publish + translations + video builds), "
         f"or ❌ to rebuild.\n\n"
-        f"When approved, run:\n"
-        f"```\npython3 scripts/launch_approved_release.py {ep_num} --pub-date \"...\"\n```"
+        f"When approved, the release runner must verify the approving reply's Discord message id."
     )
-    discord_request("POST", f"/channels/{ep_channel['id']}/messages", {"content": msg})
+    posted = discord_request("POST", f"/channels/{ep_channel['id']}/messages", {"content": msg})
+    state = rel.load_state(ep_num)
+    approval_gate.record_review_discord_post(
+        state,
+        channel_id=ep_channel["id"],
+        message_id=posted["id"],
+        posted_at=posted.get("timestamp"),
+    )
+    rel.save_state(ep_num, state)
     log(f"✅ Posted to #{ep_channel_name}")
 
 
@@ -708,14 +824,16 @@ def main():
         raise
 
     duration = get_audio_duration(audio_path)
-    audio_url = f"{CDN_BASE}/audio/episode_{ep_str}.mp3"
-    cover_url = f"{CDN_BASE}/episode_{ep_str}_cover.png"
-    show_notes_url = f"{CDN_BASE}/show_notes_episode_{ep_str}.md"
-    transcript_url = f"{CDN_BASE}/episode_{ep_str}_transcript.md"
+    media_target = en_media_target(ep_num)
+    audio_url = en_audio_url(ep_num)
+    cover_url = en_cover_url(ep_num)
+    show_notes_url = en_show_notes_url(ep_num)
+    transcript_url = en_transcript_url(ep_num)
     # Discord aggressively caches image embeds by URL. Use the CDN commit as a
     # cache-busting query string for Discord-facing cover links so the thumbnail
     # shown in the review message always matches the asset just pushed.
-    cover_review_url = f"{cover_url}?v={cdn_commit[:7]}"
+    cover_review_url = f"{cover_url}?v={cdn_commit[:7]}" if cdn_commit else cover_url
+    save_review_gate(ep_num, audio_path, duration, audio_url, cover_review_url)
     log(f"\n{'='*60}")
     log(f"✅ EP{ep_str} build complete")
     log(f"   Cover: {cover_review_url}")
@@ -742,7 +860,15 @@ def main():
             f"⏳ EP{ep_str} CDN pushed — URLs UNVERIFIED, waiting for GitHub Pages | "
             f"{duration} | #agent-stack-ep{ep_str} | {show_notes_url} | {transcript_url} | {cover_review_url} | {audio_url}"
         )
-        verify_published_urls(ep_num, audio_url, cover_url, show_notes_url=show_notes_url, transcript_url=transcript_url, commit_sha=cdn_commit)
+        verify_published_urls(
+            ep_num,
+            audio_url,
+            cover_url,
+            show_notes_url=show_notes_url,
+            transcript_url=transcript_url,
+            commit_sha=cdn_commit,
+            cdn_repo=media_target["repo"],
+        )
         if args.skip_discord:
             log(f"\n(--skip-discord) VERIFIED URLs for #{f'agent-stack-ep{ep_str}'}:")
             log(f"  Show notes: {show_notes_url}")
@@ -754,7 +880,7 @@ def main():
             post_build_log(f"✅ EP{ep_str} done — review URLs verified live | {duration} | #agent-stack-ep{ep_str} | {show_notes_url} | {transcript_url} | {cover_review_url} | {audio_url}")
 
     log(f"\n⛔ STOP — wait for Toby's ✅ in Discord before running:")
-    log(f"   python3 scripts/launch_approved_release.py {ep_num} --pub-date \"...\"")
+    log(f"   python3 scripts/launch_approved_release.py {ep_num} --audio-approved-by-toby --approval-message-id <toby_reply_message_id> --pub-date \"...\"")
 
 
 if __name__ == "__main__":

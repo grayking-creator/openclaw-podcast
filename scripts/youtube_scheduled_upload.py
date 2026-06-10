@@ -9,12 +9,18 @@ Called by cron twice daily: 5AM and 6PM ET.
 Usage: python3 youtube_scheduled_upload.py <episode_number> [--video-mode static|flux|auto]
 """
 import argparse
+import datetime as dt
 import os, sys, json, time, subprocess, re, requests as _requests
 from pathlib import Path
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
+try:
+    from zoneinfo import ZoneInfo
+except Exception:  # pragma: no cover - defensive for older local runtimes
+    ZoneInfo = None
 
 def _load_readonly_api_key():
     env_file = os.path.expanduser("~/.openclaw/.env")
@@ -28,7 +34,9 @@ READONLY_API_KEY = _load_readonly_api_key()
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
-CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio"
+AUDIO_CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio"
+MEDIA_EN_CDN_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-media-en"
+CDN_DIR = AUDIO_CDN_DIR
 IMAGES_DIR = PODCAST_DIR / "images"
 SHARED_DIR = Path.home() / "clawd/shared"
 FFPROBE = "/opt/homebrew/bin/ffprobe"
@@ -51,6 +59,70 @@ VIDEO_BUILD_SCRIPT = SCRIPTS_DIR / "build_youtube_episode_videos.py"
 UPLOADED_PATH = SCRIPTS_DIR / "youtube_uploaded.txt"
 PACKAGING_OVERRIDES_PATH = SCRIPTS_DIR / "youtube_packaging_overrides.json"
 VALID_VIDEO_MODES = {"static", "flux", "auto"}
+QUOTA_DEFERRED = "quota_deferred"
+YOUTUBE_UPLOAD_INSERT_UNITS = 1600
+YOUTUBE_QUOTA_RETRY_MINUTE = 20
+
+
+def quota_day() -> str:
+    if ZoneInfo is not None:
+        return dt.datetime.now(ZoneInfo("America/Los_Angeles")).date().isoformat()
+    return dt.datetime.utcnow().date().isoformat()
+
+
+def next_quota_retry_time() -> dt.datetime:
+    if ZoneInfo is not None:
+        pacific = ZoneInfo("America/Los_Angeles")
+        local_tz = dt.datetime.now().astimezone().tzinfo
+        next_day = dt.datetime.now(pacific).date() + dt.timedelta(days=1)
+        reset = dt.datetime.combine(
+            next_day,
+            dt.time(0, YOUTUBE_QUOTA_RETRY_MINUTE),
+            tzinfo=pacific,
+        )
+        return reset.astimezone(local_tz)
+    return dt.datetime.now() + dt.timedelta(days=1)
+
+
+def is_youtube_quota_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    if isinstance(exc, HttpError):
+        try:
+            content = exc.content.decode("utf-8", errors="ignore").lower()
+        except Exception:
+            content = ""
+        text = f"{text}\n{content}"
+    return any(
+        marker in text
+        for marker in (
+            "quotaexceeded",
+            "quota exceeded",
+            "uploadlimitexceeded",
+            "daily limit",
+            "rate limit",
+        )
+    )
+
+
+def schedule_deferred_retry(ep_num: int, video_mode: str) -> None:
+    run_at = next_quota_retry_time()
+    ep_str = f"{ep_num:03d}"
+    tag = f"youtube_deferred_ep{ep_str}_{run_at:%Y%m%d}"
+    cmd = (
+        f"{run_at.minute} {run_at.hour} {run_at.day} {run_at.month} * "
+        f"cd {SCRIPTS_DIR} && {sys.executable} {SCRIPTS_DIR / 'youtube_scheduled_upload.py'} "
+        f"{ep_num} --video-mode {video_mode} >> /tmp/youtube_deferred_ep{ep_str}.log 2>&1 # {tag}"
+    )
+    try:
+        existing = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        current = existing.stdout if existing.returncode == 0 else ""
+        if tag in current:
+            print(f"  Deferred retry already scheduled: {tag}")
+            return
+        subprocess.run(["crontab", "-"], input=current.rstrip("\n") + "\n" + cmd + "\n", text=True, check=True)
+        print(f"  Deferred retry scheduled for {run_at:%Y-%m-%d %H:%M %Z}: {tag}")
+    except Exception as exc:
+        print(f"  ⚠️  Could not schedule deferred YouTube retry: {exc}")
 
 
 def ffprobe_duration(path):
@@ -392,9 +464,11 @@ def get_audio_path(ep_num, lang):
     if lang == "en":
         # Check CDN audio/ dir first
         candidates = [
+            MEDIA_EN_CDN_DIR / "audio" / f"episode_{ep_str}.mp3",
             CDN_DIR / "audio" / f"episode_{ep_str}.mp3",
             CDN_DIR / "audio" / f"episode_{ep_str}_full.mp3",
             CDN_DIR / "audio" / f"episode_{ep_str}_full_v2.mp3",
+            MEDIA_EN_CDN_DIR / f"episode_{ep_str}.mp3",
             CDN_DIR / f"episode_{ep_str}.mp3",
             CDN_DIR / f"episode_{ep_str}_full.mp3",
             PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3",
@@ -603,6 +677,51 @@ def get_story_titles(ep_num, lang, limit=5):
     return titles
 
 
+def get_verified_links(ep_num, lang, max_links=30):
+    """Return source/project links from the show notes for YouTube descriptions."""
+    path = get_show_notes_path(ep_num, lang)
+    if not path.exists() and lang != "en":
+        path = get_show_notes_path(ep_num, "en")
+    if not path.exists():
+        return []
+
+    content = path.read_text(encoding="utf-8", errors="ignore")
+    links_match = re.search(r"^## Verified Links\s*\n(.*?)(?=\n## |\Z)", content, re.MULTILINE | re.DOTALL)
+    if not links_match and lang != "en":
+        en_path = get_show_notes_path(ep_num, "en")
+        if en_path.exists():
+            content = en_path.read_text(encoding="utf-8", errors="ignore")
+            links_match = re.search(r"^## Verified Links\s*\n(.*?)(?=\n## |\Z)", content, re.MULTILINE | re.DOTALL)
+    if not links_match:
+        return []
+
+    links = []
+    seen = set()
+    for raw_line in links_match.group(1).splitlines():
+        line = " ".join(raw_line.strip().lstrip("-").split())
+        if not line:
+            continue
+        match = re.match(r"(.+?):\s*(https?://\S+)", line)
+        if match:
+            label, url = match.groups()
+            label = label.strip(" -*")
+        else:
+            url_match = re.search(r"https?://\S+", line)
+            if not url_match:
+                continue
+            url = url_match.group(0)
+            label = line.replace(url, "").strip(" :-*") or url
+        url = url.rstrip(".,)")
+        key = url.lower()
+        if key in seen:
+            continue
+        links.append((label, url))
+        seen.add(key)
+        if len(links) >= max_links:
+            break
+    return links
+
+
 def build_upload_title(ep_num, lang):
     override = get_packaging_override(ep_num, lang)
     title = (override.get("title") or get_episode_title(ep_num, lang) or "").strip()
@@ -639,6 +758,11 @@ def build_youtube_description(ep_num, lang):
         f"{copy['show_notes']} {show_notes_url}",
         f"{copy['listen']} https://tobyonfitnesstech.com/podcasts/",
     ])
+
+    verified_links = get_verified_links(ep_num, lang)
+    if verified_links:
+        lines.extend(["", "Source and project links:"])
+        lines.extend([f"- {label}: {url}" for label, url in verified_links])
 
     if chapters:
         lines.extend(["", copy["chapters"], chapters])
@@ -895,6 +1019,9 @@ def main():
     print(f"Video mode: {video_mode}")
     
     results = {}
+    deferred = []
+    failures = []
+    current_quota_day = quota_day()
 
     # Load per-channel state to skip already-uploaded channels
     channel_state_file = SCRIPTS_DIR / "youtube_channel_state.json"
@@ -928,6 +1055,20 @@ def main():
             ep_state.pop(f"{lang}_url", None)
             channel_state[ep_str] = ep_state
             persist_channel_state(channel_state_file, channel_state)
+
+        if (
+            ep_state.get(lang) == QUOTA_DEFERRED
+            and ep_state.get(f"{lang}_quota_day") == current_quota_day
+            and not os.environ.get("YOUTUBE_RETRY_SAME_QUOTA_DAY")
+        ):
+            print(f"\n--- {lang.upper()} ({config['channel_name']}) ---")
+            print(
+                "  ⏳ Deferred until the next YouTube quota day "
+                f"(last quota error on {current_quota_day})"
+            )
+            deferred.append(lang)
+            continue
+
         print(f"\n--- {lang.upper()} ({config['channel_name']}) ---")
         
         # Get audio
@@ -1001,6 +1142,27 @@ def main():
             persist_channel_state(channel_state_file, channel_state)
         except Exception as e:
             print(f"  ❌ Upload failed: {e}")
+            if is_youtube_quota_error(e):
+                print(
+                    f"  ⏳ YouTube quota exhausted after estimated "
+                    f"{YOUTUBE_UPLOAD_INSERT_UNITS} units for videos.insert; "
+                    "deferring remaining channels."
+                )
+                remaining_langs = [
+                    item_lang
+                    for item_lang in CHANNEL_CONFIG
+                    if ep_state.get(item_lang) != "done"
+                    and item_lang not in deferred
+                ]
+                for item_lang in remaining_langs:
+                    ep_state[item_lang] = QUOTA_DEFERRED
+                    ep_state[f"{item_lang}_quota_day"] = current_quota_day
+                    ep_state[f"{item_lang}_last_error"] = str(e)
+                    deferred.append(item_lang)
+                channel_state[ep_str] = ep_state
+                persist_channel_state(channel_state_file, channel_state)
+                break
+            failures.append((lang, str(e)))
         finally:
             # Clean up rendered MP4 — no reason to keep it after upload
             try:
@@ -1017,12 +1179,20 @@ def main():
     print(f"Episode {ep_num} Upload Summary:")
     for lang, url in results.items():
         print(f"  {lang.upper()}: {url}")
+    if deferred:
+        print(f"  Deferred by quota: {', '.join(lang.upper() for lang in deferred)}")
+    if failures:
+        for lang, error in failures:
+            print(f"  Failed: {lang.upper()}: {error}")
     
     # Discord notification
-    if results:
-        msg = f"📺 **EP{ep_str} uploaded to YouTube** ({len(results)}/5 channels):\n"
+    if results or deferred:
+        done_count = len([lang for lang in CHANNEL_CONFIG if ep_state.get(lang) == "done"])
+        msg = f"📺 **EP{ep_str} YouTube status** ({done_count}/5 channels done):\n"
         for lang, url in results.items():
             msg += f"  {lang.upper()}: {url}\n"
+        if deferred:
+            msg += f"  Deferred by quota: {', '.join(lang.upper() for lang in deferred)}\n"
         
         bot_token = os.environ.get("DISCORD_BOT_TOKEN", "")
         subprocess.run([
@@ -1033,8 +1203,11 @@ def main():
             "https://discord.com/api/v10/channels/1485243812442804327/messages"
         ], capture_output=True)
 
-    if len(results) == 5:
+    if len([lang for lang in CHANNEL_CONFIG if ep_state.get(lang) == "done"]) == 5:
         mark_episode_uploaded(ep_num)
+        return 0
+    if deferred and not failures:
+        schedule_deferred_retry(ep_num, video_mode)
         return 0
     return 1
 

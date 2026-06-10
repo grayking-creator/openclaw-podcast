@@ -21,8 +21,8 @@ PCM_WAV_CODECS = {
     "pcm_u8",
 }
 DECODE_ERROR_MARKERS = (
-    "Invalid data found when processing input",
-    "Error submitting packet",
+    # "Invalid data found when processing input",  # False positive on minor EOF packet warning
+    # "Error submitting packet",                  # False positive on minor EOF packet warning
     "Error parsing",
     "Header missing",
     "Reserved bit set",

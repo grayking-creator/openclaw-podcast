@@ -20,7 +20,10 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from moviepy import CompositeVideoClip, ImageClip, VideoFileClip
 
 from validate_shorts_media import validate_media_file
-import mlx_whisper
+try:
+    import mlx_whisper
+except ImportError:
+    mlx_whisper = None
 
 STOPWORDS = {
     'a','an','and','are','as','at','be','but','by','for','from','had','has','have','he','her','here','hers','him','his','how','i','if','in','into','is','it','its','just','me','my','of','on','or','our','out','she','so','that','the','their','them','there','they','this','to','up','was','we','were','what','when','where','who','why','with','you','your',
@@ -172,6 +175,32 @@ def extract_audio(input_audio: Path, wav_path: Path) -> None:
 def transcribe_audio(wav_path: Path, transcript_path: Path, model: str) -> dict:
     if transcript_path.exists():
         return json.loads(transcript_path.read_text())
+
+    if mlx_whisper is None:
+        import whisper
+        print("mlx_whisper not available, using standard whisper fallback", flush=True)
+        model_name = "large-v3"
+        if "turbo" in model:
+            model_name = "turbo"
+        elif "large" in model:
+            model_name = "large-v3"
+        elif "medium" in model:
+            model_name = "medium"
+        elif "small" in model:
+            model_name = "small"
+        elif "base" in model:
+            model_name = "base"
+        elif "tiny" in model:
+            model_name = "tiny"
+            
+        print(f"Loading whisper model: {model_name}", flush=True)
+        w_model = whisper.load_model(model_name)
+        print("Transcribing audio...", flush=True)
+        result = w_model.transcribe(str(wav_path), word_timestamps=True)
+        if "language" not in result:
+            result["language"] = "en"
+        transcript_path.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+        return result
 
     info = sf.info(str(wav_path))
     total_duration = float(info.duration)

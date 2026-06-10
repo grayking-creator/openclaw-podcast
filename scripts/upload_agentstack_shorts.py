@@ -3,7 +3,7 @@
 
 Uploads rendered short MP4s from content_staging/shorts/ to the AgentStack
 Daily / OpenClaw Daily YouTube channels on a 3-per-day follow-up cadence
-(08:00, 14:00, and 20:00 ET).
+(11:00, 16:00, and 23:00 ET).
 
 No manual review gate. Liminal and IronVane use the separate crossfire-series
 shorts_upload.py. This script is AgentStack Daily / OpenClaw Daily only.
@@ -50,7 +50,7 @@ BUILD_LOG_CHANNEL_ID = "1485243812442804327"
 CHANNELS = ["en", "es", "de", "pt", "hi"]
 
 # 3 slots per day (ET) after the day-of-publish catch-up.
-UPLOAD_SLOTS_ET = ["08:00", "14:00", "20:00"]
+UPLOAD_SLOTS_ET = ["11:00", "16:00", "23:00"]
 
 # Discovery floor for the rendered AgentStack Daily backlog. Newer episodes are
 # picked up from content_staging/shorts/episode_NNN automatically.
@@ -159,6 +159,26 @@ def slot_sequence(first_slot: datetime, count: int) -> list[datetime]:
     if count <= 0:
         return []
     return [first_slot] + next_slot_datetimes(first_slot, count - 1)
+
+
+def next_free_slot_after(from_dt: datetime) -> datetime:
+    return next_slot_datetimes(from_dt, 1)[0]
+
+
+def batch_key(ep_num: int, clip_idx: int) -> str:
+    return f"episode_{ep_num:03d}/clip_{clip_idx:02d}"
+
+
+def clip_key(ep_num: int, clip_idx: int, lang: str) -> str:
+    return f"{batch_key(ep_num, clip_idx)}_{lang}.mp4"
+
+
+def clip_path_for(ep_num: int, clip_idx: int, lang: str) -> Path:
+    ep_str = f"{ep_num:03d}"
+    ep_dir = STAGING_ROOT / f"episode_{ep_str}"
+    if lang == "en":
+        return ep_dir / f"clip_{clip_idx:02d}.mp4"
+    return ep_dir / "translations" / lang / "rollout_render" / f"clip_{clip_idx:02d}.mp4"
 
 
 def get_episode_title(ep_num: int) -> str:
@@ -317,40 +337,50 @@ def load_metadata_for_clip(ep_num: int, clip_idx: int, lang: str) -> tuple[str, 
     return title, description
 
 
-def collect_rendered_clips(state: dict) -> list[dict]:
-    """Return ordered rendered clips that have not been uploaded yet."""
+def collect_pending_batches(state: dict) -> list[dict]:
+    """Return ordered episode+clip batches that still have uploads pending."""
     uploaded = set(state.get("uploaded", []))
-    rendered = []
+    batches = []
     for ep_num in discover_episode_order():
         ep_str = f"{ep_num:03d}"
-        ep_dir = STAGING_ROOT / f"episode_{ep_str}"
         for clip_idx in (1, 2):
+            items = []
+            missing_langs = []
             for lang in CHANNELS:
-                if lang == "en":
-                    clip_path = ep_dir / f"clip_{clip_idx:02d}.mp4"
-                else:
-                    clip_path = ep_dir / "translations" / lang / "rollout_render" / f"clip_{clip_idx:02d}.mp4"
-
-                key = f"episode_{ep_str}/clip_{clip_idx:02d}_{lang}.mp4"
-                if clip_path.exists() and key not in uploaded:
-                    rendered.append({
+                clip_path = clip_path_for(ep_num, clip_idx, lang)
+                key = clip_key(ep_num, clip_idx, lang)
+                if not clip_path.exists():
+                    missing_langs.append(lang)
+                    continue
+                if key not in uploaded:
+                    items.append({
                         "key": key,
                         "ep_num": ep_num,
                         "clip_idx": clip_idx,
                         "lang": lang,
                         "clip_path": str(clip_path),
                     })
-    return rendered
+            if items:
+                batches.append({
+                    "batch_key": batch_key(ep_num, clip_idx),
+                    "ep_num": ep_num,
+                    "ep_str": ep_str,
+                    "clip_idx": clip_idx,
+                    "items": items,
+                    "missing_langs": missing_langs,
+                    "complete": not missing_langs,
+                })
+    return batches
 
 
 def build_upload_queue(state: dict, persist_schedule: bool = False) -> list[dict]:
-    """Return ordered rendered clips with stable, persisted schedule slots."""
-    rendered = collect_rendered_clips(state)
-    if not rendered:
+    """Return ordered pending batches with stable, persisted schedule slots."""
+    batches = collect_pending_batches(state)
+    if not batches:
         return []
 
-    by_key = {item["key"]: item for item in rendered}
-    schedule = dict(state.get("scheduled", {}))
+    by_key = {batch["batch_key"]: batch for batch in batches}
+    schedule = dict(state.get("scheduled_batches", {}))
     schedule = {
         key: when
         for key, when in schedule.items()
@@ -359,81 +389,133 @@ def build_upload_queue(state: dict, persist_schedule: bool = False) -> list[dict
 
     now = now_et()
     seed_slot = first_schedule_slot(now)
+    existing_slots = sorted(datetime.fromisoformat(when) for when in schedule.values())
+    cursor = max(existing_slots) if existing_slots else seed_slot
 
-    existing_slots = [
-        datetime.fromisoformat(when)
-        for when in schedule.values()
-    ]
-    first_slot = min(existing_slots) if existing_slots else seed_slot
-
-    # Keep one global cadence across all languages. Scheduling per language can
-    # double-book the same 08:00/14:00/20:00 slot when new translated clips land.
-    schedule = {
-        item["key"]: slot.isoformat()
-        for item, slot in zip(rendered, slot_sequence(first_slot, len(rendered)))
-    }
+    # Keep one global cadence across episode+clip batches. Existing explicit
+    # batch slots are preserved so one-off recovery slots do not get rewritten
+    # on the next cron run; only newly discovered batches get appended.
+    for batch in batches:
+        key = batch["batch_key"]
+        if key in schedule:
+            continue
+        if not existing_slots and cursor == seed_slot:
+            slot = cursor
+        else:
+            slot = next_free_slot_after(cursor)
+        schedule[key] = slot.isoformat()
+        cursor = slot
+        existing_slots.append(slot)
 
     if persist_schedule:
-        state["scheduled"] = schedule
+        state["scheduled_batches"] = schedule
+        state["scheduled"] = {
+            item["key"]: schedule[batch["batch_key"]]
+            for batch in batches
+            for item in batch["items"]
+        }
         save_state(state)
 
     all_pending = []
-    for item in rendered:
-        scheduled_at = schedule.get(item["key"])
+    for batch in batches:
+        scheduled_at = schedule.get(batch["batch_key"])
         if scheduled_at:
-            item = dict(item)
-            item["scheduled_at"] = scheduled_at
-            all_pending.append(item)
+            batch = dict(batch)
+            batch["items"] = [dict(item) for item in batch["items"]]
+            batch["scheduled_at"] = scheduled_at
+            for item in batch["items"]:
+                item["scheduled_at"] = scheduled_at
+            all_pending.append(batch)
 
     # Sort all pending by scheduled_at so chronological order is maintained
     all_pending.sort(key=lambda x: x["scheduled_at"])
     return all_pending
 
 
+def note_missing_batch_once(state: dict, batch: dict) -> None:
+    missing = batch.get("missing_langs", [])
+    if not missing:
+        return
+    signature = ",".join(missing)
+    alerts = state.setdefault("missing_render_alerts", {})
+    if alerts.get(batch["batch_key"]) == signature:
+        return
+    alerts[batch["batch_key"]] = signature
+    save_state(state)
+    msg = (
+        f"❌ [AgentStack Shorts] EP{batch['ep_str']} clip {batch['clip_idx']} "
+        f"held: missing rendered language(s): {signature}"
+    )
+    print(msg)
+    discord_build_log(msg)
+
+
 # ---------------------------------------------------------------------------
 # Cron mode: upload whatever is due now
 # ---------------------------------------------------------------------------
 
-def run_cron(state: dict) -> int:
+def run_cron(state: dict, catch_up_now: bool = False) -> int:
     queue = build_upload_queue(state, persist_schedule=True)
     if not queue:
         print("No pending shorts to upload.")
         return 0
 
     now = now_et()
-    due = [item for item in queue if datetime.fromisoformat(item["scheduled_at"]) <= now]
+    due = [batch for batch in queue if datetime.fromisoformat(batch["scheduled_at"]) <= now]
+    if catch_up_now and not due:
+        due = [queue[0]]
+        due[0]["scheduled_at"] = now.isoformat()
 
     if not due:
-        next_item = queue[0]
-        print(f"Next short scheduled at {next_item['scheduled_at']} — not due yet.")
+        next_batch = queue[0]
+        langs = ",".join(item["lang"] for item in next_batch["items"])
+        print(
+            f"Next short batch scheduled at {next_batch['scheduled_at']} — "
+            f"EP{next_batch['ep_str']} clip {next_batch['clip_idx']} ({langs}) not due yet."
+        )
         return 0
 
     errors = []
-    for item in due:
-        ep_num = item["ep_num"]
-        clip_idx = item["clip_idx"]
-        clip_path = Path(item["clip_path"])
-        lang = item["lang"]
-        ep_str = f"{ep_num:03d}"
+    for batch in due:
+        if batch.get("missing_langs"):
+            note_missing_batch_once(state, batch)
+            errors.append(f"{batch['batch_key']} missing {','.join(batch['missing_langs'])}")
+            continue
 
-        title, description = load_metadata_for_clip(ep_num, clip_idx, lang)
+        uploaded_urls = []
+        for item in batch["items"]:
+            ep_num = item["ep_num"]
+            clip_idx = item["clip_idx"]
+            clip_path = Path(item["clip_path"])
+            lang = item["lang"]
+            ep_str = f"{ep_num:03d}"
 
-        print(f"Uploading EP{ep_str} clip {clip_idx} ({lang}): {title}")
-        try:
-            vid_id = upload_short(clip_path, title, description, lang)
-            url = f"https://www.youtube.com/shorts/{vid_id}"
-            print(f"  ✅ {url}")
-            state.setdefault("uploaded", []).append(item["key"])
-            state.setdefault("urls", {})[item["key"]] = url
-            save_state(state)
-            discord_build_log(f"📱 [AgentStack Shorts] EP{ep_str} clip {clip_idx} ({lang}) uploaded: {url}")
-        except Exception as exc:
-            msg = f"❌ [AgentStack Shorts] EP{ep_str} clip {clip_idx} ({lang}) upload failed: {exc}"
-            print(msg)
-            discord_build_log(msg)
-            errors.append(msg)
+            title, description = load_metadata_for_clip(ep_num, clip_idx, lang)
 
-        time.sleep(3)
+            print(f"Uploading EP{ep_str} clip {clip_idx} ({lang}): {title}")
+            try:
+                vid_id = upload_short(clip_path, title, description, lang)
+                url = f"https://www.youtube.com/shorts/{vid_id}"
+                print(f"  ✅ {url}")
+                state.setdefault("uploaded", []).append(item["key"])
+                state.setdefault("urls", {})[item["key"]] = url
+                save_state(state)
+                uploaded_urls.append((lang, url))
+            except Exception as exc:
+                msg = f"❌ [AgentStack Shorts] EP{ep_str} clip {clip_idx} ({lang}) upload failed: {exc}"
+                print(msg)
+                discord_build_log(msg)
+                errors.append(msg)
+
+            time.sleep(3)
+
+        if uploaded_urls:
+            lang_list = ", ".join(lang for lang, _ in uploaded_urls)
+            url_lines = "\n".join(f"- {lang}: {url}" for lang, url in uploaded_urls)
+            discord_build_log(
+                f"📱 [AgentStack Shorts] EP{batch['ep_str']} clip {batch['clip_idx']} "
+                f"uploaded across: {lang_list}\n{url_lines}"
+            )
 
     return 1 if errors else 0
 
@@ -453,11 +535,16 @@ def run_status(state: dict) -> None:
         url = urls.get(key, "")
         print(f"  ✅ {key}  {url}")
 
-    print(f"\nPending ({len(queue)}):")
-    for item in queue:
-        clip_exists = Path(item["clip_path"]).exists()
-        status = "BUILT" if clip_exists else "NOT BUILT"
-        print(f"  [{status}] EP{item['ep_num']:03d} clip {item['clip_idx']} ({item['lang']}) → {item['scheduled_at']}")
+    pending_items = sum(len(batch["items"]) for batch in queue)
+    print(f"\nPending batches: {len(queue)} ({pending_items} videos)")
+    for batch in queue:
+        langs = ",".join(item["lang"] for item in batch["items"])
+        missing = ",".join(batch.get("missing_langs", []))
+        status = "BUILT" if not missing else f"HELD missing={missing}"
+        print(
+            f"  [{status}] EP{batch['ep_num']:03d} clip {batch['clip_idx']} "
+            f"({langs}) → {batch['scheduled_at']}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -468,6 +555,7 @@ def main() -> int:
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["cron", "status"], default="cron")
+    parser.add_argument("--catch-up-now", action="store_true", help="Upload the next pending batch immediately.")
     args = parser.parse_args()
 
     state = load_state()
@@ -476,7 +564,7 @@ def main() -> int:
         run_status(state)
         return 0
 
-    return run_cron(state)
+    return run_cron(state, catch_up_now=args.catch_up_now)
 
 
 if __name__ == "__main__":

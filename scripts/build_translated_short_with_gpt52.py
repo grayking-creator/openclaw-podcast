@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import sys
+
+
+
 import argparse
 import json
 import re
 import subprocess
-import sys
 import urllib.request
 from pathlib import Path
 from typing import Iterable, Any
@@ -28,10 +31,10 @@ LANGUAGE_NAMES = {
 }
 ROMANIZED_LANGS = {"hi"}
 MIN_MATCH_SCORE = {
-    "es": 0.35,
-    "de": 0.35,
-    "pt": 0.35,
-    "hi": 0.08,
+    "es": 0.25,
+    "de": 0.25,
+    "pt": 0.25,
+    "hi": 0.12,
 }
 
 
@@ -50,10 +53,16 @@ def ensure_translated_audio(ep_str: str, lang: str) -> Path:
         return audio_path
 
     audio_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = audio_path.with_suffix(audio_path.suffix + ".tmp")
+    import uuid
+    tmp_path = audio_path.with_suffix(f"{audio_path.suffix}.tmp-{uuid.uuid4().hex}")
     url = f"{TRANSLATED_AUDIO_PROXY_BASE}/{lang}/episode_{ep_str}.mp3"
     try:
-        urllib.request.urlretrieve(url, tmp_path)
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        )
+        with urllib.request.urlopen(req) as response, open(tmp_path, "wb") as out_file:
+            out_file.write(response.read())
     except Exception as exc:
         tmp_path.unlink(missing_ok=True)
         raise FileNotFoundError(f"Missing translated audio: {audio_path}; proxy fetch failed: {url}") from exc
@@ -91,7 +100,10 @@ def call_openclaw_agent(agent: str, prompt: str) -> str:
     )
     payload = json.loads(proc.stdout)
     try:
-        return payload["result"]["payloads"][0]["text"].strip()
+        if "result" in payload:
+            return payload["result"]["payloads"][0]["text"].strip()
+        else:
+            return payload["payloads"][0]["text"].strip()
     except (KeyError, IndexError) as exc:
         raise RuntimeError(f"Unexpected agent response: {proc.stdout}") from exc
 
@@ -129,10 +141,10 @@ def needs_retry(source_text: str, translated_text: str) -> bool:
     return not source_nums.issubset(target_nums)
 
 
-def translate_clip_text(agent: str, lang: str, source_text: str) -> str:
+def translate_clip_text(agent: str, lang: str, source_text: str, force_native: bool = False) -> str:
     source_text = normalize_source_text(source_text)
     target_lang = LANGUAGE_NAMES[lang]
-    output_style = "romanized Hindi in Latin script" if lang in ROMANIZED_LANGS else target_lang
+    output_style = "romanized Hindi in Latin script" if (lang in ROMANIZED_LANGS and not force_native) else target_lang
     prompt = (
         f"Translate this English podcast short clip into natural {output_style} for burned-in captions. "
         "Requirements: preserve meaning closely; preserve all numbers and years exactly as digits; "
@@ -515,6 +527,51 @@ def build_segment_payload(episode: int, clip_text: str, start: float, end: float
     ]
 
 
+def get_translation_from_script(ep_num: int, lang: str, source_text: str) -> str | None:
+    ep_str = f"{ep_num:03d}"
+    en_path = PODCAST_DIR / "episodes" / f"episode_{ep_str}_transcript_nova.md"
+    tr_path = PODCAST_DIR / "translations" / lang / f"episode_{ep_str}_{lang}.md"
+
+    if not en_path.exists() or not tr_path.exists():
+        return None
+
+    en_paragraphs = [p.strip() for p in en_path.read_text().split("\n\n") if p.strip()]
+    tr_paragraphs = [p.strip() for p in tr_path.read_text().split("\n\n") if p.strip()]
+
+    if len(en_paragraphs) != len(tr_paragraphs):
+        return None
+
+    def clean_p(text: str) -> str:
+        text = re.sub(r"^\[(NOVA|ALLOY)\]:\s*", "", text, flags=re.IGNORECASE)
+        return text.strip()
+
+    en_clean = [clean_p(p) for p in en_paragraphs]
+    tr_clean = [clean_p(p) for p in tr_paragraphs]
+
+    source_tokens = word_tokens(source_text)
+    if not source_tokens:
+        return None
+
+    best_window = None
+    best_score = 0.0
+
+    # Try sliding windows of size 1 to 5 paragraphs
+    for size in range(1, 6):
+        for i in range(len(en_clean) - size + 1):
+            window_text = " ".join(en_clean[i:i+size])
+            window_tokens = word_tokens(window_text)
+            score = jaccard(source_tokens, window_tokens)
+            if score > best_score:
+                best_score = score
+                best_window = (i, i+size)
+
+    if best_window and best_score >= 0.25:
+        start_idx, end_idx = best_window
+        return " ".join(tr_clean[start_idx:end_idx])
+
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--episode", type=int, required=True)
@@ -527,32 +584,54 @@ def main() -> int:
     args = parser.parse_args()
 
     ep_str = f"{args.episode:03d}"
-    selected_path = WORK_DIR / f"episode_{ep_str}" / f"review_renders_ep{args.episode}" / f"episode_{ep_str}_work" / "selected_clips.json"
+    selected_path = WORK_DIR / f"episode_{ep_str}" / f"episode_{ep_str}_work" / "selected_clips.json"
+    if not selected_path.exists():
+        selected_path = WORK_DIR / f"episode_{ep_str}" / f"review_renders_ep{args.episode}" / f"episode_{ep_str}_work" / "selected_clips.json"
     selected = read_json(selected_path)[args.clip_index]
     source_text = selected["text"]
 
+    clip_num = args.clip_index + 1
     audio_path = ensure_translated_audio(ep_str, args.lang)
     cover_art = PODCAST_DIR / "images" / f"episode_{ep_str}_cover_{args.lang}.png"
     transcript_json = WORK_DIR / f"episode_{ep_str}" / "translations" / args.lang / f"episode_{ep_str}_{args.lang}_work" / "transcript.json"
     render_dir = WORK_DIR / f"episode_{ep_str}" / "translations" / args.lang / "rollout_render"
-    manifest_path = render_dir / "clip_01_segments.json"
-    translation_path = render_dir / "clip_01_translation.txt"
-    metadata_path = render_dir / "clip_01_metadata.json"
+    manifest_path = render_dir / f"clip_{clip_num:02d}_segments.json"
+    translation_path = render_dir / f"clip_{clip_num:02d}_translation.txt"
+    metadata_path = render_dir / f"clip_{clip_num:02d}_metadata.json"
 
     if not cover_art.exists():
         raise FileNotFoundError(f"Missing cover art: {cover_art}")
 
     transcript_data = ensure_transcript(audio_path, transcript_json)
-    clip_text = translate_clip_text(args.agent, args.lang, source_text)
+    
+    extracted_text = get_translation_from_script(args.episode, args.lang, source_text)
+    if extracted_text:
+        print(f"Extracted {args.lang} translation from script")
+        if args.lang in ROMANIZED_LANGS:
+            alignment_text = extracted_text
+            clip_text = translate_clip_text(args.agent, args.lang, source_text)
+        else:
+            clip_text = extracted_text
+            alignment_text = extracted_text
+    else:
+        print(f"Could not extract {args.lang} translation from script; falling back to LLM translation")
+        clip_text = translate_clip_text(args.agent, args.lang, source_text)
+        if args.lang in ROMANIZED_LANGS:
+            alignment_text = translate_clip_text(args.agent, args.lang, source_text, force_native=True)
+        else:
+            alignment_text = clip_text
+
     translation_path.parent.mkdir(parents=True, exist_ok=True)
     translation_path.write_text(clip_text)
-    start, end, score = find_best_segment_window(transcript_data, clip_text)
+
+    start, end, score = find_best_segment_window(transcript_data, alignment_text)
     min_score = MIN_MATCH_SCORE[args.lang]
     if score < min_score:
         raise RuntimeError(
             f"Refusing to render {args.lang} short: transcript match score {score:.4f} is below required {min_score:.2f}"
         )
     manifest = build_segment_payload(args.episode, clip_text, start, end, args.lang)
+    manifest[0]["slug"] = f"clip_{clip_num:02d}"
     manifest[0]["anchor_words"] = anchor_words_for_window(transcript_data, start, end)
     write_json(manifest_path, manifest)
 

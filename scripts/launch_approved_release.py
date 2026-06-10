@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import release_episode as rel
+import release_approval_gate as approval_gate
 
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -87,6 +88,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("episode", type=int, nargs="?", help="Episode number (e.g. 53)")
     parser.add_argument("--pub-date", help="RSS pubDate string")
     parser.add_argument("--reset", action="store_true", help="Clear only approved release progress markers")
+    parser.add_argument(
+        "--audio-approved-by-toby",
+        action="store_true",
+        help="Record Toby's explicit approval of the current EN review audio before launching; requires --approval-message-id",
+    )
+    parser.add_argument(
+        "--approval-message-id",
+        help="Discord message id for Toby's approving reply in the episode review channel",
+    )
     parser.add_argument("--from-step", help="Pass-through recovery step for release_episode_approved.py")
     parser.add_argument("--through-step", help="Pass-through stop step for release_episode_approved.py")
     parser.add_argument("--youtube-video-mode", choices=["static", "flux"], help="Static cover video or FLUX videos")
@@ -121,6 +131,20 @@ def launch(args: argparse.Namespace) -> int:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     ep_num = args.episode
     ep_str = f"{ep_num:03d}"
+    state = rel.load_state(ep_num)
+    audio_path = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
+    if args.audio_approved_by_toby and not args.approval_message_id:
+        raise SystemExit("--audio-approved-by-toby requires --approval-message-id from Toby's review-channel reply")
+    if args.approval_message_id:
+        approval_gate.mark_audio_approved_from_discord(
+            state,
+            audio_path=audio_path,
+            ep_num=ep_num,
+            approval_message_id=args.approval_message_id,
+            token=rel.load_env_key("DISCORD_BOT_TOKEN"),
+        )
+        rel.save_state(ep_num, state)
+    approval_gate.assert_audio_approved(state, audio_path=audio_path, ep_num=ep_num)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     log_path = LOG_DIR / f"ep{ep_str}_approved_release_{ts}.log"
     monitor_log_path = LOG_DIR / f"ep{ep_str}_approved_release_{ts}.watcher.log"
@@ -132,6 +156,7 @@ def launch(args: argparse.Namespace) -> int:
         proc = subprocess.Popen(
             cmd,
             cwd=str(PODCAST_DIR),
+            stdin=subprocess.DEVNULL,
             stdout=child_log,
             stderr=subprocess.STDOUT,
             start_new_session=True,
@@ -155,13 +180,14 @@ def launch(args: argparse.Namespace) -> int:
         subprocess.Popen(
             monitor_cmd,
             cwd=str(PODCAST_DIR),
+            stdin=subprocess.DEVNULL,
             stdout=monitor_log,
             stderr=subprocess.STDOUT,
             start_new_session=True,
             close_fds=True,
         )
 
-    post_build_log(ep_num, f"🚀 Approved release detached launcher started (pid {proc.pid}).")
+    post_build_log(ep_num, "🚀 Approved release recovery started.")
     print(f"EP{ep_str} approved release launched")
     print(f"pid: {proc.pid}")
     print(f"log: {log_path}")

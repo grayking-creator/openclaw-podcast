@@ -9,8 +9,9 @@ Reads the episode show notes, generates a draw_art(img, W, H) function, tests it
 renders without error, and writes:
     scripts/episode_art/episode_NNN_art.py
 
-The legacy Claude CLI generator is disabled by default because it spends Claude
-plan quota. Set ALLOW_CLAUDE_EPISODE_ART=1 only after explicit approval.
+Uses OpenClaw's configured OpenAI image provider to generate a square visual
+anchor, then writes a small Pillow draw_art() module that composites that image
+into the standard cover renderer.
 """
 import os, sys, subprocess, re, textwrap, importlib.util, traceback
 from pathlib import Path
@@ -19,6 +20,9 @@ PODCAST_DIR = Path(__file__).parent.parent
 SCRIPTS_DIR = Path(__file__).parent
 ART_DIR     = SCRIPTS_DIR / "episode_art"
 ART_DIR.mkdir(exist_ok=True)
+IMAGE_DIR   = PODCAST_DIR / "images"
+IMAGE_DIR.mkdir(exist_ok=True)
+DEFAULT_OPENAI_IMAGE_MODEL = "openai/gpt-image-2"
 
 
 def find_show_notes(ep_num):
@@ -31,45 +35,6 @@ def find_show_notes(ep_num):
         if p.exists():
             return p.read_text(encoding="utf-8")[:3000]   # first 3k chars is enough
     return None
-
-
-SYSTEM = textwrap.dedent("""
-You are a Python + Pillow visual designer. You write PIL/Pillow code that renders
-abstract, atmospheric podcast cover art that matches the thematic content of an episode.
-
-Rules:
-- Output ONLY a Python code block — no prose, no explanation.
-- The code must define exactly one function: def draw_art(img, W, H)
-- img is an RGBA PIL Image (already has a background gradient painted on it).
-  The function must composite art onto it and return the updated img.
-- Use only: PIL (Image, ImageDraw, ImageFilter), math, random — no other imports.
-- Do not draw any text — text is added by the caller.
-- Keep the art in the vertical band y=150 to y=960 so it doesn't collide with title text.
-- Use a helper composite() pattern:
-    def composite(draw_fn, blur=0):
-        nonlocal img
-        layer = Image.new("RGBA", (W, H), (0,0,0,0))
-        ld = ImageDraw.Draw(layer)
-        draw_fn(ld)
-        if blur > 0: layer = layer.filter(ImageFilter.GaussianBlur(blur))
-        img = Image.alpha_composite(img, layer)
-        return img
-- Keep elements semi-transparent (alpha 30-220) so the background shows through.
-- The scene must be visually distinct and thematically tied to the episode summary below.
-- The scene must also be unmistakably tied to the episode title.
-- NEVER use generic star fields, orbit rings, glowing cosmic cores, vague dashboards,
-  random node clouds, or reusable "tech energy" as the central image.
-- The central image must be a concrete, episode-specific object or event from the story
-  slate: recognizable product surfaces, app connectors, marketplaces, documents,
-  meeting tiles, devices, node editors, company-logo-inspired shapes, etc.
-- If the title names a concrete object, machine, product, device, room, or interface,
-  depict that thing literally and centrally.
-- If the title names companies or products, use simple symbolic/geometric logo-inspired
-  marks and interfaces rather than abstract blobs.
-- Abstract support elements are fine only as background accents; the central anchor must
-  be recognizable without any cover text being present.
-- Use at most 80 composite() calls total for performance.
-""").strip()
 
 
 def extract_episode_title(show_notes_text, ep_num):
@@ -126,57 +91,88 @@ def build_prompt(ep_num, show_notes_text):
     tagline = extract_tagline(show_notes_text)
     visual_anchor_hint = derive_visual_anchor_hint(episode_title, tagline, show_notes_text)
     return textwrap.dedent(f"""
-        Episode number: {ep_num}
+        Create square podcast cover center art for AgentStack Daily episode {ep_num:03d}.
+        This is only the image layer; do not include any legible text, titles, captions,
+        episode numbers, podcast names, watermarks, or UI labels. Typography will be added
+        later by a local renderer.
 
-        Episode title:
-        {episode_title}
+        Episode title: {episode_title}
+        Tagline: {tagline or "(none provided)"}
 
-        Tagline:
-        {tagline or "(none provided)"}
+        Visual anchor requirement: {visual_anchor_hint}
 
-        Visual anchor requirement:
-        {visual_anchor_hint}
+        Style: premium technical editorial illustration, concrete recognizable central object,
+        high contrast, cinematic lighting, crisp product/interface shapes, not generic sci-fi,
+        not a star field, not abstract glowing dots, not a reusable dashboard wallpaper.
 
-        Show notes summary (first 3000 chars):
-        ---
-        {show_notes_text}
-        ---
+        Leave clean negative space near the top and bottom so local cover text can overlay later.
 
-        Write the Python draw_art function.
-        The cover must read visually even with all text removed, and the center object
-        should feel like the literal noun phrase from the title.
-        Output only the code block.
+        Show notes summary:
+        {show_notes_text[:1800]}
     """).strip()
 
 
-def call_claude(prompt):
-    """Call claude CLI in print mode and return stdout."""
-    if os.getenv("ALLOW_CLAUDE_EPISODE_ART") != "1":
-        raise RuntimeError(
-            "Claude episode-art generation is disabled. This path invokes `claude -p` "
-            "and spends Claude plan quota. Set ALLOW_CLAUDE_EPISODE_ART=1 only after "
-            "explicit approval."
-        )
-    result = subprocess.run(
-        ["claude", "-p", "--model", "claude-sonnet-4-6"],
-        input=f"{SYSTEM}\n\n{prompt}",
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"claude CLI failed: {result.stderr[:500]}")
-    return result.stdout
+def generate_openai_image(prompt, ep_num):
+    out_path = IMAGE_DIR / f"episode_{ep_num:03d}_openai_art.png"
+    model = os.getenv("OPENAI_EPISODE_ART_IMAGE_MODEL", DEFAULT_OPENAI_IMAGE_MODEL)
+    cmd = [
+        "openclaw", "infer", "image", "generate",
+        "--model", model,
+        "--size", "1024x1024",
+        "--output-format", "png",
+        "--output", str(out_path),
+        "--timeout-ms", "300000",
+        "--prompt", prompt,
+    ]
+    result = subprocess.run(cmd, cwd=str(PODCAST_DIR), capture_output=True, text=True, timeout=330)
+    if result.returncode != 0 or not out_path.exists() or out_path.stat().st_size < 100_000:
+        detail = (result.stderr or result.stdout or "no output").strip()[:1200]
+        raise RuntimeError(f"OpenAI image generation failed via OpenClaw: {detail}")
+    return out_path
 
 
-def extract_code(response):
-    """Pull the Python code block out of the response."""
-    m = re.search(r"```python\s*(.*?)```", response, re.DOTALL)
-    if m:
-        return m.group(1).strip()
-    # If no fences, take everything that looks like Python
-    lines = [l for l in response.splitlines() if l.strip() and not l.startswith("#!")]
-    return "\n".join(lines).strip()
+def module_for_image(ep_num, image_name):
+    return textwrap.dedent(f"""
+        from pathlib import Path
+        from PIL import Image, ImageDraw, ImageFilter
+
+        def draw_art(img, W, H):
+            asset_path = Path(__file__).resolve().parents[2] / "images" / "{image_name}"
+            art = Image.open(asset_path).convert("RGBA")
+
+            target_w = int(W * 0.78)
+            target_h = int(H * 0.56)
+            scale = max(target_w / art.width, target_h / art.height)
+            resized = art.resize((int(art.width * scale), int(art.height * scale)), Image.Resampling.LANCZOS)
+            left = max(0, (resized.width - target_w) // 2)
+            top = max(0, (resized.height - target_h) // 2)
+            art = resized.crop((left, top, left + target_w, top + target_h))
+
+            mask = Image.new("L", (target_w, target_h), 0)
+            md = ImageDraw.Draw(mask)
+            md.rounded_rectangle((0, 0, target_w, target_h), radius=58, fill=218)
+            edge = Image.new("L", (target_w, target_h), 0)
+            ed = ImageDraw.Draw(edge)
+            ed.rounded_rectangle((20, 20, target_w - 20, target_h - 20), radius=48, fill=255)
+            mask = Image.composite(mask, edge.filter(ImageFilter.GaussianBlur(20)), edge)
+
+            glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            gd = ImageDraw.Draw(glow)
+            x = (W - target_w) // 2
+            y = int(H * 0.16)
+            gd.rounded_rectangle((x - 30, y - 30, x + target_w + 30, y + target_h + 30), radius=76, fill=(30, 170, 210, 70))
+            img = Image.alpha_composite(img, glow.filter(ImageFilter.GaussianBlur(38)))
+
+            layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            art.putalpha(mask)
+            layer.alpha_composite(art, (x, y))
+
+            shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            sd = ImageDraw.Draw(shade)
+            sd.rectangle((0, int(H * 0.66), W, H), fill=(0, 0, 0, 118))
+            sd.rectangle((0, 0, W, int(H * 0.17)), fill=(0, 0, 0, 80))
+            return Image.alpha_composite(Image.alpha_composite(img, layer), shade)
+    """).strip() + "\n"
 
 
 def test_module(code_str, ep_num):
@@ -206,25 +202,18 @@ def generate(ep_num, retry=2):
 
     print(f"[EP{ep_num:03d}] Generating art module...")
     prompt = build_prompt(ep_num, show_notes)
+    image_path = generate_openai_image(prompt, ep_num)
+    print(f"  OpenAI image generated: {image_path.name} ({image_path.stat().st_size} bytes)")
+    code = module_for_image(ep_num, image_path.name)
 
-    for attempt in range(1, retry + 2):
-        raw = call_claude(prompt)
-        code = extract_code(raw)
-        print(f"  Attempt {attempt}: got {len(code)} chars of code.")
+    ok, err = test_module(code, ep_num)
+    if ok:
+        out = ART_DIR / f"episode_{ep_num:03d}_art.py"
+        out.write_text(code, encoding="utf-8")
+        print(f"[EP{ep_num:03d}] Art module written: {out}")
+        return
 
-        ok, err = test_module(code, ep_num)
-        if ok:
-            out = ART_DIR / f"episode_{ep_num:03d}_art.py"
-            out.write_text(code, encoding="utf-8")
-            print(f"[EP{ep_num:03d}] Art module written: {out}")
-            return
-        else:
-            print(f"  Test failed:\n{err}")
-            if attempt <= retry:
-                print(f"  Retrying with error context...")
-                prompt += f"\n\nPrevious attempt had this runtime error — fix it:\n{err[:800]}"
-
-    print(f"[EP{ep_num:03d}] All attempts failed. Check output above.")
+    print(f"[EP{ep_num:03d}] Generated module failed test:\n{err}")
     sys.exit(1)
 
 
