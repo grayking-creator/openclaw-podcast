@@ -774,6 +774,29 @@ def run_checks(path):
             hint="CLI release coverage = released stable tags only. Drop 'npm latest', 'received via update', 'latest vs. received', or any dist-tag framing. Talk about the released stable tag itself, not which channel it appeared on.",
         )
 
+    # ── Rule B2 — no-release narration for any harness is a hard failure ──────
+    # (Toby, 2026-06-10): with five tracked harnesses, reading out "Claude Code
+    # had no release this cycle" turns every episode into a roll call. The
+    # spoken transcript only names harnesses that actually shipped; silence
+    # covers the rest.
+    _harness_names = r"(?:OpenClaw|Hermes(?:\s+Agent)?|(?:OpenAI\s+)?Codex(?:\s+CLI)?|Claude\s+Code(?:\s+CLI)?|Antigravity(?:\s+CLI)?)"
+    no_release_narration_hits = []
+    for pat in [
+        rf"\b{_harness_names}\b[^.\n]{{0,90}}\bno\s+(?:new\s+)?(?:stable\s+)?(?:release|update|version|change)s?\b",
+        rf"\bno\s+(?:new\s+)?(?:stable\s+)?(?:release|update|version|change)s?\b[^.\n]{{0,90}}\b{_harness_names}\b",
+        rf"\b{_harness_names}\b[^.\n]{{0,40}}\b(?:remains?|stays?|stayed|holds?|held|sits?)\s+(?:at|on|steady|unchanged|put)\b",
+        rf"\bnothing\s+new\s+(?:from|for|on)\s+{_harness_names}\b",
+        rf"\b{_harness_names}\b[^.\n]{{0,40}}\b(?:didn'?t|did\s+not|hasn'?t|has\s+not)\s+(?:ship|update|move|change)\b",
+        rf"\bquiet\s+(?:cycle|week|day)\s+for\s+{_harness_names}\b",
+    ]:
+        for m in re.finditer(pat, content, re.IGNORECASE):
+            no_release_narration_hits.append(m.group(0)[:70])
+    check("No 'harness had no release' narration in the spoken transcript",
+          len(no_release_narration_hits) == 0,
+          severity="ERROR",
+          hint="Never read out that a harness had no release/update this cycle — only harnesses that "
+               f"shipped get named in release coverage. Cut these lines: {no_release_narration_hits[:5]}")
+
     # ── Rule B — Claude Code / Codex CLI must be framed as terminal-based AI coding agents ─
     # First mention per episode must include the "terminal-based" + "AI coding agent" framing
     def _has_terminal_based_ai_coding_agent_intro(text, product_pattern):

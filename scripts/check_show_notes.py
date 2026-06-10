@@ -320,6 +320,29 @@ def run_checks(path: str) -> None:
         (r"\bCodex(?:\s+CLI)?\s+(?:remains\s+at|held\s+its\s+position|at\s+rust-v\d|on\s+continuous\s+delivery)", "Codex"),
         (r"\bAntigravity(?:\s+CLI)?\s+(?:remains\s+at|held\s+its\s+position|on\s+continuous\s+delivery)", "Antigravity"),
     ]
+    # No-release narration for ANY harness is a hard failure in public copy
+    # (Toby, 2026-06-10): with five tracked harnesses, "X had no release this
+    # cycle" becomes a roll call every episode. Only harnesses that shipped get
+    # named in release context; the internal Release Coverage Check is the only
+    # place a no-change fact may be recorded.
+    _harness_names = r"(?:OpenClaw|Hermes(?:\s+Agent)?|(?:OpenAI\s+)?Codex(?:\s+CLI)?|Claude\s+Code(?:\s+CLI)?|Antigravity(?:\s+CLI)?)"
+    if ep_num >= 68:
+        no_release_narration_patterns = [
+            rf"\b{_harness_names}\b[^.\n]{{0,90}}\bno\s+(?:new\s+)?(?:stable\s+)?(?:release|update|version|change)s?\b",
+            rf"\bno\s+(?:new\s+)?(?:stable\s+)?(?:release|update|version|change)s?\b[^.\n]{{0,90}}\b{_harness_names}\b",
+            rf"\b{_harness_names}\b[^.\n]{{0,40}}\b(?:remains?|stays?|stayed|holds?|held|sits?)\s+(?:at|on|steady|unchanged|put)\b",
+            rf"\bnothing\s+new\s+(?:from|for|on)\s+{_harness_names}\b",
+            rf"\b{_harness_names}\b[^.\n]{{0,40}}\b(?:didn'?t|did\s+not|hasn'?t|has\s+not)\s+(?:ship|update|move|change)\b",
+            rf"\bquiet\s+(?:cycle|week|day)\s+for\s+{_harness_names}\b",
+        ]
+        no_release_narration_hits: list[str] = []
+        for pat in no_release_narration_patterns:
+            for m in re.finditer(pat, public_only, re.IGNORECASE):
+                no_release_narration_hits.append(m.group(0)[:70])
+        check("No 'harness had no release' narration in public copy",
+              len(no_release_narration_hits) == 0,
+              hint="Only harnesses that shipped get named in release context. Record no-change facts in "
+                   f"`## Release Coverage Check` only — never in public sections: {no_release_narration_hits[:5]}")
     watch_harness_hits: list[str] = []
     for pattern, harness_name in watch_harness_patterns:
         for m in re.finditer(pattern, public_only, re.IGNORECASE):

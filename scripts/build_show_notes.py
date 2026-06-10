@@ -96,6 +96,18 @@ BANNED_PUBLIC_PATTERNS = [
     r"\blatest\s+(?:vs\.?|versus)\s+stable\b", r"\bstable\s+(?:vs\.?|versus)\s+latest\b",
     r"\breceived via update\b",
 ]
+
+# No-release narration for any harness (Toby standing rule 2026-06-10): harnesses
+# that did not ship are not mentioned in release context at all — no roll call.
+_HARNESS_NAMES = r"(?:OpenClaw|Hermes(?:\s+Agent)?|(?:OpenAI\s+)?Codex(?:\s+CLI)?|Claude\s+Code(?:\s+CLI)?|Antigravity(?:\s+CLI)?)"
+BANNED_PUBLIC_PATTERNS += [
+    rf"\b{_HARNESS_NAMES}\b[^.\n]{{0,90}}\bno\s+(?:new\s+)?(?:stable\s+)?(?:release|update|version|change)s?\b",
+    rf"\bno\s+(?:new\s+)?(?:stable\s+)?(?:release|update|version|change)s?\b[^.\n]{{0,90}}\b{_HARNESS_NAMES}\b",
+    rf"\b{_HARNESS_NAMES}\b[^.\n]{{0,40}}\b(?:remains?|stays?|stayed|holds?|held|sits?)\s+(?:at|on|steady|unchanged|put)\b",
+    rf"\bnothing\s+new\s+(?:from|for|on)\s+{_HARNESS_NAMES}\b",
+    rf"\b{_HARNESS_NAMES}\b[^.\n]{{0,40}}\b(?:didn'?t|did\s+not|hasn'?t|has\s+not)\s+(?:ship|update|move|change)\b",
+    rf"\bquiet\s+(?:cycle|week|day)\s+for\s+{_HARNESS_NAMES}\b",
+]
 BANNED_PUBLIC_RE = [re.compile(p, re.IGNORECASE) for p in BANNED_PUBLIC_PATTERNS]
 THEME_GLUE_RE = [re.compile(p, re.IGNORECASE) for p in qc.THEME_GLUE_PATTERNS]
 PRERELEASE_RE = qc.PRERELEASE_DASH_RE
@@ -553,7 +565,8 @@ BAN_TEXT = """HARD BANS (any violation rejects your output):
 - Never include any version tag shaped like vYYYY.M.D except these allowed tags: {allowed}.
 - Never include filesystem paths.
 - Do not say a harness/CLI "remains at" a version or is "on continuous delivery".
-- Never write "npm latest", "npm stable", "dist-tag", "stable track/channel", "latest track/channel", or compare release/distribution channels in any way. A release is reported as the single stable version it is — never relative to another channel."""
+- Never write "npm latest", "npm stable", "dist-tag", "stable track/channel", "latest track/channel", or compare release/distribution channels in any way. A release is reported as the single stable version it is — never relative to another channel.
+- Never say a harness (OpenClaw, Hermes, Codex, Claude Code, Antigravity) had no release, no update, no changes, "held steady", or "didn't ship". Harnesses that did not ship are simply never mentioned in release context — write only about what shipped."""
 
 
 def story_prompt(source_block: str, is_release: bool, allowed_tags: set[str],
@@ -939,9 +952,9 @@ def build_release_source_block(lanes: dict, shipped: list) -> tuple:
             elif key == "claude_code":
                 links.append((f"Claude Code CLI npm", "https://www.npmjs.com/package/@anthropic-ai/claude-code"))
             tags_for_intro.append(c["tag"])
-    others = [lanes[k]["label"] for k in lanes if k not in shipped]
-    parts.append(f"(Products with no new stable release this cycle — do NOT describe them as unchanged "
-                 f"in the text; simply focus on what shipped: {', '.join(others)})")
+    parts.append("(Write ONLY about the releases listed above. Any product not listed did not ship "
+                 "this cycle and must not be mentioned in this story at all — no 'no release', "
+                 "'unchanged', or 'held steady' notes for absent products.)")
     return "\n\n".join(parts), links, tags_for_intro
 
 
