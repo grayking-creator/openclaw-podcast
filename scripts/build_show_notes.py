@@ -411,7 +411,7 @@ def render_release_coverage_check(lanes: dict) -> str:
                          f"Recent episode version tags detected: {covered_str}.")
             continue
         latest_tag = info["latest"]["tag"]
-        pub = info["latest"].get("published_at", "")
+        pub = info["latest"].get("published_at", "") or "(date not in registry window)"
         if info["candidates"]:
             sel = ", ".join(f"`{c['tag']}`" for c in info["candidates"])
             lines.append(f"- **{label}** — Latest stable verified: `{latest_tag}`, published {pub}. "
