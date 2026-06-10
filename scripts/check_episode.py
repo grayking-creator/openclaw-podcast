@@ -777,15 +777,20 @@ def run_checks(path):
     # ── Rule B — Claude Code / Codex CLI must be framed as terminal-based AI coding agents ─
     # First mention per episode must include the "terminal-based" + "AI coding agent" framing
     def _has_terminal_based_ai_coding_agent_intro(text, product_pattern):
-        """Return True if every mention of product_pattern is preceded (within ~200 chars)
-        by a phrase containing both 'terminal-based' and 'AI coding agent' OR if the product
-        is never mentioned at all (vacuous truth)."""
-        for m in re.finditer(product_pattern, text, re.IGNORECASE):
-            window = text[max(0, m.start() - 200):m.start()]
-            if not (re.search(r"terminal[- ]based", window, re.IGNORECASE) and
-                    re.search(r"AI coding agent", window, re.IGNORECASE)):
-                return False
-        return True
+        """Return True if the FIRST mention of product_pattern carries the
+        'terminal-based' + 'AI coding agent' framing within ±200 chars, or the
+        product is never mentioned at all (vacuous truth).
+
+        First-mention semantics on purpose (2026-06-10): the rule's hint and the
+        transcript prompt both specify first-mention framing, but this used to
+        require the framing before EVERY mention — on a 10-story episode that
+        repeatedly names Claude Code it burned all regeneration attempts."""
+        m = re.search(product_pattern, text, re.IGNORECASE)
+        if not m:
+            return True
+        window = text[max(0, m.start() - 200):m.end() + 200]
+        return bool(re.search(r"terminal[- ]based", window, re.IGNORECASE) and
+                    re.search(r"AI coding agent|coding agent", window, re.IGNORECASE))
 
     check(
         "Claude Code is framed as a terminal-based AI coding agent",

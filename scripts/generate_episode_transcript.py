@@ -43,11 +43,15 @@ def read_text(path: Path, limit: int | None = None) -> str:
 
 
 def recent_transcript_excerpt(ep_num: int) -> str:
+    # One example is enough for format; three 5KB excerpts bloated the input
+    # and squeezed the model's output budget on 10-story episodes, causing
+    # truncated drafts (EP068, 2026-06-10).
     excerpts: list[str] = []
     for prior in range(ep_num - 1, max(-1, ep_num - 4), -1):
         path = PODCAST_DIR / "episodes" / f"episode_{prior:03d}_transcript.md"
         if path.exists():
-            excerpts.append(f"--- EP{prior:03d} format excerpt ---\n{read_text(path, 5000)}")
+            excerpts.append(f"--- EP{prior:03d} format excerpt ---\n{read_text(path, 4000)}")
+            break
     return "\n\n".join(excerpts)
 
 
@@ -102,6 +106,8 @@ Hard format requirements:
 - Do NOT read the show-notes text/markdown aloud as episode content, and do NOT read source links or URLs aloud anywhere in the transcript (no "h-t-t-p-s", no spoken "dot com slash ...", no reading out a list of links). Describe what is at a source in plain language instead. The only spoken web reference allowed is the "Toby On Fitness Tech dot com" CTA.
 - Do not mention Toby, request feedback, drafting, review, build logs, artifacts, internal tools, or local paths anywhere else.
 - NEVER narrate the episode's own format or editorial construction. Do not use the word "homework", and never say things like "no homework episode today", "this episode", "today's episode", "the model story in this episode", "in this block/segment", "we'll focus on", or otherwise describe how the show is structured or what kind of episode it is. Just deliver the content directly — the listener should never hear the editorial rules we build it under.
+- REQUIRED: within the first 300 words, include one forward-looking line that tells the listener what is coming, anchored on the word "today" or the phrase "you'll hear" (e.g. "Today: <headline one>, <headline two>, and <headline three>."). This is the allowed way to set the agenda — never "this episode" or "today's episode".
+- Word choice: keep the vocabulary on builder workflows — how you use it, in practice, what you get, build/configure/deploy/wire/ship. Minimize the literal words "document(s)", "file(s)", "folder(s)", "copy", "move(d)", "storage", "record(s)" — when mechanics involve them, name the concrete surface instead (config, session, payload, API, schema). QC counts these words and fails drafts that lean on file/document plumbing language.
 - Use SHORTENED version numbers when spoken, never full ones. For OpenClaw "v2026.5.28" say "5.28" (month dot day); for Claude Code "2.1.159" say ".159" or "two point one". Never read a full version aloud: not "v2026.5.28", not "2026.5.28", not "2.1.159".
 - Keep the episode focused on concrete AI/agent/model/tooling news, mechanisms, releases, repos, workflows, and why they matter.
 - The transcript must be at least 5,000 words and should land around 5,200 to 6,500 words — tight and dense, not padded. Expand each story with concrete mechanisms, examples, tradeoffs, capabilities, and real-world reactions — NOT with tests or checklists.
@@ -229,6 +235,42 @@ def run_model(prompt: str, model: str, timeout: int) -> str:
         ) from exc
 
 
+def looks_truncated(text: str) -> bool:
+    """A complete transcript always ends with the exact closing phrase; a draft
+    without it in the tail was cut off by the model's output ceiling."""
+    return "We'll be back soon" not in text[-800:]
+
+
+def complete_truncated_draft(text: str, ep_num: int, show_notes: str, model: str,
+                             timeout: int) -> str:
+    """Ask the model to write ONLY the missing remainder, then splice. This is
+    a much smaller output than a full regeneration, so it cannot itself hit the
+    output ceiling. Added 2026-06-10 after EP068 lost three full regenerations
+    to truncation."""
+    # Trim the partial back to the last complete paragraph boundary.
+    cut = text.rfind("\n\n")
+    if cut > len(text) * 0.6:
+        text = text[:cut].rstrip() + "\n"
+    tail = text[-1500:]
+    prompt = f"""A podcast transcript was cut off mid-generation. Write ONLY the missing remainder — do not repeat any existing text, do not add commentary or a code fence. Pick up exactly where the partial stops and finish the episode.
+
+Requirements for the remainder:
+- Continue the alternating [NOVA]: / [ALLOY]: speaker turns with [PAUSE] between major sections.
+- Cover any show-note slate stories not yet covered (compare the partial against the show notes below), then a short practical-queue wrap-up.
+- End with the outro: point listeners to the show notes with the exact CTA "Toby On Fitness Tech dot com" and the exact closing phrase "We'll be back soon."
+- Never read URLs aloud; never mention Toby outside the CTA; never use full version numbers aloud (shortened spoken forms only); never say "story slate", "show notes block", "this episode", or "today's episode".
+
+--- SHOW NOTES (source of truth) ---
+{show_notes}
+--- END SHOW NOTES ---
+
+--- FINAL PORTION OF THE PARTIAL TRANSCRIPT (continue from exactly here) ---
+{tail}
+--- END PARTIAL ---"""
+    remainder = run_model(prompt, model, timeout)
+    return text.rstrip() + "\n\n" + remainder.strip() + "\n"
+
+
 def basic_shape_check(text: str, ep_num: int) -> None:
     if "[NOVA]:" not in text or "[ALLOY]:" not in text:
         raise RuntimeError("Generated transcript is missing NOVA/ALLOY speaker turns")
@@ -301,6 +343,10 @@ def main() -> int:
 
         try:
             text = run_model(prompt, args.model, args.timeout)
+            if looks_truncated(text) and len(text.split()) >= 3000:
+                print(f"[EP{ep_str}] {label}: draft truncated at {len(text.split())} words — "
+                      f"generating continuation and splicing.", flush=True)
+                text = complete_truncated_draft(text, ep_num, show_notes, args.model, args.timeout)
             basic_shape_check(text, ep_num)
         except RuntimeError as exc:
             # Generation or basic-shape problem — treat as a repairable failure.
