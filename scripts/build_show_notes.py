@@ -89,6 +89,12 @@ BANNED_PUBLIC_PATTERNS = [
     r"\bnot a release episode\b", r"\bno release coverage\b",
     r"\bno new stable openclaw release\b", r"\bcovered in recent episode notes\b",
     r"\bfive stories today\b", r"\bthis is a builder-stack episode\b",
+    # npm dist-tag / latest-vs-stable channel diffing (Toby standing rule 2026-06-10:
+    # coverage uses the stable release only; the channel-diff conversation is banned)
+    r"\bnpm latest\b", r"\bnpm stable\b", r"\bdist[- ]tags?\b",
+    r"\b(?:stable|latest)\s+(?:track|channel)\b",
+    r"\blatest\s+(?:vs\.?|versus)\s+stable\b", r"\bstable\s+(?:vs\.?|versus)\s+latest\b",
+    r"\breceived via update\b",
 ]
 BANNED_PUBLIC_RE = [re.compile(p, re.IGNORECASE) for p in BANNED_PUBLIC_PATTERNS]
 THEME_GLUE_RE = [re.compile(p, re.IGNORECASE) for p in qc.THEME_GLUE_PATTERNS]
@@ -355,17 +361,22 @@ def compute_lanes(research: dict) -> dict:
         else:
             npm = research.get("npm", {}).get(lane["npm"], {})
             tags = npm.get("dist_tags", {}) or {}
-            latest = tags.get("latest")
-            stable = tags.get("stable")
+            # Toby's standing rule (2026-06-10): Claude Code coverage tracks the
+            # `stable` dist-tag ONLY — that is what he runs. Never select, report,
+            # or compare against `latest`; the latest-vs-stable diff conversation
+            # is banned from the show entirely.
+            if key == "claude_code":
+                chosen = tags.get("stable")
+            else:
+                chosen = tags.get("latest")
             published = ""
             for v, t in npm.get("recent_versions", []):
-                if v == latest:
+                if v == chosen:
                     published = t
                     break
-            info["latest"] = {"tag": latest, "published_at": published} if latest else None
-            info["npm_stable"] = stable
-            if latest and latest not in covered[key]:
-                info["candidates"] = [{"tag": latest, "published_at": published,
+            info["latest"] = {"tag": chosen, "published_at": published} if chosen else None
+            if chosen and chosen not in covered[key]:
+                info["candidates"] = [{"tag": chosen, "published_at": published,
                                        "body": "", "url": ""}]
         out[key] = info
     return out
@@ -398,8 +409,6 @@ def render_release_coverage_check(lanes: dict) -> str:
             lines.append(f"- **{label}** — Latest stable verified: `{latest_tag}`, published {pub}. "
                          f"Recent episode version tags detected: {covered_str}. "
                          f"No new stable release this cycle.")
-        if key == "claude_code" and info.get("npm_stable"):
-            lines[-1] += f" npm `stable` dist-tag: `{info['npm_stable']}`."
     return "\n".join(lines)
 
 
@@ -412,8 +421,6 @@ def render_harness_version_reference(lanes: dict) -> str:
             extra = ""
             if lane["key"] == "openclaw" and info.get("latest_prerelease"):
                 extra = f" (stable) / `{info['latest_prerelease']}` (prerelease)"
-            if lane["key"] == "claude_code" and info.get("npm_stable"):
-                extra = f" (npm latest) / `{info['npm_stable']}` (npm stable)"
             lines.append(f"- **{label}** — `{info['latest']['tag']}`{extra}")
         else:
             lines.append(f"- **{label}** — Continuous delivery (no tagged release verified this cycle)")
@@ -545,7 +552,8 @@ BAN_TEXT = """HARD BANS (any violation rejects your output):
 - Never include a prerelease tag (-beta/-rc/-alpha/-dev suffixed versions).
 - Never include any version tag shaped like vYYYY.M.D except these allowed tags: {allowed}.
 - Never include filesystem paths.
-- Do not say a harness/CLI "remains at" a version or is "on continuous delivery"."""
+- Do not say a harness/CLI "remains at" a version or is "on continuous delivery".
+- Never write "npm latest", "npm stable", "dist-tag", "stable track/channel", "latest track/channel", or compare release/distribution channels in any way. A release is reported as the single stable version it is — never relative to another channel."""
 
 
 def story_prompt(source_block: str, is_release: bool, allowed_tags: set[str],
@@ -925,7 +933,7 @@ def build_release_source_block(lanes: dict, shipped: list) -> tuple:
         for c in info["candidates"]:
             head = f"{info['label']} {c['tag']} (published {c.get('published_at','')})"
             body = (c.get("body") or "").strip()
-            parts.append(f"### {head}\n{body[:2500] if body else 'No release notes body published; npm registry version bump.'}")
+            parts.append(f"### {head}\n{body[:2500] if body else 'New stable release; no changelog body published. State the fact of the new stable version and its operational meaning only — do not speculate about contents and never mention distribution channels or tags.'}")
             if c.get("url"):
                 links.append((f"{info['label']} {c['tag']} release", c["url"]))
             elif key == "claude_code":

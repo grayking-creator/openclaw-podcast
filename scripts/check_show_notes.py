@@ -539,6 +539,30 @@ def run_checks(path: str) -> None:
 
 
 
+    # ── npm dist-tag / latest-vs-stable channel diffing is banned everywhere ──
+    # Toby's standing rule (restated 2026-06-10 after EP067/EP068 violations):
+    # coverage reports the stable release only — he runs stable, and the
+    # latest-vs-stable diff conversation must never appear in any section,
+    # including internal Release Coverage Check / Harness Version Reference
+    # blocks (they leak into the next episode's research context).
+    if ep_num >= 68:
+        dist_tag_hits: list[str] = []
+        for pat in [
+            r"\bnpm latest\b",
+            r"\bnpm stable\b",
+            r"\bdist[- ]tags?\b",
+            r"\b(?:stable|latest)\s+(?:track|channel)\b",
+            r"\blatest\s+(?:vs\.?|versus)\s+stable\b",
+            r"\bstable\s+(?:vs\.?|versus)\s+latest\b",
+            r"\breceived via update\b",
+            r"\bgap\s+(?:between|is)\s+(?:widening|narrowing)\b",
+        ]:
+            dist_tag_hits.extend(re.findall(pat, notes, re.IGNORECASE))
+        check("No npm dist-tag / latest-vs-stable channel framing anywhere in the document",
+              len(dist_tag_hits) == 0,
+              hint="Standing rule: report the stable release only — never name or compare "
+                   f"distribution channels/tags anywhere, internal sections included: {dist_tag_hits[:6]}")
+
     internal_impl_patterns = [
         r"\bfetched window\b",
         r"\bfetched release window\b",
