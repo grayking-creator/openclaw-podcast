@@ -35,6 +35,14 @@ THEME_GLUE_PATTERNS = [
     r"\bone story told across\b",
 ]
 
+TITLE_OVERLAP_STOPWORDS = {
+    "about", "across", "after", "agent", "agents", "agentstack", "around",
+    "because", "before", "bring", "brings", "build", "builder", "builders",
+    "code", "copilot", "daily", "from", "github", "into", "make", "makes", "model", "models",
+    "release", "releases", "ship", "ships", "stack", "story", "that",
+    "the", "their", "this", "through", "with", "work", "workflow", "workflows",
+}
+
 LISTENER_SPECIFIC_PATTERNS = [
     r"\balready owns two Macs\b",
     r"\byour two Macs\b",
@@ -76,6 +84,19 @@ def extract_show_notes_block(notes: str) -> str:
     return match.group(1).strip() if match else ""
 
 
+def extract_public_editorial_text(notes: str) -> str:
+    sections = [
+        notes.split("\n", 1)[0],
+        extract_section(notes, "Episode Title"),
+        extract_section(notes, "Tagline"),
+        extract_section(notes, "Feed Description"),
+        extract_section(notes, "Story Slate"),
+        extract_show_notes_block(notes),
+        extract_section(notes, "Chapters"),
+    ]
+    return "\n\n".join(section for section in sections if section)
+
+
 def extract_story_titles(notes: str) -> list[str]:
     titles = re.findall(r"^###\s+\d+\.\s+\*\*(.+?)\*\*", notes, re.MULTILINE)
     if titles:
@@ -84,10 +105,18 @@ def extract_story_titles(notes: str) -> list[str]:
     return titles
 
 
+def extract_extra_candidate_titles(notes: str) -> list[str]:
+    return re.findall(r"^\s*[-*]\s+\*\*(.+?)\*\*", extract_section(notes, "Extra Research Candidates"), re.MULTILINE)
+
+
+def title_tokens(title: str) -> set[str]:
+    tokens = set(re.findall(r"[a-z0-9][a-z0-9.+-]{2,}", title.lower()))
+    return {token for token in tokens if token not in TITLE_OVERLAP_STOPWORDS}
+
+
 def extract_release_tags(notes: str) -> list[str]:
     tags = re.findall(r"openclaw/openclaw/releases/tag/(v\d{4}\.\d+\.\d+)", notes)
-    if not tags:
-        tags = re.findall(r"\bv\d{4}\.\d+\.\d+\b", extract_section(notes, "Release Coverage Check"))
+    tags.extend(re.findall(r"NousResearch/hermes-agent/releases/tag/(v\d{4}\.\d+\.\d+)", notes))
     deduped: list[str] = []
     seen = set()
     for tag in tags:
@@ -95,6 +124,95 @@ def extract_release_tags(notes: str) -> list[str]:
             deduped.append(tag)
             seen.add(tag)
     return deduped
+
+
+# Public-facing sections of a show-notes draft where prerelease / beta tag mentions
+# are banned. The internal `## Release Coverage Check` block and
+# `## Harness Version Reference` are the only places a prerelease tag may appear.
+PUBLIC_FACING_SECTIONS = [
+    "AgentStack Daily EP",  # H1 episode title
+    "## Story Slate",
+    "## Show Notes",
+    "## Chapters",
+    "## Primary Links",
+    "## GitHub Project Radar",
+    "## Local LLM Spotlight",
+    "## Model Discovery Check",
+]
+
+# Prerelease / non-stable version tag suffixes. Matched against the literal tag in
+# public-facing copy, e.g. "v2026.6.5-beta.2" or "rust-v0.138.0-alpha.6".
+PRERELEASE_SUFFIX_RE = re.compile(r"(?:^|[^a-z])(v\d[\w.\-]*?(?:alpha|beta|rc|dev|pre|preview)\.?[\w.\-]*?)(?=\b)", re.IGNORECASE)
+# A more conservative catch for dash-suffixed tags like "-beta.2", "-rc.1".
+# Match any "vN.M(.K)?-(alpha|beta|rc|dev|pre).N" pattern to cover year-prefixed and short-tag forms.
+PRERELEASE_DASH_RE = re.compile(r"v\d+(?:\.\d+){1,3}-(?:alpha|beta|rc|dev|pre)(?:\.\d+)?", re.IGNORECASE)
+
+
+def extract_prerelease_tag_mentions(public_text: str) -> list[str]:
+    """Return every prerelease / non-stable tag mentioned in public-facing copy."""
+    hits: list[str] = []
+    for m in PRERELEASE_DASH_RE.finditer(public_text):
+        hits.append(m.group(0))
+    return sorted(set(hits))
+
+
+def public_facing_text(notes: str) -> str:
+    """Concatenate the public-facing sections of a show-notes draft.
+
+    Excludes `## Release Coverage Check` and `## Harness Version Reference`,
+    which are the only places a prerelease tag may legitimately appear.
+    """
+    lines = notes.splitlines()
+    out: list[str] = []
+    in_internal = False
+    current_section: str | None = None
+    section_buffer: list[str] = []
+    kept: list[str] = []
+
+    def flush():
+        if current_section in [s for s in PUBLIC_FACING_SECTIONS]:
+            kept.extend(section_buffer)
+
+    for line in lines:
+        stripped = line.strip()
+        # Section header
+        if stripped.startswith("## ") or stripped.startswith("# "):
+            flush()
+            current_section = stripped
+            section_buffer = [line + "\n"]
+            continue
+        if current_section is not None:
+            section_buffer.append(line + "\n")
+    flush()
+    return "".join(kept)
+
+
+def find_prior_episode_repeats(notes_path: Path, ep_num: int, story_titles: list[str]) -> list[str]:
+    if ep_num <= 1:
+        return []
+
+    prior_path = notes_path.with_name(f"show_notes_episode_{ep_num - 1:03d}.md")
+    if not prior_path.exists():
+        return []
+
+    prior = prior_path.read_text(encoding="utf-8", errors="ignore")
+    prior_topics = extract_story_titles(prior)
+    prior_topics.extend(re.findall(r"^\s*[-*]\s+\*\*(.+?)\*\*", extract_section(prior, "Extra Research Candidates"), re.MULTILINE))
+    prior_topic_tokens = [(topic, title_tokens(topic)) for topic in prior_topics]
+    repeats: list[str] = []
+    for title in story_titles:
+        tokens = title_tokens(title)
+        if len(tokens) < 3:
+            continue
+        for prior_title, prior_tokens in prior_topic_tokens:
+            if not prior_tokens:
+                continue
+            hits = tokens & prior_tokens
+            overlap = len(hits) / min(len(tokens), len(prior_tokens))
+            if len(hits) >= 3 and overlap >= 0.45:
+                repeats.append(f"{title} overlaps prior topic {prior_title!r} ({len(hits)} shared title tokens)")
+                break
+    return repeats
 
 
 def extract_block_segments(block: str) -> list[tuple[str, str]]:
@@ -126,6 +244,7 @@ def run_checks(path: str) -> None:
     ep_num = int(ep_match.group(1)) if ep_match else 0
 
     show_notes_block = extract_show_notes_block(notes)
+    public_editorial_text = extract_public_editorial_text(notes)
     story_titles = extract_story_titles(notes)
     release_tags = extract_release_tags(notes)
     tagline = collapse_ws(extract_section(notes, "Tagline"))
@@ -142,21 +261,262 @@ def run_checks(path: str) -> None:
           hint="Missing `## Show Notes` fenced markdown block.")
     check("Story slate exists", len(story_titles) >= 1,
           hint="Missing `## Story Slate` titles.")
-    if ep_num >= 55:
+    if ep_num >= 68:
+        check("AgentStack Daily slate has ten real topics",
+              len(story_titles) >= 10,
+              hint=f"Expected at least 10 numbered Story Slate topics for EP068+; found {len(story_titles)}. Do not leave viable topics under Extra Research Candidates when building the draft.")
+    elif ep_num >= 55:
         check("AgentStack Daily slate has six real topics",
               len(story_titles) >= 6,
               hint=f"Expected at least 6 numbered Story Slate topics for EP055+; found {len(story_titles)}. Do not leave viable topics under Extra Research Candidates when building the draft.")
+    if ep_num >= 57:
+        prior_repeats = find_prior_episode_repeats(notes_path, ep_num, story_titles)
+        check("Story slate does not repeat the previous episode's topics",
+              len(prior_repeats) == 0,
+              hint="Replace repeated topics before transcript generation: " + "; ".join(prior_repeats[:6]))
 
     if show_notes_block:
         intro_words = len(first_words(show_notes_block, 999999).split())
         check("Show notes block is substantial", intro_words >= 450, severity="WARNING",
               hint=f"Show-notes block is only {intro_words} words. Deep episodes usually need more structure/detail.")
 
+    no_release_watch_hits = []
+    for pattern in [
+        r"\b(?:openclaw|hermes|codex)\s+stable\s+watch\b",
+        r"\bstable\s+watch\b",
+        r"\bwatch\s+lane\b",
+        r"\bbeta\s+watch\b",
+        r"\bstability\s+check\b",
+    ]:
+        no_release_watch_hits.extend(re.findall(pattern, public_editorial_text, re.IGNORECASE))
+    check("No non-release watch lane promoted into public episode topics",
+          len(no_release_watch_hits) == 0,
+          hint=f"Keep no-release/beta bookkeeping inside Release Coverage Check only: {no_release_watch_hits[:5]}")
+
+    # Prerelease / beta tag ban in public-facing copy (EP066 incident 2026-06-08).
+    # Prerelease tags may only appear in `## Release Coverage Check` and
+    # `## Harness Version Reference`. Anywhere else is a hard-fail.
+    public_only = public_facing_text(notes)
+    prerelease_in_public = extract_prerelease_tag_mentions(public_only)
+    check("No prerelease / beta tags in public-facing copy",
+          len(prerelease_in_public) == 0,
+          hint=f"Prerelease tags belong only in `## Release Coverage Check` / `## Harness Version Reference`. "
+               f"Found in title, Story Slate, Show Notes, Chapters, Primary Links, or other public sections: "
+               f"{prerelease_in_public[:5]}. Phrase as 'prerelease', 'beta bundle', or 'upcoming release' instead.")
+
+    # Local LLM Spotlight required in every show-notes draft (EP066 incident 2026-06-08).
+    local_llm_spotlight = bool(extract_section(notes, "Local LLM Spotlight"))
+    check("Local LLM Spotlight section exists",
+          local_llm_spotlight,
+          hint="Add a `## Local LLM Spotlight` section that names one local/self-hosted model or inference move worth tracking this cycle, "
+               "with a primary-source link and a one-line `Try now:`. The spotlight is a recurring callout, not a full story.")
+
+    # No watch-harness inclusion in public-facing copy (EP066 incident 2026-06-08).
+    # The agent-harness block must only mention harnesses that shipped a new stable release
+    # in the current cycle. "Held its position" / "remains at" / "on continuous delivery"
+    # callouts for non-changing harnesses are banned in the public slate.
+    watch_harness_patterns = [
+        (r"\bHermes(?:\s+Agent)?\s+(?:remains\s+at|held\s+its\s+position|at\s+v\d|on\s+continuous\s+delivery)", "Hermes"),
+        (r"\bCodex(?:\s+CLI)?\s+(?:remains\s+at|held\s+its\s+position|at\s+rust-v\d|on\s+continuous\s+delivery)", "Codex"),
+        (r"\bAntigravity(?:\s+CLI)?\s+(?:remains\s+at|held\s+its\s+position|on\s+continuous\s+delivery)", "Antigravity"),
+    ]
+    watch_harness_hits: list[str] = []
+    for pattern, harness_name in watch_harness_patterns:
+        for m in re.finditer(pattern, public_only, re.IGNORECASE):
+            watch_harness_hits.append(f"{harness_name} ({m.group(0)[:60]})")
+    check("No watch-harness inclusion in public-facing copy",
+          len(watch_harness_hits) == 0,
+          hint=f"Do not mention a harness that did not ship a new stable release this cycle. "
+               f"Drop or downgraded to a single in-passing reference: {watch_harness_hits[:5]}")
+
     story_slate = extract_section(notes, "Story Slate")
+    extra_candidate_titles = extract_extra_candidate_titles(notes)
+    duplicate_extra_candidates: list[str] = []
+    story_token_sets = [(title, title_tokens(title)) for title in story_titles]
+    for extra_title in extra_candidate_titles:
+        extra_tokens = title_tokens(extra_title)
+        if len(extra_tokens) < 2:
+            continue
+        for story_title, story_tokens in story_token_sets:
+            if not story_tokens:
+                continue
+            overlap = len(extra_tokens & story_tokens)
+            if overlap >= 2 and overlap / max(1, min(len(extra_tokens), len(story_tokens))) >= 0.5:
+                duplicate_extra_candidates.append(f"{extra_title} duplicates {story_title}")
+                break
+    check("Extra Research Candidates do not duplicate selected slate topics",
+          len(duplicate_extra_candidates) == 0,
+          hint="Replace backup candidates that are already selected in Story Slate: " + "; ".join(duplicate_extra_candidates[:5]))
+
     technical_angle_count = len(re.findall(r"Technical depth angle\s*:\s*\S", story_slate, re.IGNORECASE))
     check("Every story slate item has a Technical depth angle",
           len(story_titles) > 0 and technical_angle_count >= len(story_titles),
           hint=f"Found {technical_angle_count} Technical depth angle line(s) for {len(story_titles)} story/stories. MiniMax/Gemini needs a concrete mechanism to synthesize, not just article summaries.")
+
+    # Story-slope technical density cap (EP066 incident 2026-06-08; revised 2026-06-08
+    # after Toby's follow-up: the per-story `Actionability angle` had turned into a
+    # five-bullet "do this, then check that, then test X" checklist per story, and
+    # that reads like operator homework, not news. The cap is now: keep the
+    # `Technical depth angle` short enough to leave room for the news (≤ ~120
+    # words); the `Actionability angle` must describe the implication (what this
+    # means for builders, the stack, the market) and may include zero, one, or at
+    # most two concrete examples. No more "≥3 try-now moves" enforcement. No more
+    # "Actionability must be longer than Technical depth" enforcement. The point
+    # of the angle is to land the news, not to assign a to-do list.
+    def _angle_words(text: str, start_label: str, stop_labels: list[str]) -> int:
+        m = re.search(rf"{start_label}\s*:\s*", text, re.IGNORECASE)
+        if not m:
+            return 0
+        rest = text[m.end():]
+        earliest = len(rest)
+        for stop in stop_labels:
+            sm = re.search(rf"{stop}\s*:\s*", rest, re.IGNORECASE)
+            if sm and sm.start() < earliest:
+                earliest = sm.start()
+        chunk = rest[:earliest]
+        # Stop at a blank line followed by another major heading.
+        for sep in ["\n\n", "\n#"]:
+            idx = chunk.find(sep)
+            if idx >= 0 and idx < earliest:
+                chunk = chunk[:idx]
+        return len(chunk.split())
+
+    tech_words_per_story: list[int] = []
+    for title in story_titles:
+        # Find the position of the title in the slate, then measure from there.
+        m = re.search(re.escape(title), story_slate, re.IGNORECASE)
+        if not m:
+            continue
+        segment = story_slate[m.start():]
+        # The next title's position is the end of this story.
+        next_titles = [t for t in story_titles if t != title]
+        next_positions = []
+        for nt in next_titles:
+            nm = re.search(re.escape(nt), segment[20:], re.IGNORECASE)
+            if nm:
+                next_positions.append(20 + nm.start())
+        end_pos = min(next_positions) if next_positions else len(segment)
+        story_segment = segment[:end_pos]
+        tw = _angle_words(story_segment, "Technical depth angle", ["Actionability angle", "Listener hook"])
+        tech_words_per_story.append(tw)
+    over_cap = [f"story {i+1}={tw}w" for i, tw in enumerate(tech_words_per_story) if tw > 120]
+    check("Technical depth angle stays under ~120 words per story",
+          not over_cap,
+          hint=f"Cap each `Technical depth angle` at ~120 words; long technical rants bury the news. Over cap: {over_cap[:5]}")
+
+    # Anti-checklist guard (EP066 follow-up 2026-06-08): per-story Actionability
+    # angles that read like a homework checklist ("run X, then check Y, then
+    # enable Z, then audit W, then test V") make the episode painful to listen
+    # to. The angle should land the implication of the news, not assign a to-do
+    # list. Reject angles that have four or more imperative "verb+object"
+    # recipes stacked on top of each other.
+    imperative_verbs = (
+        r"\b(?:run|check|enable|test|try|install|configure|set up|setup|rotate|"
+        r"watch|monitor|track|read|clone|explore|audit|evaluate|verify|"
+        r"compare|connect|deploy|launch|use|pull|download|build|set|"
+        r"open|review|inspect|tune|measure|benchmark|register|sign up|"
+        r"subscribe|join|bookmark|note|plan|map|tag|label|wire|hook|attach|"
+        r"add|remove|drop|swap|switch|roll|back|forward|reset|reload|"
+        r"restart|promote|demote|pin|unpin|lock|unlock|approve|reject|"
+        r"ship|publish|release|merge|rebase|push|pull|fork|star)\b"
+    )
+    checklist_angles: list[str] = []
+    for title in story_titles:
+        m = re.search(re.escape(title), story_slate, re.IGNORECASE)
+        if not m:
+            continue
+        segment = story_slate[m.start():]
+        next_titles = [t for t in story_titles if t != title]
+        next_positions = []
+        for nt in next_titles:
+            nm = re.search(re.escape(nt), segment[20:], re.IGNORECASE)
+            if nm:
+                next_positions.append(20 + nm.start())
+        end_pos = min(next_positions) if next_positions else len(segment)
+        story_segment = segment[:end_pos]
+        # Pull the Actionability angle text.
+        am = re.search(r"Actionability angle\s*:\s*", story_segment, re.IGNORECASE)
+        if not am:
+            continue
+        rest = story_segment[am.end():]
+        # Stop at Listener hook or next heading or blank line.
+        cut_positions = [len(rest)]
+        for stop in [r"Listener hook\s*:", r"Technical depth angle\s*:", r"\n\n", r"\n#"]:
+            sm = re.search(stop, rest, re.IGNORECASE)
+            if sm and sm.start() < cut_positions[0]:
+                cut_positions[0] = sm.start()
+        act_text = rest[: cut_positions[0]]
+        # Count imperative-verb sentences inside the angle.
+        sentences = re.split(r"[.;]\s+", act_text)
+        imperative_count = 0
+        for s in sentences:
+            if re.search(imperative_verbs, s, re.IGNORECASE):
+                imperative_count += 1
+        if imperative_count >= 4:
+            checklist_angles.append(f"story '{title[:60]}' has {imperative_count} imperative sentences in Actionability angle (cap is 3)")
+    check("Actionability angle is not a homework checklist (≤3 imperative sentences per story)",
+          not checklist_angles,
+          hint="The Actionability angle should land the implication of the news, not assign a to-do list. If a story angle has 4+ imperative 'do this' sentences, rewrite as 'what this means' / 'why this matters' with at most one or two concrete examples. Offenders: " + "; ".join(checklist_angles[:5]))
+
+    action_angle_count = len(re.findall(r"Actionability angle\s*:\s*\S", story_slate, re.IGNORECASE))
+    listener_hook_count = len(re.findall(r"Listener hook\s*:\s*\S", story_slate, re.IGNORECASE))
+    if ep_num >= 56:
+        check("Every story slate item has an Actionability angle",
+              len(story_titles) > 0 and action_angle_count >= len(story_titles),
+              hint=f"Found {action_angle_count} Actionability angle line(s) for {len(story_titles)} story/stories. The angle should land the implication of the news, not a checklist.")
+        check("Every story slate item has a Listener hook",
+              len(story_titles) > 0 and listener_hook_count >= len(story_titles),
+              hint=f"Found {listener_hook_count} Listener hook line(s) for {len(story_titles)} story/stories. Future drafts need a listenable reason to care, not only a technical angle.")
+        priority_stack_hits = re.findall(r"\b(OpenClaw|Codex|Claude Code|Hermes|Antigravity)\b", story_slate, re.IGNORECASE)
+        is_release_context = bool(release_tags) or bool(re.search(r"\bagent-stack release\b|\bOpenClaw\b.*\bHermes\b|\bHermes\b.*\bOpenClaw\b", story_slate, re.IGNORECASE | re.DOTALL))
+        if is_release_context:
+            check("AgentStack priority tools appear in the story slate",
+                  len(set(hit.lower() for hit in priority_stack_hits)) >= 4,
+                  hint="EP056+ release/cleanup drafts should explicitly track OpenClaw, Codex, Claude Code, Hermes, and Antigravity when relevant.")
+
+    github_project_radar = extract_section(notes, "GitHub Project Radar")
+    github_repo_links = re.findall(r"https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", github_project_radar)
+    github_stack_angles = re.findall(r"Stack improvement angle\s*:\s*\S", github_project_radar, re.IGNORECASE)
+    github_try_now = re.findall(r"Try now\s*:\s*\S", github_project_radar, re.IGNORECASE)
+    github_owned_repos = [url for url in set(github_repo_links) if re.search(r"https?://github\.com/github/", url, re.IGNORECASE)]
+    model_discovery = extract_section(notes, "Model Discovery Check")
+    if ep_num >= 61:
+        model_links = re.findall(r"https?://\S+", model_discovery)
+        model_decisions = re.findall(r"Decision\s*:\s*\S", model_discovery, re.IGNORECASE)
+        check("Model Discovery Check section exists",
+              bool(model_discovery),
+              hint="Future AgentStack drafts must include a separate model-discovery lane so major model drops are not missed.")
+        check("Model Discovery Check includes primary-source links",
+              len(model_links) >= 1,
+              hint="Record official model announcements, model pages, docs, model cards, technical reports, or release pages.")
+        check("Model Discovery Check records selection decisions",
+              len(model_decisions) >= 1,
+              hint="Each meaningful model candidate needs a selected/not-selected decision so model drops are not silently crowded out.")
+        if re.search(r"\bMiniMax\s+M3\b", notes, re.IGNORECASE):
+            m3_required_terms = [
+                r"\bMSA\b|\bSparse Attention\b",
+                r"\b1M\b|\bmillion-token\b|million token",
+                r"\bmultimodal\b",
+                r"\bMiniMax Code\b",
+                r"\bAPI\b",
+            ]
+            missing_m3_terms = [term for term in m3_required_terms if not re.search(term, notes, re.IGNORECASE)]
+            check("MiniMax M3 coverage includes core release mechanics",
+                  len(missing_m3_terms) == 0,
+                  hint="MiniMax M3 coverage should include MSA/sparse attention, 1M context, multimodality, MiniMax Code, and API availability.")
+    if ep_num >= 57:
+        check("GitHub Project Radar has at least three verified repos",
+              len(set(github_repo_links)) >= 3,
+              hint=f"Found {len(set(github_repo_links))} GitHub repo link(s). Future AgentStack drafts must scan adjacent projects around OpenClaw, Codex, Claude Code, Hermes, MCP/tooling, local agents, and model gateways.")
+        check("GitHub Project Radar explains stack improvement angles",
+              len(github_stack_angles) >= 3,
+              hint=f"Found {len(github_stack_angles)} Stack improvement angle line(s). Each radar repo needs a concrete reason it could improve the agent stack.")
+        check("GitHub Project Radar includes concrete try-now use cases",
+              len(github_try_now) >= 3,
+              hint=f"Found {len(github_try_now)} Try now line(s). GitHub projects should be usable/studiable repos, not only star counts.")
+        check("GitHub Project Radar is not GitHub-the-company product coverage",
+              len(github_owned_repos) == 0,
+              hint="Do not count GitHub-owned product/news repos as this lane: " + ", ".join(github_owned_repos[:5]))
 
     extra_research = extract_section(notes, "Extra Research Candidates")
     extra_candidate_count = len(re.findall(r"^\s*[-*]\s+\*\*.+?\*\*", extra_research, re.MULTILINE))
@@ -278,8 +638,11 @@ def run_checks(path: str) -> None:
 
         non_release_story_count = max(0, len(story_titles) - 1)
         runtime_exception = bool(re.search(r"\b40–48 min\b|\b40-48 min\b|\b50|60 minutes\b|\bkeep the existing builder stories\b", notes, re.IGNORECASE))
-        check("Release episode keeps extra stories tightly limited", non_release_story_count <= 3 or runtime_exception,
-              hint=f"Found {non_release_story_count} non-release stories. Cut lower-priority stories before cutting release detail unless Toby explicitly asked to keep the existing builder stories and extend runtime.")
+        # EP068+: standing 10-topic slate (Toby, 2026-06-10) — one release readout
+        # plus nine non-release stories is the daily format, not sprawl.
+        non_release_cap = 9 if ep_num >= 68 else 3
+        check("Release episode keeps extra stories tightly limited", non_release_story_count <= non_release_cap or runtime_exception,
+              hint=f"Found {non_release_story_count} non-release stories (cap {non_release_cap}). Cut lower-priority stories before cutting release detail unless Toby explicitly asked to keep the existing builder stories and extend runtime.")
 
         if len(segments) >= 2:
             first_story_title, first_story_body = segments[1]
@@ -294,7 +657,8 @@ def run_checks(path: str) -> None:
             check("Timestamped segment structure exists in show notes", False,
                   hint="Expected at least an intro segment and a release segment in the show-notes block.")
     else:
-        check("Episode does not sprawl into too many low-priority stories", len(story_titles) <= 5, severity="WARNING",
+        max_non_release_stories = 10 if ep_num >= 68 else (6 if ep_num >= 55 else 5)
+        check("Episode does not sprawl into too many low-priority stories", len(story_titles) <= max_non_release_stories, severity="WARNING",
               hint=f"Found {len(story_titles)} stories. Keep non-release episodes tight unless there is a major-news day.")
 
         early_words = first_words(show_notes_block, 180)

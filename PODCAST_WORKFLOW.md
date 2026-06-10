@@ -1,10 +1,35 @@
 # PODCAST WORKFLOW
 
-Two scripts cover the full pipeline. Everything else is handled automatically.
+The pre-approval pipeline is fully automated (since 2026-06-10). The two manual
+scripts below remain the recovery path and the post-approval path.
 
 ---
 
-## Script 1 — Build (pre-greenlight)
+## Script 0 — Automated morning pipeline (cron, 6:30 AM ET)
+
+`scripts/agentstack_morning.sh` (launched via `scripts/show_notes_research_guard.sh`)
+produces a complete reviewable episode by ~8:00 AM ET:
+
+1. `gather_research_context.py` — deterministic research data (GitHub releases,
+   npm/PyPI, OpenRouter diffs, HN, lab RSS, GitHub radar) → `/tmp/agent_research_context.{md,json}`
+2. `build_show_notes.py <N>` — deterministic show-notes builder: structure,
+   Release Coverage Check, Harness Version Reference, Model Discovery, Chapters,
+   Primary Links and timestamps are computed in code; models only write small
+   prose sections, each validated in real time against the check_show_notes.py
+   rules with per-section retries and deterministic fallbacks. The real
+   `check_show_notes.py` runs as the final gate inside the builder.
+3. `generate_episode_transcript.py <N>` — transcript + check_episode.py repair loop
+4. `build_episode.py <N>` — slate verify, QC, nova render, EN audio, bespoke
+   cover art, CDN push, Discord review post
+
+**The pipeline stops at the review post. Publish still requires Toby's ✅.**
+Failures at any stage append to `/tmp/show_notes_build.log` and post to the
+Discord alerts channel. An existing unreleased draft HOLDs the pipeline (exit 2)
+for a human numbering decision via `resolve_episode_gap.py`.
+
+---
+
+## Script 1 — Build (pre-greenlight, manual/recovery path)
 
 ```bash
 python3 scripts/build_episode.py <N>
@@ -71,7 +96,10 @@ python3 scripts/release_episode.py 28 --from-phase covers --pub-date "..."
 - **NEVER reuse an existing `episode_0NN_transcript.md` without verifying it matches the approved story slate.** `build_episode.py` enforces this automatically. If you're writing a transcript manually, read `show_notes_episode_0NN.md` first and verify every story title appears in the transcript before running the build script.
 - **Episode runtime target is about 30 minutes.** At the current EN voices and pacing, that means roughly 4,600 to 4,800 words, not a 35-40 minute script.
 - **If release coverage exists, the release block comes first and gets the deepest coverage.** Do not bury the release details under a long theme-setting intro.
-- **Default to 2-4 total stories.** Cut lower-priority stories before cutting OpenClaw release detail.
+- **EP068+: the Story Slate is exactly 10 topics** (release readout first when any
+  agent-stack product shipped). At the ~30-minute runtime that means tighter,
+  denser story segments — never pad to fill, never cut OpenClaw release detail
+  before cutting lower-priority stories.
 - **Technical deep-dive standard:** use the EP042 model for future episodes: explain what each technology is, how the stack works, concrete mechanisms/APIs/configs/architecture, tradeoffs, failure modes, operational impact, and practical recommendations or ratings where useful. Less article recap; more technical review and analysis.
 - **Spoken version numbers:** do not read full patch notation aloud in the transcript. Say a shortened release identifier once, then switch to "this release", "the update", or the product name. Full dot notation is fine in show notes, feed metadata, and links; it is painful in audio and should not appear in future spoken transcripts.
 - **GitHub project profiles:** GitHub project segments must include popularity/velocity signals, integrations or plug-in surfaces, concrete use cases, and workflow scenarios for builders. Treat the best repos as showcases/profiles with useful stack context, not as a late star-count list.
