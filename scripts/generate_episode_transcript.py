@@ -63,7 +63,10 @@ ROUTE_FAIL_MARKERS = (
 # it repairs them, instead of reporting a failure right after a successful
 # generation and leaving a half-built .tmp for a human/agent to salvage.
 # Override with TRANSCRIPT_GEN_ATTEMPTS.
-DEFAULT_ATTEMPTS = max(1, int(os.environ.get("TRANSCRIPT_GEN_ATTEMPTS", "3")))
+# Raised 3→5 on 2026-06-15: EP071 converged 20→5→4→1 QC errors across routes but
+# ran out of the 3-repair budget one round short of clean. Strong routes (MiniMax
+# M3, gpt-5.5) revise reliably, so a few more rounds let the morning self-finish.
+DEFAULT_ATTEMPTS = max(1, int(os.environ.get("TRANSCRIPT_GEN_ATTEMPTS", "5")))
 
 
 def read_text(path: Path, limit: int | None = None) -> str:
