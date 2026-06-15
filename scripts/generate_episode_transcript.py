@@ -31,12 +31,17 @@ PODCAST_DIR = SCRIPTS_DIR.parent
 DEFAULT_MODEL_SPEC = (
     os.environ.get("TRANSCRIPT_MODEL")
     or os.environ.get("TRANSCRIPT_MODELS")
-    # Curated 2026-06-15 to free routes that actually respond. Dropped
-    # google-2/gemini-2.5-flash (404), openai/gpt-5.4-mini (connection error +
-    # subscription, excluded by design) and anthropic/claude-sonnet-4-6 (no API
-    # key for this agent) — they only burned route attempts. nvidia leads
-    # because it is the route that reliably returns full text.
-    or "nvidia/nemotron-3-super-120b-a12b,minimax/MiniMax-M3,google/gemini-3-flash-preview"
+    # Route order set by Toby 2026-06-15: TRUE-FREE first, then MiniMax, then his
+    # OpenAI subscription as the final backup so the sub is only touched when
+    # every free + MiniMax route is down.
+    #   tier 1 (true free): google/gemini-3-flash-preview, nvidia/nemotron-3-super-120b-a12b
+    #   tier 2 (MiniMax):   minimax/MiniMax-M3
+    #   tier 3 (OpenAI sub, final backup): openai/gpt-5.5
+    # Dropped from the old list: google-2/gemini-2.5-flash (404),
+    # openai/gpt-5.4-mini (connection error — gpt-5.5 is the working sub model),
+    # anthropic/claude-sonnet-4-6 (no API key for this agent).
+    or "google/gemini-3-flash-preview,nvidia/nemotron-3-super-120b-a12b,"
+       "minimax/MiniMax-M3,openai/gpt-5.5"
 )
 
 # Substrings that mean "this route is unusable right now" (provider/transport/
@@ -214,6 +219,20 @@ def terminate_process_group(proc: subprocess.Popen) -> None:
         proc.kill()
 
 
+def _strip_state_banner(text: str) -> str:
+    """openclaw prints a benign 'Legacy state migration warnings' banner on
+    stderr for every infer call (conflicting plugin metadata for codex/discord).
+    Strip it so it never masks the real error tail or muddies route logs."""
+    keep = []
+    for line in (text or "").splitlines():
+        low = line.lower()
+        if ("state-migration" in low or "legacy state migration" in low
+                or "left plugin install index" in low or "shared sqlite state" in low):
+            continue
+        keep.append(line)
+    return "\n".join(keep).strip()
+
+
 def run_model(prompt: str, model: str, timeout: int) -> str:
     cmd = [
         "openclaw",
@@ -247,13 +266,13 @@ def run_model(prompt: str, model: str, timeout: int) -> str:
                 returncode = proc.wait(timeout=timeout)
             except subprocess.TimeoutExpired as exc:
                 terminate_process_group(proc)
-                detail = tail_text(stderr_path) or tail_text(stdout_path) or "no output"
+                detail = _strip_state_banner(tail_text(stderr_path) or tail_text(stdout_path)) or "no output"
                 raise RuntimeError(
                     f"Transcript model generation timed out after {timeout}s: {detail[:1600]}"
                 ) from exc
 
         stdout = stdout_path.read_text(encoding="utf-8", errors="ignore")
-        stderr = tail_text(stderr_path)
+        stderr = _strip_state_banner(tail_text(stderr_path))
 
     if returncode != 0:
         detail = (stderr or stdout or "no output").strip()
@@ -437,6 +456,13 @@ def main() -> int:
     print(f"[EP{ep_str}] Transcript routes: {', '.join(models)} "
           f"(QC repairs ≤{max_qc_repairs}, route tries ≤{max_route_tries}).", flush=True)
 
+    # A route is only demoted after 2 strikes — a single transient blip
+    # (timeout, momentary 5xx, the openclaw state-migration noise) must never
+    # permanently kill a known long-form workhorse like MiniMax M3 (EP071,
+    # 2026-06-15: one transient demoted MiniMax and left only short-output routes).
+    strikes: dict[str, int] = {}
+    DEMOTE_AT = 2
+
     def viable() -> list[str]:
         return [m for m in models if m not in dead]
 
@@ -469,9 +495,15 @@ def main() -> int:
         except RuntimeError as exc:
             msg = str(exc).lower()
             if any(marker in msg for marker in ROUTE_FAIL_MARKERS):
-                dead.add(model)
-                print(f"[EP{ep_str}] route {model} unusable ({str(exc)[:120]}) — demoting, "
-                      f"trying next route (no QC-repair consumed)", flush=True)
+                strikes[model] = strikes.get(model, 0) + 1
+                if strikes[model] >= DEMOTE_AT:
+                    dead.add(model)
+                    print(f"[EP{ep_str}] route {model} unusable ({str(exc)[:120]}) — demoting after "
+                          f"{strikes[model]} strikes (no QC-repair consumed)", flush=True)
+                else:
+                    print(f"[EP{ep_str}] route {model} blipped ({str(exc)[:120]}) — strike "
+                          f"{strikes[model]}/{DEMOTE_AT}, will retry it (no QC-repair consumed)", flush=True)
+                # mi already advanced at loop top → next iteration tries another route
                 continue
             # Non-route generation problem — treat as a repairable shape failure.
             repair_feedback = f"Generation/shape failure: {exc}"
