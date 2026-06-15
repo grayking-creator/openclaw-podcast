@@ -48,6 +48,14 @@ DEFAULT_MODELS = os.environ.get(
 )
 STORY_COUNT = int(os.environ.get("SHOW_NOTES_STORY_COUNT", "10"))
 WPM = 159  # spoken words per minute, matches check_episode.py calibration
+# Optional free-text steer for a rebuild (set by regen_episode.sh from Toby's
+# disapproval note); appended to every prose prompt's feedback block.
+EXTRA_GUIDANCE = os.environ.get("SHOW_NOTES_EXTRA_GUIDANCE", "").strip()
+
+
+def _guidance_fb() -> str:
+    return (f"\nADDITIONAL EDITORIAL GUIDANCE FOR THIS REBUILD (highest priority): "
+            f"{EXTRA_GUIDANCE}\n") if EXTRA_GUIDANCE else ""
 
 PROVIDER_HARD_FAIL_RE = re.compile(
     r"(429|402|RESOURCE_EXHAUSTED|quota|Quota exceeded|depleted|monthly included credits|"
@@ -67,7 +75,7 @@ BANNED_PUBLIC_PATTERNS = [
     r"\barchitecture-advice\b", r"\bthis rewrite\b", r"\bchanges? the format\b",
     r"\bsix[- ]story\b", r"\bten[- ]story\b", r"\bsix practical stories\b",
     r"\btoday'?s (?:six|ten) stories\b", r"\bflagship release\b", r"\bnot short on news\b",
-    r"\bstretching one update\b", r"\bbefore audio\b", r"\bbefore .{0,30}publish\b",
+    r"\bstretching one update\b", r"\bbefore audio\b", r"\bbefore [^\n]*publish\b",
     r"\breview before release\b", r"\brelease plan\b", r"\bactual artifact\b",
     r"\bstory in the slate\b", r"\btranscript includes?\b", r"\bwhat changed operationally\b",
     r"\blist of links\b", r"\bstrong new .{0,30}release block\b", r"\bcurrent stable feed window\b",
@@ -442,14 +450,22 @@ def render_harness_version_reference(lanes: dict) -> str:
 # ── Candidate selection (deterministic) ──────────────────────────────────────
 
 def prior_titles(research: dict) -> list[str]:
-    titles = []
-    eps = research.get("recent_episodes", [])
-    if eps:
-        titles.extend(eps[-1].get("story_titles", []))
+    # Must mirror check_show_notes.find_prior_episode_repeats, which compares the
+    # last THREE episodes (lookback=3, locked 2026-05-24 / EP070 patch). Looking
+    # back only one episode let EP069/EP068 repeats pass the builder and then
+    # hard-fail the final gate, killing the morning (EP071, 2026-06-15).
+    titles: list[str] = []
+    for ep in research.get("recent_episodes", [])[-3:]:
+        titles.extend(ep.get("story_titles", []))
     return titles
 
 
 def overlaps_prior(title: str, prior: list[str]) -> bool:
+    # Mirror check_show_notes exactly: >=3 shared non-stopword title tokens AND
+    # >=0.45 overlap ratio is a repeat. There is NO "material follow-up"
+    # exemption — the checker removed it in the EP070 patch because it let a
+    # story we led with yesterday pass as fresh, so the builder must not keep
+    # one either or it dies at the final gate.
     tokens = qc.title_tokens(title)
     if len(tokens) < 3:
         return False
@@ -459,6 +475,8 @@ def overlaps_prior(title: str, prior: list[str]) -> bool:
             continue
         hits = tokens & ptok
         if len(hits) >= 3 and len(hits) / min(len(tokens), len(ptok)) >= 0.45:
+            return True
+        if {"fable", "mythos"} & hits and {"anthropic", "claude"} & hits:
             return True
     return False
 
@@ -573,7 +591,7 @@ def story_prompt(source_block: str, is_release: bool, allowed_tags: set[str],
                  feedback: str = "") -> str:
     allowed = ", ".join(sorted(allowed_tags)) or "(none)"
     seg_min = 300 if is_release else 160
-    fb = f"\nYOUR PREVIOUS ATTEMPT WAS REJECTED FOR THESE REASONS — fix every one:\n{feedback}\n" if feedback else ""
+    fb = (f"\nYOUR PREVIOUS ATTEMPT WAS REJECTED FOR THESE REASONS — fix every one:\n{feedback}\n" if feedback else "") + _guidance_fb()
     return f"""You write one story section for AgentStack Daily, a developer podcast about AI coding agents, models, and tooling. Tone: builder workflow guide — concrete, technical, news-first. Not a tech-news roundup, not implementation minutiae.
 
 Return ONLY a single JSON object (no markdown fence, no commentary) with exactly these keys:
@@ -593,7 +611,7 @@ SOURCE MATERIAL (the only facts you may use — do not invent version numbers, d
 def titles_prompt(stories: list[dict], allowed_tags: set[str], feedback: str = "") -> str:
     allowed = ", ".join(sorted(allowed_tags)) or "(none)"
     slate = "\n".join(f"{i+1}. {s['title']}" for i, s in enumerate(stories))
-    fb = f"\nYOUR PREVIOUS ATTEMPT WAS REJECTED FOR THESE REASONS — fix every one:\n{feedback}\n" if feedback else ""
+    fb = (f"\nYOUR PREVIOUS ATTEMPT WAS REJECTED FOR THESE REASONS — fix every one:\n{feedback}\n" if feedback else "") + _guidance_fb()
     return f"""You write packaging copy for today's AgentStack Daily episode (developer podcast on AI agents/models/tooling).
 
 Return ONLY a single JSON object with exactly these keys:
@@ -616,7 +634,7 @@ def intro_prompt(stories: list[dict], release_tags: list[str], allowed_tags: set
     if release_tags:
         tag_req = (f"\n- The FIRST sentence must name the release coverage, and ALL of these exact tags "
                    f"must appear within the first 100 words: {', '.join(release_tags)}.")
-    fb = f"\nYOUR PREVIOUS ATTEMPT WAS REJECTED FOR THESE REASONS — fix every one:\n{feedback}\n" if feedback else ""
+    fb = (f"\nYOUR PREVIOUS ATTEMPT WAS REJECTED FOR THESE REASONS — fix every one:\n{feedback}\n" if feedback else "") + _guidance_fb()
     return f"""Write the opening hook paragraph for today's AgentStack Daily episode show notes.
 
 Return ONLY a single JSON object with one key:
@@ -633,7 +651,7 @@ def color_prompt(radar: list[dict], extras: list[dict], spotlight: dict,
     allowed = ", ".join(sorted(allowed_tags)) or "(none)"
     radar_block = "\n".join(f"- {r['full_name']} ({r['stars']} stars): {r['description']}" for r in radar)
     extras_block = "\n".join(f"- {e['title']} ({e['url']}): {e.get('summary') or e.get('extra','')}" for e in extras)
-    fb = f"\nYOUR PREVIOUS ATTEMPT WAS REJECTED FOR THESE REASONS — fix every one:\n{feedback}\n" if feedback else ""
+    fb = (f"\nYOUR PREVIOUS ATTEMPT WAS REJECTED FOR THESE REASONS — fix every one:\n{feedback}\n" if feedback else "") + _guidance_fb()
     return f"""You write short recurring-section copy for AgentStack Daily (developer podcast on AI agents).
 
 Return ONLY a single JSON object with exactly these keys:
@@ -917,6 +935,31 @@ def assemble(ep_str: str, packaging: dict, stories: list[dict], block: str,
 
 # ── Generation drivers ───────────────────────────────────────────────────────
 
+def parse_gate_offenders(gate_out: str) -> list[str]:
+    """Pull the offending substrings the real checker reported in its `→` hints
+    (it prints them as Python-list reprs and single-quoted phrases). Used by the
+    repair loop to find which generated section to regenerate, so we never need
+    to keep a perfect mirror of every check_show_notes pattern."""
+    subs: list[str] = []
+    for line in gate_out.splitlines():
+        low = line.lower()
+        if "→" not in line and "remove" not in low and "banned" not in low and "replace" not in low:
+            continue
+        for m in re.finditer(r"\[([^\[\]]*)\]", line):
+            inner = m.group(1)
+            subs.extend(re.findall(r"'([^']+)'", inner))
+            subs.extend(re.findall(r'"([^"]+)"', inner))
+        subs.extend(re.findall(r"'([^']{4,})'", line))
+    out: list[str] = []
+    for s in subs:
+        s = s.strip()
+        # Skip prior-episode titles (handled by the dedicated repeat repair) and
+        # trivially short tokens.
+        if len(s) >= 5 and s not in out:
+            out.append(s)
+    return out
+
+
 def gen_validated(pool: ModelPool, make_prompt, validate, fallback,
                   what: str, max_rounds: int = 3):
     """generate → validate → retry-with-feedback → deterministic fallback."""
@@ -1032,6 +1075,7 @@ def main() -> int:
                                     "extra": ""}, True, fallback_detail),
             f"EP{ep_str} release readout")
         pkg["title"] = forced_title
+        pkg["_link"] = ("Agent stack releases", rel_links[0][1] if rel_links else "")
         fallbacks_used += int(fb)
         stories.append(pkg)
 
@@ -1050,230 +1094,353 @@ def main() -> int:
                                                  "url": url, "extra": ""}, False),
             f"EP{ep_str} model story {mid}")
         fallbacks_used += int(fb)
+        pkg["_link"] = (f"{m.get('name') or mid} model page", url)
         stories.append(pkg)
-        links.append((f"{m.get('name') or mid} model page", url))
+        links.append(pkg["_link"])
 
-    # 3) News stories
-    for item in sel["news"]:
-        if len(stories) >= STORY_COUNT:
-            break
+    # A news item -> validated story package, with its primary link. Reused by
+    # the initial fill, the prior-overlap pre-repair, and the post-gate repair
+    # loop so there is one code path for "turn this headline into a story".
+    fallback_counter = {"n": 0}
+
+    def make_news_story(item: dict, extra_feedback: str = "") -> dict:
         src = (f"NEWS ITEM: {item['title']}\nPrimary link: {item['url']}\n"
                f"Summary: {item.get('summary') or '(headline only — describe conservatively, do not invent specifics)'}\n"
                f"Context: {item.get('extra','')}")
         pkg, fb = gen_validated(
             pool,
-            lambda f, s=src: story_prompt(s, False, allowed_tags, f),
+            lambda f, s=src, ef=extra_feedback: story_prompt(s, False, allowed_tags,
+                                                             (ef + "\n" + f).strip()),
             lambda o: validate_story(o, allowed_tags, False),
             lambda it=item: fallback_story(it, False),
             f"EP{ep_str} story: {item['title'][:50]}")
-        fallbacks_used += int(fb)
+        fallback_counter["n"] += int(fb)
+        pkg["_link"] = (item["title"][:70], item["url"])
+        return pkg
+
+    # 3) News stories
+    for item in sel["news"]:
+        if len(stories) >= STORY_COUNT:
+            break
+        pkg = make_news_story(item)
         stories.append(pkg)
-        links.append((item["title"][:70], item["url"]))
+        links.append(pkg["_link"])
+    fallbacks_used += fallback_counter["n"]
+    fallback_counter["n"] = 0
+
+    # Shared backfill pool (leftover news + radar repos as last-resort news)
+    # feeding both the prior-overlap pre-repair and the post-gate repair loop.
+    used_urls = {s.get("_link", (None, None))[1] for s in stories}
+    backfill_pool: list[dict] = []
+    for item in sel["leftover_news"]:
+        if item.get("url") not in used_urls:
+            backfill_pool.append(item)
+    for r in sel["radar"]:
+        backfill_pool.append({"title": f"{r['full_name']} — {r['description'][:60]}",
+                              "url": r["url"], "summary": r["description"],
+                              "extra": f"{r['stars']} GitHub stars"})
+
+    prior = sel.get("prior_titles", [])
+
+    def next_backfill():
+        while backfill_pool:
+            item = backfill_pool.pop(0)
+            if item.get("url") in used_urls:
+                continue
+            if prior and overlaps_prior(item["title"], prior):
+                continue
+            return item
+        return None
+
+    # Pre-repair: model-written titles can drift into a prior-episode overlap the
+    # raw source headline did not trigger. Drop + backfill before packaging.
+    if prior:
+        stories = [s for i, s in enumerate(stories)
+                   if i == 0 or not overlaps_prior(s.get("title", ""), prior)
+                   or log(f"EP{ep_str}: dropping prior-overlap story: {s.get('title')}")]
+        while len(stories) < STORY_COUNT:
+            item = next_backfill()
+            if item is None:
+                break
+            used_urls.add(item["url"])
+            pkg = make_news_story(item)
+            if overlaps_prior(pkg.get("title", ""), prior):
+                continue
+            stories.append(pkg)
+            links.append(pkg["_link"])
 
     stories = stories[:STORY_COUNT]
-    if len(stories) < STORY_COUNT:
-        log(f"WARNING: only {len(stories)} stories assembled (target {STORY_COUNT}) — news pool was thin")
-        if len(stories) < 6:
-            log("FATAL: fewer than 6 stories — refusing to build a thin episode")
-            return 1
-
-    # Priority-tools guarantee (check_show_notes EP056+ rule): when release context
-    # exists the slate must name ≥4 of the 5 stack tools.
-    slate_probe = render_slate(stories)
-    if release_tags or re.search(r"\bOpenClaw\b.*\bHermes\b|\bHermes\b.*\bOpenClaw\b",
-                                 slate_probe, re.IGNORECASE | re.DOTALL):
-        present = {t.lower() for t in PRIORITY_TOOLS
-                   if re.search(rf"\b{re.escape(t)}\b", slate_probe, re.IGNORECASE)}
-        if len(present) < 4:
-            stories[0]["actionability_angle"] = (
-                stories[0]["actionability_angle"].rstrip(". ")
-                + ". The implications land across OpenClaw, Codex, Claude Code, Hermes, "
-                  "and Antigravity stacks alike.")
-
-    # 4) Packaging (H1/title/tagline/feed description)
-    def v_pack(obj):
-        problems = []
-        for k, cap in (("h1_suffix", 16), ("title", 20), ("tagline", 130), ("feed_description", 120)):
-            if not str(obj.get(k, "")).strip():
-                problems.append(f"missing/empty field: {k}")
-            elif wc(str(obj[k])) > cap:
-                problems.append(f"{k} too long ({wc(str(obj[k]))} words, max {cap})")
-        if not problems:
-            blob = " ".join(str(obj[k]) for k in ("h1_suffix", "title", "tagline", "feed_description"))
-            problems.extend(banned_hits(blob, allowed_tags))
-        return problems
-
-    packaging, fb = gen_validated(
-        pool, lambda f: titles_prompt(stories, allowed_tags, f), v_pack,
-        lambda: fallback_titles(stories, ep_str), f"EP{ep_str} packaging")
-    fallbacks_used += int(fb)
-
-    # 5) Intro hook
-    def v_intro(obj):
-        intro = str(obj.get("intro", "")).strip()
-        problems = []
-        if not (100 <= wc(intro) <= 180):
-            problems.append(f"intro must be 100-180 words (got {wc(intro)})")
-        first120 = " ".join(intro.split()[:120])
-        if release_tags:
-            if not re.search(r"openclaw|v\d{4}\.\d+\.\d+", first120, re.IGNORECASE):
-                problems.append("first 120 words must name the release coverage")
-            missing = [t for t in release_tags if t not in first120]
-            if missing:
-                problems.append(f"these exact tags must appear in the first 120 words: {missing}")
-        problems.extend(banned_hits(intro, allowed_tags))
-        for rx in THEME_GLUE_RE:
-            if rx.search(" ".join(intro.split()[:220])):
-                problems.append("theme-glue framing in intro")
-                break
-        return problems
-
-    intro_obj, fb = gen_validated(
-        pool, lambda f: intro_prompt(stories, release_tags, allowed_tags, f), v_intro,
-        lambda: {"intro": fallback_intro(stories, release_tags)}, f"EP{ep_str} intro")
-    fallbacks_used += int(fb)
-    intro = str(intro_obj["intro"]).strip()
-
-    # 6) Radar / extras / spotlight (deterministic selection, model-polished prose)
-    slate_token_sets = [qc.title_tokens(s["title"]) for s in stories]
-
-    def distinct_from_slate(title: str) -> bool:
-        t = qc.title_tokens(title)
-        if len(t) < 2:
-            return True
-        for st in slate_token_sets:
-            if st and len(t & st) >= 2 and len(t & st) / max(1, min(len(t), len(st))) >= 0.5:
-                return False
-        return True
-
-    radar_pick = [r for r in sel["radar"] if distinct_from_slate(r["full_name"].replace("/", " "))][:3]
-    while len(radar_pick) < 3 and sel["radar"]:
-        for r in sel["radar"]:
-            if r not in radar_pick:
-                radar_pick.append(r)
-                break
-        else:
-            break
-    extras_pick = [e for e in sel["leftover_news"] if distinct_from_slate(e["title"])][:3]
-
-    # Spotlight subject: newest open-weights-ish model, else latest stable Ollama release
-    spotlight_subject = None
-    for m in research.get("openrouter", {}).get("new_models", []):
-        prov = (m.get("id", "").split("/") or [""])[0]
-        if prov in ("qwen", "meta", "mistral", "deepseek", "moonshotai", "nousresearch", "z-ai", "microsoft"):
-            spotlight_subject = {"name": m.get("name") or m.get("id"),
-                                 "url": f"https://openrouter.ai/models/{m.get('id')}",
-                                 "description": (m.get("description") or "")[:400]}
-            break
-    if spotlight_subject is None:
-        oll = stable_releases(research, "ollama/ollama")
-        if oll:
-            spotlight_subject = {"name": f"Ollama {oll[0]['tag']}",
-                                 "url": oll[0].get("url") or "https://github.com/ollama/ollama/releases",
-                                 "description": (oll[0].get("body") or "Local model runtime release.")[:400]}
-        else:
-            spotlight_subject = {"name": "Ollama", "url": "https://github.com/ollama/ollama",
-                                 "description": "Local model runtime for running open-weights LLMs on your own hardware."}
-
-    def v_color(obj):
-        problems = []
-        radar_items = obj.get("radar") or []
-        extras_items = obj.get("extras") or []
-        if len(radar_items) < len(radar_pick):
-            problems.append(f"radar array must have {len(radar_pick)} items")
-        if len(extras_items) < len(extras_pick):
-            problems.append(f"extras array must have {len(extras_pick)} items")
-        for i, r in enumerate(radar_items[:len(radar_pick)]):
-            for k in ("blurb", "stack_improvement_angle", "try_now"):
-                if not str(r.get(k, "")).strip():
-                    problems.append(f"radar[{i}].{k} empty")
-        for i, e in enumerate(extras_items[:len(extras_pick)]):
-            if not str(e.get("technical_depth_angle", "")).strip():
-                problems.append(f"extras[{i}].technical_depth_angle empty")
-        for k in ("spotlight_blurb", "spotlight_try_now"):
-            if not str(obj.get(k, "")).strip():
-                problems.append(f"{k} empty")
-        if not problems:
-            blob = json.dumps(obj)
-            problems.extend(banned_hits(blob, allowed_tags))
-        return problems
-
-    def color_fallback():
-        return {
-            "radar": [{"blurb": r["description"][:200] or "Agent-stack tooling repository.",
-                       "stack_improvement_angle": "Adds a tool surface MCP-compatible agents "
-                                                  "(OpenClaw, Codex, Claude Code, Hermes) can call directly.",
-                       "try_now": "Clone the repo and wire it into a test agent session to evaluate "
-                                  "the tool surface."} for r in radar_pick],
-            "extras": [{"technical_depth_angle": "The primary source documents the concrete API and "
-                                                 "architecture mechanism behind the announcement."}
-                       for _ in extras_pick],
-            "spotlight_blurb": spotlight_subject["description"][:300] or
-                               "A local/self-hosted model option worth tracking this cycle.",
-            "spotlight_try_now": "Pull it into a local runtime (Ollama or LM Studio) and benchmark it "
-                                 "against your current local default on a real coding-agent task.",
-        }
-
-    color, fb = gen_validated(
-        pool, lambda f: color_prompt(radar_pick, extras_pick, spotlight_subject, allowed_tags, f),
-        v_color, color_fallback, f"EP{ep_str} radar/extras/spotlight")
-    fallbacks_used += int(fb)
-
-    radar_render = [{"full_name": r["full_name"], "url": r["url"],
-                     "blurb": color["radar"][i]["blurb"],
-                     "stack_improvement_angle": color["radar"][i]["stack_improvement_angle"],
-                     "try_now": color["radar"][i]["try_now"]}
-                    for i, r in enumerate(radar_pick)]
-    extras_render = [{"title": e["title"], "url": e["url"],
-                      "summary": (e.get("summary") or e.get("extra", ""))[:240],
-                      "technical_depth_angle": color["extras"][i]["technical_depth_angle"]}
-                     for i, e in enumerate(extras_pick)]
-    spotlight_render = {"name": spotlight_subject["name"], "url": spotlight_subject["url"],
-                        "blurb": color["spotlight_blurb"], "try_now": color["spotlight_try_now"]}
-
-    for r in radar_render:
-        links.append((f"{r['full_name']} repo", r["url"]))
-    for e in extras_render:
-        links.append((e["title"][:70], e["url"]))
-    links.append((spotlight_render["name"], spotlight_render["url"]))
-    seen_urls, deduped_links = set(), []
-    for name, url in links:
-        if url and url not in seen_urls:
-            deduped_links.append((name, url))
-            seen_urls.add(url)
-
-    # 7) Assemble
-    block, chapters = render_show_notes_block(ep_str, intro, stories)
-    notes = assemble(ep_str, packaging, stories, block, chapters, deduped_links,
-                     render_model_discovery(sel["model_selected"], sel["model_skipped"], stories),
-                     render_spotlight(spotlight_render), render_radar(radar_render),
-                     render_extras(extras_render),
-                     render_release_coverage_check(lanes),
-                     render_harness_version_reference(lanes))
-
-    # MiniMax M3 standing rule: any mention must carry the canonical mechanics suffix
-    if re.search(r"\bMiniMax\s+M3\b", notes, re.IGNORECASE) and "MSA sparse attention" not in notes:
-        notes = re.sub(r"(MiniMax\s+M3)", r"\1" + MINIMAX_M3_SUFFIX, notes, count=1)
-
-    # 8) Final gate: the real checker. Should pass by construction; one repair round
-    #    of full reassembly after dropping any story the checker complains about.
-    tmp_path = out_path.with_suffix(".building.md")
-    tmp_path.write_text(notes, encoding="utf-8")
-    result = subprocess.run([sys.executable, str(SCRIPTS_DIR / "check_show_notes.py"), str(tmp_path)],
-                            capture_output=True, text=True)
-    print(result.stdout)
-    if result.returncode != 0:
-        log("final QC failed — details above. Saving draft for inspection and exiting nonzero.")
-        rejected = out_path.with_name(out_path.name + ".rejected.builder")
-        tmp_path.replace(rejected)
-        log(f"rejected draft: {rejected}")
+    fallbacks_used += fallback_counter["n"]; fallback_counter["n"] = 0
+    if len(stories) < 6:
+        log("FATAL: fewer than 6 stories — refusing to build a thin episode")
         return 1
 
-    tmp_path.replace(out_path)
-    log(f"EP{ep_str} show notes written: {out_path}")
-    log(f"model calls={pool.calls} failures={pool.failures} dead_routes={sorted(pool.dead)} "
-        f"deterministic_fallbacks={fallbacks_used}")
-    return 0
+    # ── finalize(stories): build packaging/intro/color, assemble, run the real
+    #    check_show_notes gate. Returns (returncode, notes_text, gate_output). ──
+    def finalize(stories):
+        # Priority-tools guarantee (check_show_notes EP056+): release context must
+        # name ≥4 of the 5 stack tools.
+        slate_probe = render_slate(stories)
+        if release_tags or re.search(r"\bOpenClaw\b.*\bHermes\b|\bHermes\b.*\bOpenClaw\b",
+                                     slate_probe, re.IGNORECASE | re.DOTALL):
+            present = {t.lower() for t in PRIORITY_TOOLS
+                       if re.search(rf"\b{re.escape(t)}\b", slate_probe, re.IGNORECASE)}
+            if len(present) < 4:
+                stories[0]["actionability_angle"] = (
+                    stories[0]["actionability_angle"].rstrip(". ")
+                    + ". The implications land across OpenClaw, Codex, Claude Code, Hermes, "
+                      "and Antigravity stacks alike.")
+
+        def v_pack(obj):
+            problems = []
+            for k, cap in (("h1_suffix", 16), ("title", 20), ("tagline", 130), ("feed_description", 120)):
+                if not str(obj.get(k, "")).strip():
+                    problems.append(f"missing/empty field: {k}")
+                elif wc(str(obj[k])) > cap:
+                    problems.append(f"{k} too long ({wc(str(obj[k]))} words, max {cap})")
+            if not problems:
+                blob = " ".join(str(obj[k]) for k in ("h1_suffix", "title", "tagline", "feed_description"))
+                problems.extend(banned_hits(blob, allowed_tags))
+            return problems
+
+        packaging, fb1 = gen_validated(
+            pool, lambda f: titles_prompt(stories, allowed_tags, f), v_pack,
+            lambda: fallback_titles(stories, ep_str), f"EP{ep_str} packaging")
+
+        def v_intro(obj):
+            intro = str(obj.get("intro", "")).strip()
+            problems = []
+            if not (100 <= wc(intro) <= 180):
+                problems.append(f"intro must be 100-180 words (got {wc(intro)})")
+            first120 = " ".join(intro.split()[:120])
+            if release_tags:
+                if not re.search(r"openclaw|v\d{4}\.\d+\.\d+", first120, re.IGNORECASE):
+                    problems.append("first 120 words must name the release coverage")
+                missing = [t for t in release_tags if t not in first120]
+                if missing:
+                    problems.append(f"these exact tags must appear in the first 120 words: {missing}")
+            problems.extend(banned_hits(intro, allowed_tags))
+            for rx in THEME_GLUE_RE:
+                if rx.search(" ".join(intro.split()[:220])):
+                    problems.append("theme-glue framing in intro")
+                    break
+            return problems
+
+        intro_obj, fb2 = gen_validated(
+            pool, lambda f: intro_prompt(stories, release_tags, allowed_tags, f), v_intro,
+            lambda: {"intro": fallback_intro(stories, release_tags)}, f"EP{ep_str} intro")
+        intro = str(intro_obj["intro"]).strip()
+
+        slate_token_sets = [qc.title_tokens(s["title"]) for s in stories]
+
+        def distinct_from_slate(title: str) -> bool:
+            t = qc.title_tokens(title)
+            if len(t) < 2:
+                return True
+            for st in slate_token_sets:
+                if st and len(t & st) >= 2 and len(t & st) / max(1, min(len(t), len(st))) >= 0.5:
+                    return False
+            return True
+
+        radar_pick = [r for r in sel["radar"] if distinct_from_slate(r["full_name"].replace("/", " "))][:3]
+        while len(radar_pick) < 3 and sel["radar"]:
+            for r in sel["radar"]:
+                if r not in radar_pick:
+                    radar_pick.append(r)
+                    break
+            else:
+                break
+        extras_pick = [e for e in sel["leftover_news"] if distinct_from_slate(e["title"])][:3]
+
+        spotlight_subject = None
+        for m in research.get("openrouter", {}).get("new_models", []):
+            prov = (m.get("id", "").split("/") or [""])[0]
+            if prov in ("qwen", "meta", "mistral", "deepseek", "moonshotai", "nousresearch", "z-ai", "microsoft"):
+                spotlight_subject = {"name": m.get("name") or m.get("id"),
+                                     "url": f"https://openrouter.ai/models/{m.get('id')}",
+                                     "description": (m.get("description") or "")[:400]}
+                break
+        if spotlight_subject is None:
+            oll = stable_releases(research, "ollama/ollama")
+            if oll:
+                spotlight_subject = {"name": f"Ollama {oll[0]['tag']}",
+                                     "url": oll[0].get("url") or "https://github.com/ollama/ollama/releases",
+                                     "description": (oll[0].get("body") or "Local model runtime release.")[:400]}
+            else:
+                spotlight_subject = {"name": "Ollama", "url": "https://github.com/ollama/ollama",
+                                     "description": "Local model runtime for running open-weights LLMs on your own hardware."}
+
+        def v_color(obj):
+            problems = []
+            radar_items = obj.get("radar") or []
+            extras_items = obj.get("extras") or []
+            if len(radar_items) < len(radar_pick):
+                problems.append(f"radar array must have {len(radar_pick)} items")
+            if len(extras_items) < len(extras_pick):
+                problems.append(f"extras array must have {len(extras_pick)} items")
+            for i, r in enumerate(radar_items[:len(radar_pick)]):
+                for k in ("blurb", "stack_improvement_angle", "try_now"):
+                    if not str(r.get(k, "")).strip():
+                        problems.append(f"radar[{i}].{k} empty")
+            for i, e in enumerate(extras_items[:len(extras_pick)]):
+                if not str(e.get("technical_depth_angle", "")).strip():
+                    problems.append(f"extras[{i}].technical_depth_angle empty")
+            for k in ("spotlight_blurb", "spotlight_try_now"):
+                if not str(obj.get(k, "")).strip():
+                    problems.append(f"{k} empty")
+            if not problems:
+                problems.extend(banned_hits(json.dumps(obj), allowed_tags))
+            return problems
+
+        def color_fallback():
+            return {
+                "radar": [{"blurb": r["description"][:200] or "Agent-stack tooling repository.",
+                           "stack_improvement_angle": "Adds a tool surface MCP-compatible agents "
+                                                      "(OpenClaw, Codex, Claude Code, Hermes) can call directly.",
+                           "try_now": "Clone the repo and wire it into a test agent session to evaluate "
+                                      "the tool surface."} for r in radar_pick],
+                "extras": [{"technical_depth_angle": "The primary source documents the concrete API and "
+                                                     "architecture mechanism behind the announcement."}
+                           for _ in extras_pick],
+                "spotlight_blurb": spotlight_subject["description"][:300] or
+                                   "A local/self-hosted model option worth tracking this cycle.",
+                "spotlight_try_now": "Pull it into a local runtime (Ollama or LM Studio) and benchmark it "
+                                     "against your current local default on a real coding-agent task.",
+            }
+
+        color, fb3 = gen_validated(
+            pool, lambda f: color_prompt(radar_pick, extras_pick, spotlight_subject, allowed_tags, f),
+            v_color, color_fallback, f"EP{ep_str} radar/extras/spotlight")
+
+        radar_render = [{"full_name": r["full_name"], "url": r["url"],
+                         "blurb": color["radar"][i]["blurb"],
+                         "stack_improvement_angle": color["radar"][i]["stack_improvement_angle"],
+                         "try_now": color["radar"][i]["try_now"]}
+                        for i, r in enumerate(radar_pick)]
+        extras_render = [{"title": e["title"], "url": e["url"],
+                          "summary": (e.get("summary") or e.get("extra", ""))[:240],
+                          "technical_depth_angle": color["extras"][i]["technical_depth_angle"]}
+                         for i, e in enumerate(extras_pick)]
+        spotlight_render = {"name": spotlight_subject["name"], "url": spotlight_subject["url"],
+                            "blurb": color["spotlight_blurb"], "try_now": color["spotlight_try_now"]}
+
+        finalize.fallbacks = int(fb1) + int(fb2) + int(fb3)
+
+        all_links = list(links)
+        for r in radar_render:
+            all_links.append((f"{r['full_name']} repo", r["url"]))
+        for e in extras_render:
+            all_links.append((e["title"][:70], e["url"]))
+        all_links.append((spotlight_render["name"], spotlight_render["url"]))
+        seen_urls, deduped_links = set(), []
+        for name, url in all_links:
+            if url and url not in seen_urls:
+                deduped_links.append((name, url))
+                seen_urls.add(url)
+
+        block, chapters = render_show_notes_block(ep_str, intro, stories)
+        notes = assemble(ep_str, packaging, stories, block, chapters, deduped_links,
+                         render_model_discovery(sel["model_selected"], sel["model_skipped"], stories),
+                         render_spotlight(spotlight_render), render_radar(radar_render),
+                         render_extras(extras_render),
+                         render_release_coverage_check(lanes),
+                         render_harness_version_reference(lanes))
+        if re.search(r"\bMiniMax\s+M3\b", notes, re.IGNORECASE) and "MSA sparse attention" not in notes:
+            notes = re.sub(r"(MiniMax\s+M3)", r"\1" + MINIMAX_M3_SUFFIX, notes, count=1)
+
+        tmp = out_path.with_suffix(".building.md")
+        tmp.write_text(notes, encoding="utf-8")
+        result = subprocess.run([sys.executable, str(SCRIPTS_DIR / "check_show_notes.py"), str(tmp)],
+                                capture_output=True, text=True)
+        return result.returncode, notes, (result.stdout or "") + (result.stderr or "")
+
+    def story_blob(s: dict) -> str:
+        return " ".join(str(s.get(k, "")) for k in
+                        ("title", "summary", "technical_depth_angle",
+                         "actionability_angle", "listener_hook", "segment"))
+
+    def repair(stories, gate_out) -> bool:
+        """Mutate `stories` to fix what the real checker rejected. Returns True if
+        it made a change worth re-checking. Drift between the inline validators
+        and the real checker now costs a repair round, never the morning run."""
+        # 1) Prior-episode repeats — use the checker's own logic per story title.
+        repeats = [i for i, s in enumerate(stories) if i > 0 and
+                   qc.find_prior_episode_repeats(out_path, ep_num, [s.get("title", "")], lookback=3)]
+        if repeats:
+            for i in sorted(repeats, reverse=True):
+                log(f"EP{ep_str}: repair dropping prior-overlap story: {stories[i].get('title')}")
+                stories.pop(i)
+            while len(stories) < STORY_COUNT:
+                item = next_backfill()
+                if item is None:
+                    break
+                used_urls.add(item["url"])
+                pkg = make_news_story(item)
+                if qc.find_prior_episode_repeats(out_path, ep_num, [pkg.get("title", "")], lookback=3):
+                    continue
+                stories.append(pkg)
+                links.append(pkg["_link"])
+            return True
+
+        # 2) Content leaks (meta/banned/etc): regenerate the owning news story with
+        #    the exact offending phrase banned. The release readout (idx 0) is
+        #    scrubbed in place instead of regenerated so it keeps release framing.
+        offenders = parse_gate_offenders(gate_out)
+        changed = False
+        for sub in offenders:
+            for i, s in enumerate(stories):
+                if sub.lower() not in story_blob(s).lower():
+                    continue
+                if i == 0:
+                    for k in ("summary", "technical_depth_angle", "actionability_angle",
+                              "listener_hook", "segment"):
+                        if sub.lower() in str(s.get(k, "")).lower():
+                            s[k] = re.sub(re.escape(sub), "", str(s[k]), flags=re.IGNORECASE)
+                            s[k] = re.sub(r"\s{2,}", " ", s[k]).strip()
+                    log(f"EP{ep_str}: repair scrubbed {sub!r} from release readout")
+                    changed = True
+                else:
+                    title, url = s.get("_link", (s.get("title", ""), ""))
+                    item = {"title": title, "url": url,
+                            "summary": s.get("summary", ""), "extra": ""}
+                    new = make_news_story(item, extra_feedback=(
+                        f"Your previous version was rejected for this exact phrase — do not use it "
+                        f"or any paraphrase: {sub!r}."))
+                    new.setdefault("_link", (title, url))
+                    stories[i] = new
+                    log(f"EP{ep_str}: repair regenerated story {i} to remove {sub!r}")
+                    changed = True
+                break
+        return changed
+
+    # ── Repair loop: assemble → gate → repair, bounded. ──────────────────────
+    MAX_REPAIR = int(os.environ.get("SHOW_NOTES_MAX_REPAIR", "3"))
+    tmp_path = out_path.with_suffix(".building.md")
+    notes, gate_out = "", ""
+    for rnd in range(MAX_REPAIR + 1):
+        rc, notes, gate_out = finalize(stories)
+        fallbacks_used += getattr(finalize, "fallbacks", 0)
+        if rc == 0:
+            tmp_path.write_text(notes, encoding="utf-8")
+            tmp_path.replace(out_path)
+            log(f"EP{ep_str} show notes written: {out_path} (repair rounds used: {rnd})")
+            log(f"model calls={pool.calls} failures={pool.failures} dead_routes={sorted(pool.dead)} "
+                f"deterministic_fallbacks={fallbacks_used}")
+            return 0
+        print(gate_out)
+        if rnd == MAX_REPAIR:
+            break
+        log(f"EP{ep_str}: final QC failed (repair round {rnd + 1}/{MAX_REPAIR}) — fixing offending sections")
+        if not repair(stories, gate_out):
+            log(f"EP{ep_str}: QC failure had no actionable repair mapping — stopping")
+            break
+
+    # Genuinely exhausted: save for inspection and fail.
+    tmp_path.write_text(notes, encoding="utf-8")
+    rejected = out_path.with_name(out_path.name + ".rejected.builder")
+    tmp_path.replace(rejected)
+    log(f"final QC still failing after {MAX_REPAIR} repair round(s) — saved for inspection: {rejected}")
+    return 1
 
 
 if __name__ == "__main__":

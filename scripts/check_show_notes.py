@@ -187,31 +187,46 @@ def public_facing_text(notes: str) -> str:
     return "".join(kept)
 
 
-def find_prior_episode_repeats(notes_path: Path, ep_num: int, story_titles: list[str]) -> list[str]:
+def find_prior_episode_repeats(notes_path: Path, ep_num: int, story_titles: list[str], lookback: int = 3) -> list[str]:
+    """Compare current story titles against the last ``lookback`` episodes of show notes.
+
+    The No Back-to-Back Topic Repeats rule (locked 2026-05-24, EP070 patch 2026-06-14) requires
+    the slate to differ from the prior episode *and* the episodes before that. A topic that
+    has already been a numbered story in any of the last few episodes must not be promoted
+    back into the public slate just because the title was lightly reworded. A previous
+    material_followup exemption (covering words like "suspend", "directive", "government",
+    "access") was removed because it let a story we already led with yesterday pass as a
+    fresh topic; that was the EP070 Story 1 regression.
+    """
     if ep_num <= 1:
         return []
 
-    prior_path = notes_path.with_name(f"show_notes_episode_{ep_num - 1:03d}.md")
-    if not prior_path.exists():
-        return []
+    seen_pairs: list[tuple[str, set[str]]] = []
+    for back in range(1, lookback + 1):
+        prior_path = notes_path.with_name(f"show_notes_episode_{ep_num - back:03d}.md")
+        if not prior_path.exists():
+            continue
+        prior = prior_path.read_text(encoding="utf-8", errors="ignore")
+        prior_topics = extract_story_titles(prior)
+        prior_topics.extend(re.findall(r"^\s*[-*]\s+\*\*(.+?)\*\*", extract_section(prior, "Extra Research Candidates"), re.MULTILINE))
+        for topic in prior_topics:
+            tokens = title_tokens(topic)
+            if tokens:
+                seen_pairs.append((f"EP{ep_num - back:03d}::" + topic, tokens))
 
-    prior = prior_path.read_text(encoding="utf-8", errors="ignore")
-    prior_topics = extract_story_titles(prior)
-    prior_topics.extend(re.findall(r"^\s*[-*]\s+\*\*(.+?)\*\*", extract_section(prior, "Extra Research Candidates"), re.MULTILINE))
-    prior_topic_tokens = [(topic, title_tokens(topic)) for topic in prior_topics]
     repeats: list[str] = []
     for title in story_titles:
         tokens = title_tokens(title)
         if len(tokens) < 3:
             continue
-        for prior_title, prior_tokens in prior_topic_tokens:
-            if not prior_tokens:
-                continue
+        matched: list[str] = []
+        for prior_label, prior_tokens in seen_pairs:
             hits = tokens & prior_tokens
             overlap = len(hits) / min(len(tokens), len(prior_tokens))
             if len(hits) >= 3 and overlap >= 0.45:
-                repeats.append(f"{title} overlaps prior topic {prior_title!r} ({len(hits)} shared title tokens)")
-                break
+                matched.append(f"{prior_label.split('::', 1)[1]!r} ({len(hits)} shared title tokens)")
+        if matched:
+            repeats.append(f"{title} repeats a recent episode's topic: " + "; ".join(matched[:3]))
     return repeats
 
 
@@ -493,9 +508,29 @@ def run_checks(path: str) -> None:
         priority_stack_hits = re.findall(r"\b(OpenClaw|Codex|Claude Code|Hermes|Antigravity)\b", story_slate, re.IGNORECASE)
         is_release_context = bool(release_tags) or bool(re.search(r"\bagent-stack release\b|\bOpenClaw\b.*\bHermes\b|\bHermes\b.*\bOpenClaw\b", story_slate, re.IGNORECASE | re.DOTALL))
         if is_release_context:
+            # Count harnesses that actually shipped a new stable release this cycle,
+            # from the ## Release Coverage Check block. A harness "shipped" if its
+            # line has "Selected missing version" or otherwise omits the
+            # "No new stable release this cycle" / "Continuous delivery" markers.
+            # The threshold should match the shipped count so we don't force
+            # watch-harness inclusion for non-shipping harnesses (EP066 incident,
+            # locked 2026-06-08, updated EP068 to be conditional).
+            release_coverage_block = extract_section(notes, "Release Coverage Check")
+            shipped_count = 0
+            if release_coverage_block:
+                for line in release_coverage_block.split("\n"):
+                    if "Selected missing version" in line:
+                        shipped_count += 1
+                    elif line.lstrip().startswith(("- **", "**")) and "Latest stable verified" in line \
+                            and "No new stable release" not in line \
+                            and "Continuous delivery" not in line:
+                        shipped_count += 1
+            if shipped_count == 0 and release_tags:
+                shipped_count = min(len(release_tags), 5)
+            threshold = max(1, shipped_count) if shipped_count else 1
             check("AgentStack priority tools appear in the story slate",
-                  len(set(hit.lower() for hit in priority_stack_hits)) >= 4,
-                  hint="EP056+ release/cleanup drafts should explicitly track OpenClaw, Codex, Claude Code, Hermes, and Antigravity when relevant.")
+                  len(set(hit.lower() for hit in priority_stack_hits)) >= threshold,
+                  hint=f"EP056+ release/cleanup drafts should track the {shipped_count} harness(es) that shipped a new stable release this cycle (found in slate: {sorted(set(h.lower() for h in priority_stack_hits))}). The threshold matches the shipped count — never force watch-harness inclusion.")
 
     github_project_radar = extract_section(notes, "GitHub Project Radar")
     github_repo_links = re.findall(r"https?://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", github_project_radar)

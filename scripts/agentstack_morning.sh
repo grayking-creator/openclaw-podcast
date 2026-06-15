@@ -11,12 +11,17 @@
 #   2. collision check (existing un-released draft → HOLD, exit 2)
 #   3. gather_research_context.py     (deterministic data collection)
 #   4. build_show_notes.py            (deterministic builder + inline section QC,
-#                                      final check_show_notes.py gate inside)
-#   5. post_show_notes_draft_discord  (draft attachment for reference; non-fatal)
+#                                      final check_show_notes.py gate + repair
+#                                      loop inside — a QC drift costs a repair
+#                                      round, never the morning run)
 #   6. generate_episode_transcript.py (model + check_episode.py QC loop)
 #   7. build_episode.py               (slate verify, QC, nova render, EN audio,
-#                                      bespoke cover art, CDN push, Discord
-#                                      review post — stops at approval gate)
+#                                      bespoke cover art, CDN push, ONE Discord
+#                                      review post bundling notes+transcript+audio
+#                                      — stops at approval gate)
+#
+# Toby reviews the complete package in the stage-7 post. If he disapproves the
+# show notes, regen all three with: scripts/regen_episode.sh <N>
 #
 # Launched by show_notes_research_guard.sh from cron. All failures append to
 # BUILD_LOG and post to the Discord alerts channel (per graduated lesson:
@@ -67,50 +72,55 @@ _NEXT_EP=$(( 10#$_LAST_EP + 1 ))
 NEXT_EP_PAD=$(printf "%03d" "$_NEXT_EP")
 DRAFT_PATH="${PODCAST_DIR}/show_notes_episode_${NEXT_EP_PAD}.md"
 TRANSCRIPT_PATH="${PODCAST_DIR}/episodes/episode_${NEXT_EP_PAD}_transcript.md"
+RESUME_EXISTING_DRAFT=0
 
 blog "agentstack_morning: targeting EP${NEXT_EP_PAD} (last released: EP${_LAST_EP})"
 
-# ── Stage 2: collision check — an existing draft means yesterday's episode
-#    was never released; that's a numbering decision for a human, not a build.
+# ── Stage 2: collision check / resume.
+#    A QC-passing draft should not strand a day of audio work. Resume from it.
+#    A failed draft is archived and rebuilt with fresh context.
 if [ -f "$DRAFT_PATH" ]; then
-  MSG="⚠️ EP${NEXT_EP_PAD} draft already exists and has not been released
-File: show_notes_episode_${NEXT_EP_PAD}.md
-
-The morning pipeline is stopping so yesterday's stories are not stranded and EP$(printf "%03d" $(( _NEXT_EP + 1 ))) is not silently created.
-
-Choose one recovery path:
-1. Keep the prior stories: python3 ${SCRIPT_DIR}/resolve_episode_gap.py prepare-merge --prior ${_NEXT_EP} --target $(printf "%03d" $(( _NEXT_EP + 1 )))
-2. Replace the prior stories: python3 ${SCRIPT_DIR}/resolve_episode_gap.py archive ${_NEXT_EP} --reason 'replaced before transcript generation'
-
-No new draft was created. This is a release-numbering decision, not a YouTube upload status."
-  blog "HOLD EP${NEXT_EP_PAD}: draft already exists; decision required"
-  alert "$MSG"
-  exit 2
+  blog "agentstack_morning: EP${NEXT_EP_PAD} existing draft found — checking whether it can resume"
+  if python3 "${SCRIPT_DIR}/check_show_notes.py" "$DRAFT_PATH" >> "$BUILD_LOG" 2>&1; then
+    blog "agentstack_morning: EP${NEXT_EP_PAD} existing draft passes QC — resuming downstream"
+    RESUME_EXISTING_DRAFT=1
+  else
+    ARCHIVE_PATH="${DRAFT_PATH}.rejected.existing.$(date +%s)"
+    mv "$DRAFT_PATH" "$ARCHIVE_PATH"
+    blog "agentstack_morning: EP${NEXT_EP_PAD} existing draft failed QC; archived to ${ARCHIVE_PATH}; rebuilding"
+  fi
 fi
 
 # ── Stage 3: research gathering (deterministic) ──────────────────────────────
-blog "agentstack_morning: EP${NEXT_EP_PAD} stage 3 — gather research context"
-if ! python3 "${SCRIPT_DIR}/gather_research_context.py" >> "$RUN_LOG" 2>&1; then
-  fail_stage "research-gather" "gather_research_context.py exited nonzero"
-fi
-if [ ! -s /tmp/agent_research_context.json ]; then
-  fail_stage "research-gather" "no /tmp/agent_research_context.json produced"
+if [ "$RESUME_EXISTING_DRAFT" -eq 0 ]; then
+  blog "agentstack_morning: EP${NEXT_EP_PAD} stage 3 — gather research context"
+  if ! python3 "${SCRIPT_DIR}/gather_research_context.py" >> "$RUN_LOG" 2>&1; then
+    fail_stage "research-gather" "gather_research_context.py exited nonzero"
+  fi
+  if [ ! -s /tmp/agent_research_context.json ]; then
+    fail_stage "research-gather" "no /tmp/agent_research_context.json produced"
+  fi
+else
+  blog "agentstack_morning: EP${NEXT_EP_PAD} stage 3 — skipped; resuming existing QC-passing draft"
 fi
 
 # ── Stage 4: deterministic show-notes build (inline QC + final gate inside) ──
-blog "agentstack_morning: EP${NEXT_EP_PAD} stage 4 — build show notes"
-if ! python3 "${SCRIPT_DIR}/build_show_notes.py" "$_NEXT_EP" >> "$RUN_LOG" 2>&1; then
-  fail_stage "show-notes-build" "build_show_notes.py failed (see run log tail; any rejected draft is saved as ${DRAFT_PATH}.rejected.builder)"
+if [ "$RESUME_EXISTING_DRAFT" -eq 0 ]; then
+  blog "agentstack_morning: EP${NEXT_EP_PAD} stage 4 — build show notes"
+  if ! python3 "${SCRIPT_DIR}/build_show_notes.py" "$_NEXT_EP" >> "$RUN_LOG" 2>&1; then
+    fail_stage "show-notes-build" "build_show_notes.py failed (see run log tail; any rejected draft is saved as ${DRAFT_PATH}.rejected.builder)"
+  fi
+else
+  blog "agentstack_morning: EP${NEXT_EP_PAD} stage 4 — skipped; using existing QC-passing show notes"
 fi
 if [ ! -s "$DRAFT_PATH" ]; then
   fail_stage "show-notes-build" "no QC-passing ${DRAFT_PATH} was written"
 fi
 blog "OK EP${NEXT_EP_PAD}: show notes written and QC-passed"
 
-# ── Stage 5: post draft to Discord (reference copy; review audio comes later) ─
-if ! python3 "${SCRIPT_DIR}/post_show_notes_draft_discord.py" "$_NEXT_EP" --file "$DRAFT_PATH" >> "$BUILD_LOG" 2>&1; then
-  blog "agentstack_morning: WARN EP${NEXT_EP_PAD} draft Discord attachment failed (non-fatal; review post follows after build)"
-fi
+# ── Stage 5: (removed 2026-06-15) — no standalone early show-notes post.
+#    Toby reviews the complete package (show notes + transcript + audio) in one
+#    Discord post from stage 7, not show notes alone ahead of the audio.
 
 # ── Stage 6: transcript generation (model + check_episode.py QC loop) ────────
 blog "agentstack_morning: EP${NEXT_EP_PAD} stage 6 — generate transcript"
