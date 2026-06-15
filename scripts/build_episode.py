@@ -743,11 +743,23 @@ def post_discord_listen(ep_num, duration, audio_url, cover_url=None, show_notes_
 
     ep_channel = next((c for c in channels if c.get("name") == ep_channel_name), None)
     if not ep_channel:
-        log(f"⚠️  Discord channel #{ep_channel_name} not found — post manually:")
-        log(f"   {audio_url}")
-        if cover_url:
-            log(f"   {cover_url}")
-        return
+        # The episode channel is normally created by the stage-5 show-notes post,
+        # but that stage is non-fatal — if it failed (or build_episode is run
+        # standalone), create the channel here so a fully-built episode is never
+        # left unposted (EP071, 2026-06-15: review built but silently not posted).
+        log(f"ℹ️  Discord channel #{ep_channel_name} missing — creating it")
+        try:
+            ep_channel = discord_request(
+                "POST", f"/guilds/{DISCORD_GUILD_ID}/channels",
+                {"name": ep_channel_name, "type": 0,
+                 "topic": f"AgentStack Daily EP {ep_str} review"},
+            )
+        except Exception as e:
+            log(f"⚠️  Could not create #{ep_channel_name} ({e}) — post manually:")
+            log(f"   {audio_url}")
+            if cover_url:
+                log(f"   {cover_url}")
+            return
 
     status = "✅ verified" if verified else "⏳ not yet verified"
     msg = ""
