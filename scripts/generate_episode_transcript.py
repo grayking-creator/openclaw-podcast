@@ -6,9 +6,9 @@ build_episode.py. It calls OpenClaw's configured OpenAI text model directly;
 it does not spawn nested OpenClaw agents or background workers.
 
 Environment variables:
-  TRANSCRIPT_MODEL   Override the default model (e.g. openai/gpt-5.5,
-                     minimax/MiniMax-M3, etc.). Model must support
-                     ~8k-10k output tokens for 6,000+ word transcripts.
+  TRANSCRIPT_MODEL   Override with one model (e.g. openai/gpt-5.5).
+  TRANSCRIPT_MODELS  Comma-separated provider fallback list. Models must
+                     support ~8k-10k output tokens for 6,000+ word transcripts.
   TRANSCRIPT_GEN_ATTEMPTS  Max regenerate+QC attempts (default: 3).
 """
 
@@ -28,7 +28,31 @@ from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 PODCAST_DIR = SCRIPTS_DIR.parent
-DEFAULT_MODEL = os.environ.get("TRANSCRIPT_MODEL", "minimax/MiniMax-M3")
+DEFAULT_MODEL_SPEC = (
+    os.environ.get("TRANSCRIPT_MODEL")
+    or os.environ.get("TRANSCRIPT_MODELS")
+    # Curated 2026-06-15 to free routes that actually respond. Dropped
+    # google-2/gemini-2.5-flash (404), openai/gpt-5.4-mini (connection error +
+    # subscription, excluded by design) and anthropic/claude-sonnet-4-6 (no API
+    # key for this agent) — they only burned route attempts. nvidia leads
+    # because it is the route that reliably returns full text.
+    or "nvidia/nemotron-3-super-120b-a12b,minimax/MiniMax-M3,google/gemini-3-flash-preview"
+)
+
+# Substrings that mean "this route is unusable right now" (provider/transport/
+# auth/quota), as opposed to "the model produced a draft that failed QC". A
+# route failure demotes the model and tries the next one WITHOUT consuming a
+# QC-repair attempt — dead routes must never starve the viable ones (EP071,
+# 2026-06-15: 5 of 6 routes were dead and the one working route got a single
+# shot).
+ROUTE_FAIL_MARKERS = (
+    "no text output", "no outputs", "empty transcript",
+    "503", "service unavailable", "unavailable", "high demand",
+    "404", "not found", "connection error",
+    "auth lookup failed", "no api key", "unauthorized", "401", "403",
+    "429", "rate limit", "rate-limit", "quota", "resource_exhausted",
+    "model_not_found", "llm request failed", "timed out",
+)
 # How many times to (re)generate when the model produces a draft that fails
 # check_episode.py. Each retry feeds the exact QC failures back to the model so
 # it repairs them, instead of reporting a failure right after a successful
@@ -40,6 +64,13 @@ DEFAULT_ATTEMPTS = max(1, int(os.environ.get("TRANSCRIPT_GEN_ATTEMPTS", "3")))
 def read_text(path: Path, limit: int | None = None) -> str:
     text = path.read_text(encoding="utf-8")
     return text if limit is None else text[:limit]
+
+
+def parse_models(spec: str) -> list[str]:
+    models = [m.strip() for m in spec.split(",") if m.strip()]
+    if not models:
+        raise SystemExit("No transcript models configured")
+    return models
 
 
 def recent_transcript_excerpt(ep_num: int) -> str:
@@ -283,11 +314,79 @@ def basic_shape_check(text: str, ep_num: int) -> None:
         raise RuntimeError("Generated transcript contains internal path/build-log language")
 
 
+def _first_product_mention_is_framed(text: str, product_pattern: str) -> bool:
+    match = re.search(product_pattern, text, re.IGNORECASE)
+    if not match:
+        return True
+    window = text[max(0, match.start() - 200):match.end() + 200]
+    return bool(
+        re.search(r"terminal[- ]based", window, re.IGNORECASE)
+        and re.search(r"AI coding agent|coding agent", window, re.IGNORECASE)
+    )
+
+
+def _prefix_first_mention(text: str, product_pattern: str, framed_name: str) -> str:
+    if _first_product_mention_is_framed(text, product_pattern):
+        return text
+    return re.sub(product_pattern, framed_name, text, count=1, flags=re.IGNORECASE)
+
+
+def apply_deterministic_qc_repairs(text: str) -> tuple[str, list[str]]:
+    """Fix small wording-gate misses without spending a full model retry.
+
+    The model is still responsible for substantive rewrites, but first-mention
+    framing and a recognizable sign-off are deterministic enough to repair in
+    place. This keeps the morning pipeline from burning a long model call when
+    the draft already passed the hard content checks.
+    """
+    fixes: list[str] = []
+    original = text
+
+    text = _prefix_first_mention(
+        text,
+        r"\bClaude Code\b",
+        "the terminal-based AI coding agent Claude Code",
+    )
+    if text != original:
+        fixes.append("framed first Claude Code mention")
+        original = text
+
+    text = _prefix_first_mention(
+        text,
+        r"\bCodex CLI\b",
+        "the terminal-based coding agent Codex CLI",
+    )
+    if text != original:
+        fixes.append("framed first Codex CLI mention")
+        original = text
+
+    last_500_words = " ".join(text.split()[-500:])
+    has_outro = bool(re.search(
+        r"(AgentStack Daily|that'?s? (it|all|a wrap)|thanks? for listening|next (time|episode)|see you|I'?m NOVA)",
+        last_500_words,
+        re.IGNORECASE,
+    ))
+    if not has_outro:
+        closing = re.search(r"we'll be back soon\.?", text, re.IGNORECASE)
+        if closing:
+            replacement = "Thanks for listening to AgentStack Daily. We'll be back soon."
+            start, end = closing.span()
+            text = text[:start] + replacement + text[end:]
+        else:
+            text = text.rstrip() + "\n\n[NOVA]: Thanks for listening to AgentStack Daily. We'll be back soon.\n"
+        fixes.append("added recognizable outro sign-off")
+
+    return text, fixes
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate episode transcript from approved show notes")
     parser.add_argument("episode", type=int)
-    parser.add_argument("--model", default=DEFAULT_MODEL,
-                        help=f"OpenClaw model (default: {DEFAULT_MODEL}). Can also set TRANSCRIPT_MODEL env var.")
+    parser.add_argument("--model", default=DEFAULT_MODEL_SPEC,
+                        help=(
+                            "OpenClaw model or comma-separated fallback list "
+                            f"(default: {DEFAULT_MODEL_SPEC}). Can also set TRANSCRIPT_MODEL or TRANSCRIPT_MODELS."
+                        ))
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--attempts", type=int, default=DEFAULT_ATTEMPTS,
@@ -328,51 +427,97 @@ def main() -> int:
         print(f"[EP{ep_str}] Revising existing transcript to address reviewer audio feedback "
               f"({len(listener_feedback)} chars).", flush=True)
 
-    attempts = max(1, args.attempts)
+    models = parse_models(args.model)
+    dead: set[str] = set()
+    # QC-repair attempts (a produced draft that failed check_episode.py) are
+    # bounded separately from route tries (a provider/transport failure). Dead
+    # routes get skipped, not counted against the repair budget.
+    max_qc_repairs = max(1, args.attempts)
+    max_route_tries = max(len(models) * 3, max_qc_repairs + len(models))
+    print(f"[EP{ep_str}] Transcript routes: {', '.join(models)} "
+          f"(QC repairs ≤{max_qc_repairs}, route tries ≤{max_route_tries}).", flush=True)
+
+    def viable() -> list[str]:
+        return [m for m in models if m not in dead]
+
     repair_feedback = ""
     last_tmp_path: Path | None = None
+    qc_repairs = 0
+    route_tries = 0
+    mi = 0
 
-    for attempt in range(1, attempts + 1):
+    while qc_repairs < max_qc_repairs and route_tries < max_route_tries:
+        vm = viable()
+        if not vm:
+            print(f"[EP{ep_str}] all routes demoted (provider/auth/quota failures) — cannot generate", flush=True)
+            break
+        model = vm[mi % len(vm)]
+        mi += 1
+        route_tries += 1
         prompt = build_prompt(
             ep_num, show_notes, examples,
             repair_feedback=repair_feedback,
             listener_feedback=listener_feedback,
             current_transcript=current_transcript,
         )
-        label = f"attempt {attempt}/{attempts}" + (" (repairing prior QC failures)" if repair_feedback else "")
-        print(f"[EP{ep_str}] Generating transcript with {args.model}... {label}", flush=True)
+        label = (f"route try {route_tries} via {model}"
+                 + (f" (QC repair {qc_repairs + 1}/{max_qc_repairs})" if repair_feedback else ""))
+        print(f"[EP{ep_str}] Generating transcript... {label}", flush=True)
 
         try:
-            text = run_model(prompt, args.model, args.timeout)
-            if looks_truncated(text) and len(text.split()) >= 3000:
-                print(f"[EP{ep_str}] {label}: draft truncated at {len(text.split())} words — "
-                      f"generating continuation and splicing.", flush=True)
-                text = complete_truncated_draft(text, ep_num, show_notes, args.model, args.timeout)
-            basic_shape_check(text, ep_num)
+            text = run_model(prompt, model, args.timeout)
         except RuntimeError as exc:
-            # Generation or basic-shape problem — treat as a repairable failure.
+            msg = str(exc).lower()
+            if any(marker in msg for marker in ROUTE_FAIL_MARKERS):
+                dead.add(model)
+                print(f"[EP{ep_str}] route {model} unusable ({str(exc)[:120]}) — demoting, "
+                      f"trying next route (no QC-repair consumed)", flush=True)
+                continue
+            # Non-route generation problem — treat as a repairable shape failure.
             repair_feedback = f"Generation/shape failure: {exc}"
+            qc_repairs += 1
             print(f"[EP{ep_str}] {label} failed before QC: {exc}", flush=True)
             continue
 
+        # Truncated draft (model hit its output ceiling mid-episode, so the
+        # closing phrase is missing from the tail) — splice on a continuation that
+        # finishes the remaining stories and the outro, fixing the length and
+        # missing-outro QC failures in one shot. Gated on the missing-closing
+        # signal (not raw word count) so a complete-but-short draft is not given a
+        # second outro.
+        try:
+            if looks_truncated(text):
+                print(f"[EP{ep_str}] {label}: draft is {len(text.split())} words and missing the "
+                      f"closing phrase — splicing a continuation.", flush=True)
+                text = complete_truncated_draft(text, ep_num, show_notes, model, args.timeout)
+        except RuntimeError as exc:
+            print(f"[EP{ep_str}] {label}: continuation splice failed ({str(exc)[:120]}); "
+                  f"continuing with the partial", flush=True)
+
+        text, deterministic_fixes = apply_deterministic_qc_repairs(text)
+        if deterministic_fixes:
+            print(f"[EP{ep_str}] {label}: applied deterministic QC repair(s): "
+                  f"{', '.join(deterministic_fixes)}.", flush=True)
+        try:
+            basic_shape_check(text, ep_num)
+        except RuntimeError as exc:
+            repair_feedback = f"Generation/shape failure: {exc}"
+            current_transcript = text
+            qc_repairs += 1
+            print(f"[EP{ep_str}] {label} failed basic shape check: {exc}", flush=True)
+            continue
+
         with tempfile.NamedTemporaryFile(
-            "w",
-            encoding="utf-8",
-            dir=str(transcript_path.parent),
-            delete=False,
-            prefix=f".episode_{ep_str}_transcript.",
-            suffix=".tmp",
+            "w", encoding="utf-8", dir=str(transcript_path.parent), delete=False,
+            prefix=f".episode_{ep_str}_transcript.", suffix=".tmp",
         ) as tmp:
             tmp.write(text)
             tmp_path = Path(tmp.name)
 
         qc = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "check_episode.py"), str(tmp_path)],
-            cwd=str(PODCAST_DIR),
-            capture_output=True,
-            text=True,
+            cwd=str(PODCAST_DIR), capture_output=True, text=True,
         )
-        # Keep QC observable in the build/audio log as before.
         if qc.stdout:
             print(qc.stdout, flush=True)
         if qc.stderr:
@@ -383,28 +528,24 @@ def main() -> int:
             print(f"[EP{ep_str}] Transcript written: {transcript_path} ({label})", flush=True)
             return 0
 
-        # QC rejected the draft — feed the concrete failures back for repair, and
-        # hand the model its OWN failed draft to revise (targeted edits) instead of
-        # rerolling from scratch, which oscillates: fixes named issues but breaks
-        # others. Revising the draft keeps what already passed.
+        # QC rejected the draft — hand the model its OWN failed draft to revise
+        # (targeted edits keep what already passed) and consume one QC repair.
         qc_text = (qc.stdout or "") + ("\n" + qc.stderr if qc.stderr else "")
         fail_lines = [ln for ln in qc_text.splitlines() if "❌" in ln or "→" in ln]
         repair_feedback = "\n".join(fail_lines).strip() or qc_text.strip()
         current_transcript = text
         if not listener_feedback:
-            # No reviewer feedback set; synthesize a minimal revision directive so the
-            # failed draft is still shown to the model as the base to revise.
             listener_feedback = "Fix only the QC failures listed below; keep the rest of the draft intact."
-        last_tmp_path = tmp_path
-        print(f"[EP{ep_str}] {label} failed check_episode.py; will revise this draft to fix {len(fail_lines)} issue(s) and retry.", flush=True)
-
-        # Don't accumulate temp drafts across attempts; keep only the final one.
-        if attempt < attempts:
-            tmp_path.unlink(missing_ok=True)
-            last_tmp_path = None
+        qc_repairs += 1
+        rejected_path = transcript_path.parent / f".episode_{ep_str}_transcript.rejected.latest.tmp"
+        tmp_path.replace(rejected_path)
+        last_tmp_path = rejected_path
+        print(f"[EP{ep_str}] {label} failed check_episode.py; will revise to fix "
+              f"{len(fail_lines)} issue(s) and retry.", flush=True)
 
     raise SystemExit(
-        f"Generated transcript still failed check_episode.py after {attempts} attempt(s)."
+        f"Generated transcript still failing after {qc_repairs} QC repair(s) / {route_tries} route tries "
+        f"(dead routes: {sorted(dead) or 'none'})."
         + (f" Kept last draft at {last_tmp_path}" if last_tmp_path else "")
     )
 
