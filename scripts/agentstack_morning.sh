@@ -14,14 +14,17 @@
 #                                      final check_show_notes.py gate + repair
 #                                      loop inside — a QC drift costs a repair
 #                                      round, never the morning run)
+#   5. post_show_notes_draft_discord  (EARLY post: story slate + "transcript in
+#                                      progress" so Toby can reject mid-stream
+#                                      before the audio compute is spent)
 #   6. generate_episode_transcript.py (model + check_episode.py QC loop)
 #   7. build_episode.py               (slate verify, QC, nova render, EN audio,
-#                                      bespoke cover art, CDN push, ONE Discord
+#                                      bespoke cover art, CDN push, full Discord
 #                                      review post bundling notes+transcript+audio
 #                                      — stops at approval gate)
 #
-# Toby reviews the complete package in the stage-7 post. If he disapproves the
-# show notes, regen all three with: scripts/regen_episode.sh <N>
+# Stage 5 gives Toby an early reject gate on the stories; stage 7 delivers the
+# listenable review. If he disapproves, regen all three: scripts/regen_episode.sh <N>
 #
 # Launched by show_notes_research_guard.sh from cron. All failures append to
 # BUILD_LOG and post to the Discord alerts channel (per graduated lesson:
@@ -118,9 +121,17 @@ if [ ! -s "$DRAFT_PATH" ]; then
 fi
 blog "OK EP${NEXT_EP_PAD}: show notes written and QC-passed"
 
-# ── Stage 5: (removed 2026-06-15) — no standalone early show-notes post.
-#    Toby reviews the complete package (show notes + transcript + audio) in one
-#    Discord post from stage 7, not show notes alone ahead of the audio.
+# ── Stage 5: early show-notes post (mid-stream reject gate, 2026-06-15) ──────
+#    Post the generated story slate the moment the show notes pass QC, BEFORE the
+#    expensive transcript + audio steps, so Toby can reject bad stories early and
+#    save the compute. The full bundled review (notes+transcript+audio) still
+#    follows from stage 7.
+if ! python3 "${SCRIPT_DIR}/post_show_notes_draft_discord.py" "$_NEXT_EP" --file "$DRAFT_PATH" \
+      --headline "📝 AgentStack Daily EP${NEXT_EP_PAD} — show notes generated, transcript generation in progress" \
+      --note "🛠 Transcript + audio are building now. Reply here to REJECT mid-stream if these stories are bad — that stops the run before the audio is wasted. The full listenable review (transcript + audio) follows shortly." \
+      >> "$BUILD_LOG" 2>&1; then
+  blog "agentstack_morning: WARN EP${NEXT_EP_PAD} early show-notes post failed (non-fatal; full review still follows)"
+fi
 
 # ── Stage 6: transcript generation (model + check_episode.py QC loop) ────────
 blog "agentstack_morning: EP${NEXT_EP_PAD} stage 6 — generate transcript"

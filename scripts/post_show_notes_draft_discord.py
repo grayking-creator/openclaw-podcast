@@ -198,6 +198,11 @@ def main() -> int:
     parser.add_argument("episode", type=int)
     parser.add_argument("--file", type=Path)
     parser.add_argument("--channel-id", help="Post to an existing Discord channel id instead of looking up/creating by name")
+    parser.add_argument("--note", default="",
+                        help="Status line appended after the topic summary (e.g. the "
+                             "'transcript generation in progress — reject now' mid-stream notice)")
+    parser.add_argument("--headline", default="",
+                        help="Override the leading headline line (default: 'show notes are ready')")
     args = parser.parse_args()
 
     ep_str = f"{args.episode:03d}"
@@ -215,9 +220,12 @@ def main() -> int:
     else:
         channel = ensure_channel(args.episode, title, token)
     summary = extract_topic_summary(notes)
+    headline = args.headline.strip() or f"AgentStack Daily EP{ep_str} show notes are ready."
+    note_block = f"\n{args.note.strip()}\n" if args.note.strip() else ""
     content = (
-        f"AgentStack Daily EP{ep_str} show notes are ready.\n\n"
+        f"{headline}\n\n"
         f"{summary}\n"
+        f"{note_block}"
         "\nShow notes: uploading attachment..."
     )
     message = post_attachment(str(channel["id"]), token, draft_path, content)
@@ -230,7 +238,7 @@ def main() -> int:
             str(channel["id"]),
             str(message["id"]),
             token,
-            f"AgentStack Daily EP{ep_str} show notes are ready.\n\n{summary}\n\nShow notes: {attachment_url}",
+            f"{headline}\n\n{summary}\n{note_block}\nShow notes: {attachment_url}",
         )
     print(f"Posted {draft_path.name} to #{channel['name']} ({channel['id']})")
     return 0
