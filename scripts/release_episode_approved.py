@@ -724,12 +724,74 @@ def translation_lane(ep_num: int, state: dict[str, Any], pub_date: str) -> dict[
 TRANSLATION_MAX_RETRIES = 2
 TRANSLATION_RETRY_DELAY = 60  # seconds; multiplied by attempt number
 
+# Telegram home channel for operator alerts (Toby / @DigiToby_bot).
+# Locked 2026-06-21 (EP072 incident): when the translation lane exhausts
+# retries, the failure is posted to BOTH the build log AND Telegram — the
+# build log alone is invisible to the operator during the day.
+TELEGRAM_ALERT_TARGET = os.environ.get("PODCAST_TELEGRAM_TARGET", "8319992332")
+TELEGRAM_ALERT_CHANNEL = "telegram"
+TELEGRAM_ALERT_BIN = os.environ.get("OPENCLAW_BIN", "/opt/homebrew/bin/openclaw")
+
+
+def telegram_alert(ep_num: int, message: str) -> None:
+    """Best-effort Telegram alert to the operator. Failures are swallowed so
+    the alert path never breaks the orchestrator (it logs to /tmp instead)."""
+    try:
+        subprocess.run(
+            [
+                TELEGRAM_ALERT_BIN, "message", "send",
+                "--channel", TELEGRAM_ALERT_CHANNEL,
+                "--target", TELEGRAM_ALERT_TARGET,
+                "--message", message,
+            ],
+            timeout=15,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+        )
+    except Exception as exc:  # pragma: no cover — never block the pipeline
+        try:
+            with open("/tmp/podcast_telegram_alert_errors.log", "a") as fh:
+                fh.write(f"[{utc_now()}] ep{ep_num:03d}: telegram alert failed: {exc}\n")
+        except Exception:
+            pass
+
+
+def format_translation_failure(ep_num: int, exc: "LaneError") -> str:
+    """Surface the SPECIFIC QC failure (not the generic "TTS/publish failures"
+    summary) to Telegram. Pulls the per-language QC messages from the lane
+    error so Toby can diagnose without grepping build logs."""
+    raw = str(exc) if exc else "unknown"
+    # Try to extract the per-language QC hints from the lane state if attached
+    qc_hints: list[str] = []
+    if exc and exc.state:
+        for lang, payload in (exc.state.get("translations") or {}).items():
+            qc = payload.get("qc") if isinstance(payload, dict) else None
+            if isinstance(qc, dict) and qc.get("errors"):
+                for err in qc["errors"][:3]:
+                    qc_hints.append(f"  {lang}: {err}")
+    hint_block = ("\n".join(qc_hints) if qc_hints else "  (no per-language QC hints in state)")
+    return (
+        f"❌ EP{ep_num:03d} lane_translations exhausted "
+        f"{TRANSLATION_MAX_RETRIES + 1} attempts.\n"
+        f"Fatal: {raw}\n"
+        f"QC hints:\n{hint_block}\n"
+        f"Recovery: `python3 scripts/recover_failed_translation_lane.py {ep_num:03d}`\n"
+        f"If 3am, the morning pipeline will now RESUME the orchestrator instead "
+        f"of regenerating the same episode (agentstack_morning.sh Stage 2 — "
+        f"locked 2026-06-21)."
+    )
+
 
 def translation_lane_with_retry(ep_num: int, state: dict[str, Any], pub_date: str) -> dict[str, Any]:
     """Wraps translation_lane with automatic retry on failure.
 
     Between retries, state is reloaded from disk so any per-language progress
     already saved (translations.*.done flags) is preserved and not repeated.
+
+    When all retries are exhausted, a Telegram alert is sent to the operator
+    with the specific QC failure (not just "TTS/publish failures") so the
+    next-day recovery is one command, not an investigation.
     """
     last_exc: LaneError | None = None
     for attempt in range(TRANSLATION_MAX_RETRIES + 1):
@@ -750,7 +812,16 @@ def translation_lane_with_retry(ep_num: int, state: dict[str, Any], pub_date: st
             if attempt < TRANSLATION_MAX_RETRIES:
                 log(f"[ LANE / TRANSLATIONS ] Attempt {attempt + 1} failed: {exc}")
                 post_build_log(ep_num, f"❌ [lane_translations] attempt {attempt + 1} failed: {exc}")
+    # All retries exhausted. Surface the specific failure to Telegram so the
+    # operator sees it the same day, not the next morning when the morning
+    # pipeline tries to resume.
+    if last_exc is not None:
+        try:
+            telegram_alert(ep_num, format_translation_failure(ep_num, last_exc))
+        except Exception:
+            pass
     raise last_exc  # type: ignore[misc]
+
 
 
 def en_video_lane(ep_num: int, state: dict[str, Any]) -> dict[str, Any]:
@@ -1011,6 +1082,16 @@ def main() -> int:
                     save_state(ep_num, state)
                     post_build_log(ep_num, f"❌ [{lane}] FAILED: {exc}")
                     log(f"[ {lane} ] FAILED: {exc}")
+                    # Telegram alert for any lane failure (not just translations)
+                    try:
+                        telegram_alert(
+                            ep_num,
+                            f"❌ EP{ep_num:03d} {lane} FAILED.\n"
+                            f"Fatal: {exc}\n"
+                            f"Run: `python3 scripts/launch_approved_release.py {ep_num:03d} --pub-date '{state.get('pub_date','')}'` to resume from completed steps.",
+                        )
+                    except Exception:
+                        pass
                 except Exception as exc:
                     lane_errors[lane] = exc
                     mark_lane_result(state, lane, "failed", {"error": str(exc)})
