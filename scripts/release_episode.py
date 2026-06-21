@@ -610,8 +610,53 @@ def gemini_call(prompt, max_tokens=4000, retries=3):
             f"Mistral failed, NVIDIA failed ({nvidia_err})"
         ) from nvidia_err
 
+# Languages whose target script is non-Latin. Title translation must produce
+# text in these scripts; an all-Latin title fails the QC rule and is treated
+# as a translation miss, not a "keep proper nouns" exception.
+NON_LATIN_LANGS = {"hi"}  # Hindi is Devanagari; ES/DE/PT are Latin-script but still must differ from EN
+
+def _title_body_is_mostly_english(translated_title: str, en_title: str) -> bool:
+    """Detect the EP072-style bug: model returned a title whose body after the
+    "{prefix} {ep_num}:" prefix is essentially the English title unchanged.
+
+    QC fails because the translated title is indistinguishable from the
+    English title. Returns True when the title needs to be re-translated with
+    a stronger prompt.
+    """
+    if not translated_title or not en_title:
+        return False
+    # Strip leading "{prefix} {ep_num}:" if present
+    m = re.match(r"^.+?\s+\d+\s*[:\-–]\s*(.+)$", translated_title.strip())
+    body = (m.group(1) if m else translated_title).strip()
+    en = en_title.strip()
+    # Case-insensitive, whitespace-normalized equality → identical body
+    if re.sub(r"\s+", " ", body.lower()) == re.sub(r"\s+", " ", en.lower()):
+        return True
+    # Non-Latin languages: if no script-native characters are present, model
+    # silently fell back to English
+    if NON_LATIN_LANGS:
+        pass  # handled per-lang by caller
+    return False
+
+
+def _title_missing_native_script(translated_title: str, lang: str) -> bool:
+    """For non-Latin target scripts, require SOME characters in the target
+    script. A Hindi title that contains zero Devanagari is just English."""
+    if lang not in NON_LATIN_LANGS:
+        return False
+    if not translated_title:
+        return True
+    # Devanagari U+0900–U+097F
+    return not re.search(r"[\u0900-\u097F]", translated_title)
+
+
 def translate_metadata(ep_num, lang):
-    """Returns dict: title, description, cover_line1, cover_line2, cover_tagline."""
+    """Returns dict: title, description, cover_line1, cover_line2, cover_tagline.
+
+    Translates with up to 3 Gemini attempts: a default prompt, then a stronger
+    "actually translate the body" prompt if the model returned an English body
+    or (for non-Latin scripts) zero script-native characters.
+    """
     lang_name = LANG_NAMES[lang]
     prefix = TITLE_PREFIXES[lang]
 
@@ -637,7 +682,7 @@ def translate_metadata(ep_num, lang):
         line2 = l2m.group(1) if l2m else derived_line2
         cover_tag = ctm.group(1) if ctm else en_tagline
 
-    prompt = f"""Translate this podcast episode metadata from English to {lang_name}.
+    base_prompt = f"""Translate this podcast episode metadata from English to {lang_name}.
 Return ONLY valid JSON, no other text, no markdown fences.
 
 English episode title: "{en_title}"
@@ -658,18 +703,59 @@ Return JSON with these exact keys:
   "cover_tagline": "<translated short tagline phrase>"
 }}"""
 
-    raw = gemini_call(prompt, max_tokens=4000)
-    # Extract JSON from response
-    json_m = re.search(r'\{[\s\S]*\}', raw)
-    if not json_m:
-        raise ValueError(f"No JSON in metadata translation for {lang}: {raw[:200]}")
-    return normalize_translated_metadata(
-        json.loads(json_m.group(0)),
-        ep_num,
-        prefix,
-        en_title,
-        en_tagline or en_desc,
+    reinforce_prompt = f"""You previously translated this podcast metadata to {lang_name}
+but the title body is still in English. Translate EVERY non-proper-noun word
+to {lang_name}. Keep ONLY these in English:
+  - Product names: OpenClaw, Codex, Claude Code, Hermes, MiniMax, ChatGPT, Gemini, GLM
+  - Model names and version numbers: GLM-5.2, rust-v0.141.0, 2.1.170, 2026.6.8
+  - Generic tech terms that are universal in {lang_name}: API, SDK, MCP, RAG
+Translate ALL of: verbs, adjectives, common nouns, and connectives. The title
+MUST differ from the English body by more than just the "{prefix} {ep_num}:"
+prefix. Common phrases to translate: "Open Weights", "shipped", "released",
+"launches", "update", "new", "model", "tools".
+
+English episode title: "{en_title}"
+Title prefix for this language: "{prefix}"
+
+Return ONLY the corrected JSON object (same shape as before), nothing else."""
+
+    last_meta = None
+    for attempt in range(3):
+        prompt = reinforce_prompt if attempt > 0 else base_prompt
+        raw = gemini_call(prompt, max_tokens=4000)
+        json_m = re.search(r'\{[\s\S]*\}', raw)
+        if not json_m:
+            log(f"  ⚠️  [translate_metadata] {lang}: no JSON in attempt {attempt + 1}; retrying")
+            continue
+        try:
+            meta = json.loads(json_m.group(0))
+        except json.JSONDecodeError as exc:
+            log(f"  ⚠️  [translate_metadata] {lang}: JSON parse failed ({exc}); retrying")
+            continue
+        meta = normalize_translated_metadata(
+            meta, ep_num, prefix, en_title, en_tagline or en_desc
+        )
+        last_meta = meta
+        title = meta.get("title", "")
+        if attempt == 0 and (
+            _title_body_is_mostly_english(title, en_title)
+            or _title_missing_native_script(title, lang)
+        ):
+            log(
+                f"  ⚠️  [translate_metadata] {lang}: title body still English "
+                f"(attempt 1: {title!r}); retrying with reinforcement prompt"
+            )
+            continue
+        return meta
+
+    # All attempts produced an English body — return the last one and let QC
+    # surface the failure rather than silently keep retrying forever.
+    log(
+        f"  ❌ [translate_metadata] {lang}: 3 attempts all returned English body "
+        f"(last title: {last_meta.get('title') if last_meta else '<none>'!r}); "
+        "QC will fail — investigate model output"
     )
+    return last_meta
 
 TRANSCRIPT_SPEAKER_RE = re.compile(r"^\[(NOVA|ALLOY)\]:\s*(.+)$", re.DOTALL)
 TRANSCRIPT_LEAK_RE = re.compile(
@@ -1671,6 +1757,82 @@ def phase_en_feed(ep_num, state, pub_date):
         log(f"  ⏭  EN feed already has EP{ep_num}")
 
     return state
+
+
+def update_translated_feed_entry(ep_num, lang, *, title=None, description=None):
+    """Patch the existing <item> for EP{ep_num} in translations/feed_{lang}.xml
+    in place — used when a feed entry was inserted with a bad title (EP072-style
+    bug: only the prefix was translated) and we need to update the title /
+    description without re-inserting (which would fail the duplicate check).
+
+    Returns True if the feed was modified, False if no matching item was found.
+    Validates the XML before and after the rewrite.
+    """
+    import xml.etree.ElementTree as ET
+    feed_path = PODCAST_DIR / "translations" / f"feed_{lang}.xml"
+    if not feed_path.exists():
+        log(f"  ℹ️  No {feed_path.name} to update")
+        return False
+    text = feed_path.read_text(encoding="utf-8")
+    try:
+        ET.fromstring(text)
+    except ET.ParseError as exc:
+        raise RuntimeError(f"{feed_path} is not valid XML; refusing to patch: {exc}") from exc
+
+    # Locate the item block for this episode: anchor on <itunes:episode>{ep_num}
+    # and walk back to its enclosing <item>...</item>.
+    pattern = re.compile(
+        rf"(    <!-- Episode {ep_num} -->\n)?"
+        rf"(\s*)<item>(?:(?!</item>).)*?<itunes:episode>{ep_num}</itunes:episode>(?:(?!</item>).)*?</item>",
+        re.DOTALL,
+    )
+    m = pattern.search(text)
+    if not m:
+        log(f"  ℹ️  No existing EP{ep_num} item in {feed_path.name}; nothing to update")
+        return False
+
+    item_text = m.group(0)
+    new_item = item_text
+
+    if title is not None:
+        # Escape XML special chars minimally in the title
+        safe_title = (title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+        new_item = re.sub(
+            r"<title>.*?</title>",
+            f"<title>{safe_title}</title>",
+            new_item,
+            count=1,
+        )
+    if description is not None:
+        # The description is wrapped in <![CDATA[...]]>; substitute the body.
+        def _replace_desc(match: re.Match) -> str:
+            inner = description.replace("]]>", "]]]]><![CDATA[>")
+            return f"<description><![CDATA[{inner}]]></description>"
+
+        new_item = re.sub(
+            r"<description><!\[CDATA\[.*?\]\]></description>",
+            _replace_desc,
+            new_item,
+            count=1,
+            flags=re.DOTALL,
+        )
+
+    if new_item == item_text:
+        log(f"  ⏭  {feed_path.name} EP{ep_num}: no field changed; nothing to update")
+        return False
+
+    new_text = text[: m.start()] + new_item + text[m.end() :]
+    # Validate the rewritten XML
+    try:
+        ET.fromstring(new_text)
+    except ET.ParseError as exc:
+        raise RuntimeError(
+            f"Rewritten {feed_path.name} is not valid XML; refusing to write: {exc}"
+        ) from exc
+    feed_path.write_text(new_text, encoding="utf-8")
+    log(f"  ✅ {feed_path.name} EP{ep_num}: updated in place (title/description patched)")
+    return True
+
 
 def phase_translated_feeds(ep_num, state, pub_date, langs=None):
     log("[ FEEDS / TRANSLATED ] Adding translated feed entries...")

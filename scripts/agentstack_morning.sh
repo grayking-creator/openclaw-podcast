@@ -82,9 +82,42 @@ blog "agentstack_morning: targeting EP${NEXT_EP_PAD} (last released: EP${_LAST_E
 # ── Stage 2: collision check / resume.
 #    A QC-passing draft should not strand a day of audio work. Resume from it.
 #    A failed draft is archived and rebuilt with fresh context.
+#    (Locked 2026-06-21, EP072 incident: morning pipeline was regenerating the
+#    same episode after the approved release orchestrator died in
+#    lane_translations, because the collision check only looked at show-notes
+#    QC, not at the release-state file. The morning pipeline now also reads
+#    scripts/release_ep${NEXT_EP_PAD}_state.json and refuses to regenerate an
+#    episode whose approved release is still in flight — it instead attempts
+#    to resume the orchestrator and only alerts Toby if resume fails.)
+EP_NUM_PADDED="${NEXT_EP_PAD}"
+STATE_FILE="${SCRIPT_DIR}/release_ep${EP_NUM_PADDED}_state.json"
 if [ -f "$DRAFT_PATH" ]; then
   blog "agentstack_morning: EP${NEXT_EP_PAD} existing draft found — checking whether it can resume"
   if python3 "${SCRIPT_DIR}/check_show_notes.py" "$DRAFT_PATH" >> "$BUILD_LOG" 2>&1; then
+    # Draft QC-passed. Now check if a release is in flight.
+    if [ -f "$STATE_FILE" ]; then
+      RUN_STATUS=$(python3 -c "import json; print(json.load(open('${STATE_FILE}')).get('approved_orchestrator',{}).get('run_status',''))" 2>/dev/null || echo "")
+      COMPLETED_STEPS=$(python3 -c "import json; print(','.join(json.load(open('${STATE_FILE}')).get('approved_orchestrator',{}).get('completed_steps',[])))" 2>/dev/null || echo "")
+      DISCORD_STEP_DONE=$(echo "$COMPLETED_STEPS" | grep -q "discord" && echo "yes" || echo "no")
+      if [ -n "$RUN_STATUS" ] && [ "$RUN_STATUS" != "complete" ] && [ "$DISCORD_STEP_DONE" != "yes" ]; then
+        # Release is in flight (started but not finished). Do NOT regenerate.
+        # Resume the orchestrator instead — it will pick up at the next
+        # incomplete step (release_episode_approved.py honours completed_steps
+        # via mark_step_complete on disk).
+        blog "agentstack_morning: EP${NEXT_EP_PAD} approved release in flight (run_status=${RUN_STATUS}); attempting to resume orchestrator"
+        alert "🔁 EP${NEXT_EP_PAD} morning: approved release is in flight (run_status=${RUN_STATUS}, completed_steps=${COMPLETED_STEPS}). Resuming orchestrator — not regenerating today's episode."
+        STORED_PUB_DATE=$(python3 -c "import json; print(json.load(open('${STATE_FILE}')).get('pub_date',''))" 2>/dev/null || echo "")
+        if [ -n "$STORED_PUB_DATE" ] && python3 "${SCRIPT_DIR}/launch_approved_release.py" "$_NEXT_EP" \
+            --pub-date "$STORED_PUB_DATE" \
+            >> "$BUILD_LOG" 2>&1; then
+          blog "agentstack_morning: EP${NEXT_EP_PAD} orchestrator resume launched successfully"
+          exit 0
+        fi
+        blog "agentstack_morning: EP${NEXT_EP_PAD} orchestrator resume FAILED to launch; HOLDING"
+        alert "❌ EP${NEXT_EP_PAD} morning: orchestrator resume FAILED to launch. Release stuck at run_status=${RUN_STATUS}, step $(echo "$COMPLETED_STEPS" | tr ',' ' '). Manual recovery: python3 scripts/recover_failed_translation_lane.py ${NEXT_EP_PAD} or python3 scripts/launch_approved_release.py ${NEXT_EP_PAD} --pub-date '<original>'. Not regenerating."
+        exit 2
+      fi
+    fi
     blog "agentstack_morning: EP${NEXT_EP_PAD} existing draft passes QC — resuming downstream"
     RESUME_EXISTING_DRAFT=1
   else
