@@ -47,18 +47,42 @@ def check_url(url):
 
     soft=True means we could not get a definitive answer (network error) and the
     caller should warn rather than block.
+
+    Locked 2026-06-29, EP076 incident: op3.dev can transiently 404 on a cold
+    cache hit even when the underlying GitHub release URL is live. To avoid
+    a one-shot flake blocking publish on a real-life-good URL, retry any
+    non-2xx transient HTTP error with a brief backoff. Sustained real 404s
+    still block. Headless network issues remain soft.
     """
-    for method in ("HEAD", "GET"):
-        try:
-            code = _status(url, method)
-            return (200 <= code < 400, f"HTTP {code}", False)
-        except urllib.error.HTTPError as e:
-            if e.code in (403, 405, 501) and method == "HEAD":
-                continue  # server dislikes HEAD — retry as ranged GET
-            return (False, f"HTTP {e.code}", False)
-        except (urllib.error.URLError, TimeoutError, OSError) as e:
-            return (True, f"network error ({e}) — not verified", True)
-    return (False, "no usable response", False)
+    import time
+    transient_codes = {404, 502, 503, 504}
+    last_code = None
+    last_detail = "no usable response"
+    for attempt in range(3):
+        for method in ("HEAD", "GET"):
+            try:
+                code = _status(url, method)
+                if 200 <= code < 400:
+                    return (True, f"HTTP {code}", False)
+                last_code = code
+                last_detail = f"HTTP {code}"
+                if last_code in transient_codes:
+                    # wait briefly and retry — op3 cache or CDN hiccup
+                    time.sleep(2 + attempt)
+                    continue
+                return (False, last_detail, False)
+            except urllib.error.HTTPError as e:
+                if e.code in (403, 405, 501) and method == "HEAD":
+                    continue
+                last_code = e.code
+                last_detail = f"HTTP {e.code}"
+                if last_code in transient_codes:
+                    time.sleep(2 + attempt)
+                    continue
+                return (False, last_detail, False)
+            except (urllib.error.URLError, TimeoutError, OSError) as e:
+                return (True, f"network error ({e}) — not verified", True)
+    return (False, last_detail, False)
 
 
 def enclosure_urls(path):

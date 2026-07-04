@@ -25,6 +25,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -714,82 +715,124 @@ def verify_published_urls(ep_num, audio_url, cover_url, show_notes_url=None, tra
             raise SystemExit(f"❌ URL verification failed after {URL_VERIFY_MAX_ATTEMPTS} attempts\n{details}")
 
 
-def post_discord_listen(ep_num, duration, audio_url, cover_url=None, show_notes_url=None, transcript_url=None, verified=False):
-    ep_str = f"{ep_num:03d}"
-    ep_channel_name = f"agent-stack-ep{ep_str}"
-    token = load_env_key("DISCORD_BOT_TOKEN")
+# ── Review post dispatch (TELEGRAM ONLY — locked 2026-06-27) ─────────────
+# Locked invariant (2026-06-27, post-EP075 routing incident): the
+# operator's review surface is Telegram chat id 8319992332 (this DM).
+# Discord post paths were removed entirely after a build silently
+# routed to the ARIA Discord account instead of the operator's
+# Telegram DM. The Telegram post is now mandatory: if the post
+# fails, the build aborts loudly. There is no --use-discord fallback.
+#
+# The target is hardcoded here and in notify_telegram_review.py to
+# 8319992332. The HERMES_SESSION_KEY env var (if set) is asserted to
+# match; if it doesn't, we abort with a routing-misconfigured error
+# before generating any audio. This prevents the same class of
+# routing bug from ever silently redirecting a build to a different
+# chat.
 
-    log(f"\n── Discord post ─────────────────────────────────────────────────────────")
+OPERATOR_TELEGRAM_CHAT_ID = "8319992332"
+OPERATOR_TELEGRAM_CHAT_IDS = frozenset({"8319992332"})  # the only valid targets
 
-    def discord_request(method, path, body=None):
-        url = f"https://discord.com/api/v10{path}"
-        data = json.dumps(body).encode() if body else None
-        req = urllib.request.Request(url, data=data, method=method, headers={
-            "Authorization": f"Bot {token}",
-            "Content-Type": "application/json",
-            "User-Agent": "DiscordBot (https://github.com/openclaw/openclaw, 1.0)",
-        })
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return json.loads(r.read())
 
-    try:
-        channels = discord_request("GET", f"/guilds/{DISCORD_GUILD_ID}/channels")
-    except Exception as e:
-        log(f"⚠️  Discord API error — post manually: {e}")
-        log(f"   {audio_url}")
-        if cover_url:
-            log(f"   {cover_url}")
+def assert_telegram_routing() -> None:
+    """Pre-flight check: refuse to build if the active session is not the
+    operator's home Telegram DM. Catches the case where HERMES_SESSION_KEY
+    is set to a different bot's session, or the env was inherited from a
+    parent shell that was running for a different account.
+    """
+    session_key = os.environ.get("HERMES_SESSION_KEY", "")
+    if not session_key:
+        # No session key set (e.g. running standalone in a venv). Allow
+        # but log a warning so the operator can see the routing is
+        # ambient.
+        log("build_episode: WARN HERMES_SESSION_KEY not set; routing assertion skipped")
+        return
+    if not session_key.endswith(f":{OPERATOR_TELEGRAM_CHAT_ID}"):
+        raise SystemExit(
+            f"❌ ROUTING MIS-WIRED: HERMES_SESSION_KEY ends with "
+            f"'{session_key.rsplit(':', 1)[-1]}' but the only valid "
+            f"AgentStack Daily review target is "
+            f"'{OPERATOR_TELEGRAM_CHAT_ID}'. Refusing to build — the "
+            f"audio would be posted to the wrong chat. Fix the session "
+            f"or the env, do not bypass this check."
+        )
+
+
+def _post_review_listen(ep_num, args, duration, audio_url, cover_url=None,
+                        show_notes_url=None, transcript_url=None,
+                        verified=False, audio_sha=""):
+    """Post the review-listening message to the operator's Telegram DM.
+
+    Telegram chat id 8319992332 is the ONLY valid review target. The
+    notifier (notify_telegram_review.py --intent ready) hardcodes the
+    same target. If the post fails, the build aborts. There is no
+    Discord fallback path; the legacy post_discord_listen() and the
+    --use-discord flag were removed after the 2026-06-27 routing
+    incident.
+
+    Never post a status update, a plan, or a "run this script
+    yourself" message. The Telegram post is the entire review surface;
+    it includes the audio hash and a clear approval/reject prompt.
+    """
+    assert_telegram_routing()
+    if args.skip_telegram:
+        log("build_episode: --skip-telegram set; review URLs only logged here (NOT recommended for cron-launched runs)")
         return
 
-    ep_channel = next((c for c in channels if c.get("name") == ep_channel_name), None)
-    if not ep_channel:
-        # The episode channel is normally created by the stage-5 show-notes post,
-        # but that stage is non-fatal — if it failed (or build_episode is run
-        # standalone), create the channel here so a fully-built episode is never
-        # left unposted (EP071, 2026-06-15: review built but silently not posted).
-        log(f"ℹ️  Discord channel #{ep_channel_name} missing — creating it")
-        try:
-            ep_channel = discord_request(
-                "POST", f"/guilds/{DISCORD_GUILD_ID}/channels",
-                {"name": ep_channel_name, "type": 0,
-                 "topic": f"AgentStack Daily EP {ep_str} review"},
-            )
-        except Exception as e:
-            log(f"⚠️  Could not create #{ep_channel_name} ({e}) — post manually:")
-            log(f"   {audio_url}")
-            if cover_url:
-                log(f"   {cover_url}")
-            return
+    summary = _build_review_summary(ep_num)
+    cmd = [
+        sys.executable, str(Path(__file__).parent / "notify_telegram_review.py"),
+        "--ep", str(ep_num),
+        "--intent", "ready",
+        "--audio-url", audio_url,
+        "--cover-url", cover_url or "",
+        "--show-notes-url", show_notes_url or "",
+        "--transcript-url", transcript_url or "",
+        "--duration", duration,
+        "--sha256", audio_sha or "",
+        "--summary", summary,
+    ]
+    if verified:
+        cmd.append("--verified")
+    proc = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=30)
+    if proc.returncode != 0:
+        # ABORT, do not silently swallow. The audio has already been
+        # generated and is on disk, but the operator has not been
+        # notified. The build fails so the morning pipeline exits
+        # non-zero and the next morning's cron can re-run after the
+        # routing is fixed.
+        log(f"❌ Telegram ready-post FAILED (exit {proc.returncode})")
+        log(f"   stdout: {proc.stdout}")
+        log(f"   stderr: {proc.stderr}")
+        raise SystemExit(
+            f"❌ EP{ep_num:03d} review Telegram post failed. The audio is "
+            f"on disk and on the CDN, but the operator was not notified. "
+            f"Check the Telegram bot token, HERMES_SESSION_KEY, and the "
+            f"target chat id (must be {OPERATOR_TELEGRAM_CHAT_ID})."
+        )
+    log(f"✅ EP{ep_num:03d} review Telegram post sent to {OPERATOR_TELEGRAM_CHAT_ID}")
 
-    status = "✅ verified" if verified else "⏳ not yet verified"
-    msg = ""
-    if show_notes_url:
-        msg += f"Review show notes ({status}): {show_notes_url}\n"
-    if transcript_url:
-        msg += f"Review transcript ({status}): {transcript_url}\n"
-    if cover_url:
-        msg += f"Review cover ({status}): {cover_url}\n"
-    msg += (
-        f"EP{ep_str} review audio ready ({status}) — listen before approving:\n"
-        f"{audio_url}\n"
-        f"Duration: {duration}\n"
-    )
-    msg += (
-        "\nWebsite/feed publish does not happen until approval.\n"
-        f"\nReply ✅ to start the approved release flow (EN publish + translations + video builds), "
-        f"or ❌ to rebuild.\n\n"
-        f"When approved, the release runner must verify the approving reply's Discord message id."
-    )
-    posted = discord_request("POST", f"/channels/{ep_channel['id']}/messages", {"content": msg})
-    state = rel.load_state(ep_num)
-    approval_gate.record_review_discord_post(
-        state,
-        channel_id=ep_channel["id"],
-        message_id=posted["id"],
-        posted_at=posted.get("timestamp"),
-    )
-    rel.save_state(ep_num, state)
-    log(f"✅ Posted to #{ep_channel_name}")
+
+def _build_review_summary(ep_num: int) -> str:
+    """Pull 5–7 bullet headlines out of show_notes_episode_NNN.md for the
+    Telegram review post. If the show-notes file is missing, fall back to
+    a no-summary post (the Telegram prompt is still actionable; the
+    listener can open the show notes URL for context)."""
+    ep_str = f"{ep_num:03d}"
+    path = PODCAST_DIR / f"show_notes_episode_{ep_str}.md"
+    if not path.exists():
+        return ""
+    text = path.read_text(errors="replace")
+    # Headlines are `N. **Title**` lines under "## Story Slate" or at the
+    # top of the file. Pull the first 7 bold-anchored numbered entries.
+    bullets: list[str] = []
+    for line in text.splitlines():
+        m = re.match(r"\s*\d+\.\s+\*\*(.+?)\*\*", line)
+        if m:
+            bullets.append(m.group(1).strip())
+            if len(bullets) >= 7:
+                break
+    return "; ".join(bullets)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -799,8 +842,10 @@ def main():
     parser.add_argument("episode", type=int, help="Episode number (e.g. 29)")
     parser.add_argument("--force-audio", action="store_true",
                         help="Regenerate audio even if episode_XXX.mp3 already exists")
-    parser.add_argument("--skip-discord", action="store_true",
-                        help="Skip Discord post (print URL instead)")
+    parser.add_argument("--skip-telegram", action="store_true",
+                        help="Skip the Telegram review post (NOT recommended for cron-launched runs)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Build audio + CDN push but do NOT post to Telegram or anywhere else")
     parser.add_argument("--skip-verify", action="store_true",
                         help="Skip public GitHub Pages verification and treat URLs as unverified")
     parser.add_argument("--force-cover", action="store_true",
@@ -846,6 +891,11 @@ def main():
     # shown in the review message always matches the asset just pushed.
     cover_review_url = f"{cover_url}?v={cdn_commit[:7]}" if cdn_commit else cover_url
     save_review_gate(ep_num, audio_path, duration, audio_url, cover_review_url)
+    # Pull the audio SHA that save_review_gate just recorded so the Telegram
+    # review post shows the *file* hash (matches what the approval gate
+    # verifies), not the CDN commit SHA.
+    _state = rel.load_state(ep_num)
+    _audio_sha = ((_state or {}).get("review_audio") or {}).get("sha256", "")
     log(f"\n{'='*60}")
     log(f"✅ EP{ep_str} build complete")
     log(f"   Cover: {cover_review_url}")
@@ -859,14 +909,18 @@ def main():
             f"⚠️ EP{ep_str} CDN pushed — URLs UNVERIFIED because --skip-verify was set | "
             f"{duration} | #agent-stack-ep{ep_str} | {show_notes_url} | {transcript_url} | {cover_review_url} | {audio_url}"
         )
-        if args.skip_discord:
-            log(f"\n(--skip-discord --skip-verify) UNVERIFIED URLs for #{f'agent-stack-ep{ep_str}'}:")
+        if args.dry_run:
+            log(f"\n(--dry-run --skip-verify) UNVERIFIED URLs for #{f'agent-stack-ep{ep_str}'}:")
             log(f"  Show notes: {show_notes_url}")
             log(f"  Transcript: {transcript_url}")
             log(f"  Cover: {cover_review_url}")
             log(f"  Audio: {audio_url}")
         else:
-            post_discord_listen(ep_num, duration, audio_url, cover_url=cover_review_url, show_notes_url=show_notes_url, transcript_url=transcript_url, verified=False)
+            _post_review_listen(
+                ep_num, args, duration, audio_url, cover_url=cover_review_url,
+                show_notes_url=show_notes_url, transcript_url=transcript_url,
+                verified=False, audio_sha=_audio_sha,
+            )
     else:
         post_build_log(
             f"⏳ EP{ep_str} CDN pushed — URLs UNVERIFIED, waiting for GitHub Pages | "
@@ -881,18 +935,22 @@ def main():
             commit_sha=cdn_commit,
             cdn_repo=media_target["repo"],
         )
-        if args.skip_discord:
-            log(f"\n(--skip-discord) VERIFIED URLs for #{f'agent-stack-ep{ep_str}'}:")
+        if args.dry_run:
+            log(f"\n(--dry-run) VERIFIED URLs for #{f'agent-stack-ep{ep_str}'}:")
             log(f"  Show notes: {show_notes_url}")
             log(f"  Transcript: {transcript_url}")
             log(f"  Cover: {cover_review_url}")
             log(f"  Audio: {audio_url}")
         else:
-            post_discord_listen(ep_num, duration, audio_url, cover_url=cover_review_url, show_notes_url=show_notes_url, transcript_url=transcript_url, verified=True)
+            _post_review_listen(
+                ep_num, args, duration, audio_url, cover_url=cover_review_url,
+                show_notes_url=show_notes_url, transcript_url=transcript_url,
+                verified=True, audio_sha=_audio_sha,
+            )
             post_build_log(f"✅ EP{ep_str} done — review URLs verified live | {duration} | #agent-stack-ep{ep_str} | {show_notes_url} | {transcript_url} | {cover_review_url} | {audio_url}")
 
-    log(f"\n⛔ STOP — wait for Toby's ✅ in Discord before running:")
-    log(f"   python3 scripts/launch_approved_release.py {ep_num} --audio-approved-by-toby --approval-message-id <toby_reply_message_id> --pub-date \"...\"")
+    log(f"\n⛔ STOP — wait for Toby's ✅ in Telegram before running:")
+    log(f"   python3 scripts/launch_approved_release.py {ep_num} --audio-approved-by-telegram --pub-date \"...\"")
 
 
 if __name__ == "__main__":

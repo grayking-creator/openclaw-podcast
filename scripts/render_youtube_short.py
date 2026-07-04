@@ -534,7 +534,27 @@ def render_moviepy_short(
             video_clip.close()
         if audio_clip is not None:
             audio_clip.close()
-    validate_media_file(final_mp4, expected_duration=duration, expected_tolerance=2.0, require_video=True)
+    try:
+        validate_media_file(final_mp4, expected_duration=duration, expected_tolerance=2.0, require_video=True)
+    except Exception as exc:
+        print(f"WARNING: final MP4 validation failed after MoviePy render; remuxing audio from clip WAV: {exc}", file=sys.stderr)
+        repaired_mp4 = final_mp4.with_name(f"{final_mp4.stem}_repaired.mp4")
+        run([
+            FFMPEG,
+            "-y",
+            "-i", str(final_mp4),
+            "-i", str(clip_audio),
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-shortest",
+            "-movflags", "+faststart",
+            str(repaired_mp4),
+        ])
+        repaired_mp4.replace(final_mp4)
+        validate_media_file(final_mp4, expected_duration=duration, expected_tolerance=2.0, require_video=True)
 
 
 def render_short(

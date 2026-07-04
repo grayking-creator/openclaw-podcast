@@ -205,6 +205,11 @@ def notify_unexpected_exit() -> None:
         int(ep_num),
         f"❌ Approved release process exited before completion near {step}; rerun the approved release launcher to resume.",
     )
+    # Also alert the operator on Telegram so failures are never invisible.
+    try:
+        telegram_alert(ep_num, f"❌ EP{ep_num:03d} approved release exited unexpectedly at {step}.\nRerun: `python3 scripts/launch_approved_release.py {ep_num} --audio-approved-by-telegram`")
+    except Exception:
+        pass
 
 
 def install_signal_handlers(ep_num: int, state: dict[str, Any]) -> None:
@@ -730,25 +735,54 @@ TRANSLATION_RETRY_DELAY = 60  # seconds; multiplied by attempt number
 # build log alone is invisible to the operator during the day.
 TELEGRAM_ALERT_TARGET = os.environ.get("PODCAST_TELEGRAM_TARGET", "8319992332")
 TELEGRAM_ALERT_CHANNEL = "telegram"
+# Locked 2026-06-27: must use @DigiToby_bot, NOT openclaw's default
+# ARIA bot. Read the token directly from the hermes .env. Do not fall
+# back to openclaw's bot account; that posts to a different chat.
+TELEGRAM_ALERT_BOT_TOKEN_FILE = "/Users/tobyglennpeters/.hermes/.env"
 TELEGRAM_ALERT_BIN = os.environ.get("OPENCLAW_BIN", "/opt/homebrew/bin/openclaw")
+
+
+def _telegram_alert_load_token() -> str:
+    """Read TELEGRAM_BOT_TOKEN from the hermes .env. Required for the
+    @DigiToby_bot identity. If the file is missing or the var is
+    unset, raise SystemExit so the orchestrator fails loudly rather
+    than silently routing to the wrong bot."""
+    try:
+        env_text = Path("/Users/tobyglennpeters/.hermes/.env").read_text()
+    except FileNotFoundError:
+        raise SystemExit(
+            f"❌ ROUTING MIS-WIRED: /Users/tobyglennpeters/.hermes/.env not "
+            f"found. The agentstack-podcast orchestrator must post via "
+            f"@DigiToby_bot. Do not fall back to openclaw's ARIA bot."
+        )
+    for line in env_text.splitlines():
+        if line.startswith("TELEGRAM_BOT_TOKEN="):
+            return line.split("=", 1)[1].strip()
+    raise SystemExit(
+        f"❌ ROUTING MIS-WIRED: TELEGRAM_BOT_TOKEN not set in "
+        f"/Users/tobyglennpeters/.hermes/.env."
+    )
 
 
 def telegram_alert(ep_num: int, message: str) -> None:
     """Best-effort Telegram alert to the operator. Failures are swallowed so
     the alert path never breaks the orchestrator (it logs to /tmp instead)."""
     try:
-        subprocess.run(
-            [
-                TELEGRAM_ALERT_BIN, "message", "send",
-                "--channel", TELEGRAM_ALERT_CHANNEL,
-                "--target", TELEGRAM_ALERT_TARGET,
-                "--message", message,
-            ],
-            timeout=15,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            check=False,
+        token = _telegram_alert_load_token()
+        import urllib.parse, urllib.request, json
+        data = urllib.parse.urlencode({
+            "chat_id": TELEGRAM_ALERT_TARGET,
+            "text": message,
+            "disable_web_page_preview": "true",
+        }).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=data, method="POST",
         )
+        with urllib.request.urlopen(req, timeout=20) as r:
+            result = json.loads(r.read())
+        if not result.get("ok"):
+            raise RuntimeError(f"Telegram API error: {result}")
     except Exception as exc:  # pragma: no cover — never block the pipeline
         try:
             with open("/tmp/podcast_telegram_alert_errors.log", "a") as fh:
@@ -879,7 +913,10 @@ def run_shorts(ep_num: int, state: dict[str, Any]) -> dict[str, Any]:
     if not stage_script.exists():
         raise FileNotFoundError(f"Missing youtube_shorts_pipeline.py script: {stage_script}")
 
-    cmd_stage = [sys.executable, str(stage_script), "--mode", "cron"]
+    stage_python = "/Users/tobyglennpeters/.codex-video-tools/.venv/bin/python"
+    if not Path(stage_python).exists():
+        stage_python = sys.executable
+    cmd_stage = [stage_python, str(stage_script), "--mode", "cron"]
     run_streaming(cmd_stage, cwd=PODCAST_DIR)
 
     log("[ SHORTS ] Starting distributed shorts build...")
@@ -1180,6 +1217,43 @@ def main() -> int:
         log(f"{'=' * 68}")
         mark_run_status(ep_num, state, "complete", STEP_SHORTS, {"completed_at": utc_now()})
         post_build_log(ep_num, f"🎙️ Approved release complete — <https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/>")
+        # Telegram "shipped" notification (locked 2026-06-27). Telegram is
+        # the operator's review surface; after a successful release the
+        # post goes here, not to the Discord #agent-stack-epNNN channel.
+        # The notify_telegram_review.py script owns the message format and
+        # is also called from the morning pipeline's stage-7 ready post.
+        _shipped_msg = (
+            f"🚀 EP{ep_num:03d} shipped\n"
+            f"\n"
+            f"Canonical: https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/\n"
+            f"CDN: {rel.en_audio_url(ep_num) if hasattr(rel, 'en_audio_url') else ''}\n"
+            f"Released at: {utc_now()}\n"
+            f"\n"
+            f"Translations + shorts queued. Telegram stays quiet until the "
+            f"next morning's review."
+        )
+        _shipped_ok = False
+        try:
+            token = _telegram_alert_load_token()
+            import urllib.parse, urllib.request
+            data = urllib.parse.urlencode({
+                "chat_id": TELEGRAM_ALERT_TARGET,
+                "text": _shipped_msg,
+                "disable_web_page_preview": "true",
+            }).encode()
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                data=data, method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=20) as r:
+                _shipped_result = json.loads(r.read())
+            _shipped_ok = bool(_shipped_result.get("ok"))
+        except Exception as _exc:
+            post_build_log(ep_num, f"WARN Telegram shipped-post failed: {_exc}")
+        if not _shipped_ok:
+            # Fall through silently — the release is already complete; a
+            # failed Telegram post must not roll back the publish.
+            pass
         return 0
 
     except Exception as exc:

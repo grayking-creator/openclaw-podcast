@@ -291,39 +291,11 @@ def choose_top_candidates(candidates: list, limit: int = TARGET_SHORTS) -> list:
 
 def build_candidates(ep: int) -> List[ShortCandidate]:
     if shorts_work is None:
-        path = episode_text_path(ep)
-        if path is None:
-            return []
-        lines = clean_lines(path.read_text())
-        return [
-            ShortCandidate(
-                short_id=f"short-en-{idx:03d}",
-                hook=make_hook(line),
-                snippet=line[:220].rstrip(),
-                rationale="Transcript-only fallback because the audio scoring environment was unavailable.",
-                source_episode=ep,
-                score=float(len(lines) - idx),
-            )
-            for idx, line in enumerate(lines[:TARGET_SHORTS], start=1)
-        ]
+        return []
 
     audio_path = episode_audio_path(ep)
     if audio_path is None:
-        path = episode_text_path(ep)
-        if path is None:
-            return []
-        lines = clean_lines(path.read_text())
-        return [
-            ShortCandidate(
-                short_id=f"short-en-{idx:03d}",
-                hook=make_hook(line),
-                snippet=line[:220].rstrip(),
-                rationale="Fallback transcript-only candidate because no episode audio was available.",
-                source_episode=ep,
-                score=float(idx),
-            )
-            for idx, line in enumerate(lines[:TARGET_SHORTS], start=1)
-        ]
+        return []
 
     analysis_dir = STAGING_ROOT / f"episode_{ep:03d}" / "_analysis"
     analysis_dir.mkdir(parents=True, exist_ok=True)
@@ -491,13 +463,26 @@ def write_range_artifacts(start_ep: int, end_ep: int, candidates: List[ShortCand
     return range_dir
 
 
+def episode_review_artifacts_exist(ep: int) -> bool:
+    ep_dir = STAGING_ROOT / f"episode_{ep:03d}"
+    required = [
+        ep_dir / "shorts_candidates_en.json",
+        ep_dir / "shorts_upload_queue.json",
+        ep_dir / "REVIEW.md",
+    ]
+    return all(path.exists() and path.stat().st_size > 0 for path in required)
+
+
 def ensure_prepared_latest_episode(state: Dict) -> str:
     ep = latest_episode_for_shorts()
     if ep is None:
         return "No transcript episodes found yet; skipping shorts staging."
 
-    if ep in state.get("prepared_episodes", []):
+    if ep in state.get("prepared_episodes", []) and episode_review_artifacts_exist(ep):
         return f"Episode {ep} already prepared for shorts."
+    if ep in state.get("prepared_episodes", []) and not episode_review_artifacts_exist(ep):
+        state["prepared_episodes"] = [item for item in state.get("prepared_episodes", []) if item != ep]
+        save_state(state)
 
     tpath = transcript_path(ep)
     if not tpath.exists():
@@ -571,6 +556,7 @@ def main() -> int:
             print(gate_summary)
             if result.startswith("Could not create") or result.startswith("Transcript missing"):
                 discord_build_log(f"⚠️ [AgentStack Shorts] Staging incomplete: {result}")
+                return 1
             elif "already prepared" not in result and "skipping" not in result:
                 discord_build_log(f"✅ [AgentStack Shorts] {result}")
         except Exception as exc:

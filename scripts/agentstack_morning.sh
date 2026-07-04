@@ -64,6 +64,42 @@ Build log: ${BUILD_LOG}"
 
 blog "agentstack_morning: starting"
 
+# ── Stage 0.1: gather research context (deterministic data collection) ───────
+#    We do this first so the fresh-research gate runs against newly gathered
+#    context, preventing stale-on-disk artifacts from blocking the pipeline.
+blog "agentstack_morning: gathering research context before gate check"
+if ! python3 "${SCRIPT_DIR}/gather_research_context.py" >> "$RUN_LOG" 2>&1; then
+  blog "agentstack_morning: WARN gather_research_context.py failed at startup"
+fi
+
+# ── Stage 0: fresh-research gate (locked 2026-06-27, EP075 incident class).
+#    Hard fail. If research is stale, was used by a prior episode, or the
+#    YouTube counter has not advanced since the prior approved release,
+#    refuse to build. The gate posts its own Telegram alert and exits 2.
+#    A new research context is gathered by the morning pipeline itself
+#    (Stage 3) so the gate normally runs against yesterday's context —
+#    that is intentional. The freshness check fires only if the cron has
+#    been skipped for >24h; the no-duplicate check fires whenever the
+#    morning's gather fails to actually re-fetch and the old context
+#    persists.
+if [ -f "${SCRIPT_DIR}/fresh_research_gate.py" ]; then
+  _GATE_NEXT_EP=0
+  if [ -f "$DONE_FILE" ]; then
+    _GATE_LAST=$(tail -1 "$DONE_FILE" | tr -d '[:space:]')
+    if [ -n "$_GATE_LAST" ] && [ "${_GATE_LAST:-0}" -gt 0 ] 2>/dev/null; then
+      _GATE_NEXT_EP=$(( 10#$_GATE_LAST + 1 ))
+    fi
+  fi
+  if ! python3 "${SCRIPT_DIR}/fresh_research_gate.py" "$_GATE_NEXT_EP" >> "$BUILD_LOG" 2>&1; then
+    rc=$?
+    blog "agentstack_morning: EP$(printf '%03d' "$_GATE_NEXT_EP") fresh-research gate exit=$rc — HOLDING without rebuilding"
+    exit 2
+  fi
+  blog "agentstack_morning: fresh-research gate PASS"
+else
+  blog "agentstack_morning: WARN fresh_research_gate.py missing — proceeding without the no-duplicate guard"
+fi
+
 # ── Stage 1: sync against live YouTube channel ───────────────────────────────
 if [ -f "${SCRIPT_DIR}/sync_uploaded_from_youtube.py" ]; then
   python3 "${SCRIPT_DIR}/sync_uploaded_from_youtube.py" >> "$BUILD_LOG" 2>&1 || \
@@ -117,6 +153,13 @@ if [ -f "$DRAFT_PATH" ]; then
         alert "❌ EP${NEXT_EP_PAD} morning: orchestrator resume FAILED to launch. Release stuck at run_status=${RUN_STATUS}, step $(echo "$COMPLETED_STEPS" | tr ',' ' '). Manual recovery: python3 scripts/recover_failed_translation_lane.py ${NEXT_EP_PAD} or python3 scripts/launch_approved_release.py ${NEXT_EP_PAD} --pub-date '<original>'. Not regenerating."
         exit 2
       fi
+      REVIEW_AUDIO_SHA=$(python3 -c "import json; print((json.load(open('${STATE_FILE}')).get('review_audio') or {}).get('sha256',''))" 2>/dev/null || echo "")
+      AUDIO_APPROVED=$(python3 -c "import json; print('yes' if (json.load(open('${STATE_FILE}')).get('audio_approval') or {}).get('approved') is True else 'no')" 2>/dev/null || echo "no")
+      if [ -n "$REVIEW_AUDIO_SHA" ] && [ "$AUDIO_APPROVED" != "yes" ]; then
+        blog "agentstack_morning: EP${NEXT_EP_PAD} has unapproved review audio — HOLDING instead of reposting stale review"
+        alert "🛑 EP${NEXT_EP_PAD} morning HOLD: existing review audio is unapproved, so the pipeline will not reuse or repost the same show notes/audio. Run scripts/regen_episode.sh ${_NEXT_EP} with the rejection guidance to rebuild from fresh research."
+        exit 2
+      fi
     fi
     blog "agentstack_morning: EP${NEXT_EP_PAD} existing draft passes QC — resuming downstream"
     RESUME_EXISTING_DRAFT=1
@@ -129,10 +172,7 @@ fi
 
 # ── Stage 3: research gathering (deterministic) ──────────────────────────────
 if [ "$RESUME_EXISTING_DRAFT" -eq 0 ]; then
-  blog "agentstack_morning: EP${NEXT_EP_PAD} stage 3 — gather research context"
-  if ! python3 "${SCRIPT_DIR}/gather_research_context.py" >> "$RUN_LOG" 2>&1; then
-    fail_stage "research-gather" "gather_research_context.py exited nonzero"
-  fi
+  blog "agentstack_morning: EP${NEXT_EP_PAD} stage 3 — using research context gathered at startup"
   if [ ! -s /tmp/agent_research_context.json ]; then
     fail_stage "research-gather" "no /tmp/agent_research_context.json produced"
   fi
@@ -154,16 +194,33 @@ if [ ! -s "$DRAFT_PATH" ]; then
 fi
 blog "OK EP${NEXT_EP_PAD}: show notes written and QC-passed"
 
-# ── Stage 5: early show-notes post (mid-stream reject gate, 2026-06-15) ──────
-#    Post the generated story slate the moment the show notes pass QC, BEFORE the
-#    expensive transcript + audio steps, so Toby can reject bad stories early and
-#    save the compute. The full bundled review (notes+transcript+audio) still
-#    follows from stage 7.
-if ! python3 "${SCRIPT_DIR}/post_show_notes_draft_discord.py" "$_NEXT_EP" --file "$DRAFT_PATH" \
-      --headline "📝 AgentStack Daily EP${NEXT_EP_PAD} — show notes generated, transcript generation in progress" \
-      --note "🛠 Transcript + audio are building now. Reply here to REJECT mid-stream if these stories are bad — that stops the run before the audio is wasted. The full listenable review (transcript + audio) follows shortly." \
-      >> "$BUILD_LOG" 2>&1; then
-  blog "agentstack_morning: WARN EP${NEXT_EP_PAD} early show-notes post failed (non-fatal; full review still follows)"
+# ── Stage 5: early show-notes post (Telegram, mid-stream reject gate) ───────
+#    Locked 2026-06-27: the review surface is Telegram, not Discord. We post
+#    the show-notes URL to Toby's home channel the moment the show notes
+#    pass QC, BEFORE the expensive transcript + audio steps, so a bad
+#    slate can be rejected mid-stream and the audio compute saved. The
+#    full listenable review (transcript + audio) follows from stage 7.
+if [ -f "${SCRIPT_DIR}/notify_telegram_review.py" ]; then
+  SHOW_NOTES_RAW_URL=""
+  if [ -f "${PODCAST_DIR}/show_notes_episode_${NEXT_EP_PAD}.md" ]; then
+    # The morning pipeline writes the show notes file but does not push
+    # it to the CDN itself; build_episode.py (stage 7) will. For the
+    # early gate we point operators at the local file path under
+    # podcast/ on the dashboard rather than guessing a URL. If a real
+    # CDN URL is available, build_episode.py replaces this with the
+    # canonical path.
+    SHOW_NOTES_RAW_URL="(stage 7 will publish the canonical URL)"
+  fi
+  python3 "${SCRIPT_DIR}/notify_telegram_review.py" --ep "$_NEXT_EP" --intent ready \
+    --audio-url "(stage 7 will publish)" \
+    --cover-url "(stage 7 will publish)" \
+    --show-notes-url "$SHOW_NOTES_RAW_URL" \
+    --transcript-url "(stage 6 in progress)" \
+    --duration "pending" --sha256 "" \
+    --summary "📝 EP${NEXT_EP_PAD} show notes generated, transcript generation in progress. Mid-stream reject gate: reply ❌ to stop the run before audio is wasted. Full listenable review follows from stage 7." \
+    >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN early Telegram ready-post failed (non-fatal; full review still follows from stage 7)"
+else
+  blog "agentstack_morning: WARN notify_telegram_review.py missing — early show-notes gate skipped"
 fi
 
 # ── Stage 6: transcript generation (model + check_episode.py QC loop) ────────
@@ -182,5 +239,5 @@ if ! python3 "${SCRIPT_DIR}/build_episode.py" "$_NEXT_EP" >> "$RUN_LOG" 2>&1; th
   fail_stage "episode-build" "build_episode.py failed (audio/art/CDN/review-post stage; it posts its own step-level failures to build-log)"
 fi
 
-blog "OK EP${NEXT_EP_PAD}: morning pipeline complete — review audio posted; publish waits for Toby's ✅"
+blog "OK EP${NEXT_EP_PAD}: morning pipeline complete — review audio posted to Telegram; publish waits for Toby's ✅"
 exit 0

@@ -31,17 +31,22 @@ PODCAST_DIR = SCRIPTS_DIR.parent
 DEFAULT_MODEL_SPEC = (
     os.environ.get("TRANSCRIPT_MODEL")
     or os.environ.get("TRANSCRIPT_MODELS")
-    # Route order set by Toby 2026-06-15: TRUE-FREE first, then MiniMax, then his
-    # OpenAI subscription as the final backup so the sub is only touched when
-    # every free + MiniMax route is down.
-    #   tier 1 (true free): google/gemini-3-flash-preview, nvidia/nemotron-3-super-120b-a12b
-    #   tier 2 (MiniMax):   minimax/MiniMax-M3
-    #   tier 3 (OpenAI sub, final backup): openai/gpt-5.5
-    # Dropped from the old list: google-2/gemini-2.5-flash (404),
-    # openai/gpt-5.4-mini (connection error — gpt-5.5 is the working sub model),
-    # anthropic/claude-sonnet-4-6 (no API key for this agent).
-    or "google/gemini-3-flash-preview,nvidia/nemotron-3-super-120b-a12b,"
-       "minimax/MiniMax-M3,openai/gpt-5.5"
+    # Route order locked 2026-06-29 after EP076 rejection: MiniMax-M3 is the
+    # only model in this fleet that has the right editorial register (concrete,
+    # direct, no drone-cadence, no listener-facing pin advice, no "for builders"
+    # verdict spam). GPT-5.5 reliably produces the rejected pattern; gemini-3
+    # and nemotron truncate at the wrong place. New order:
+    #   tier 1 (voice match):  minimax/MiniMax-M3
+    #   tier 2 (free fallback): google/gemini-3-flash-preview, nvidia/nemotron-3-super-120b-a12b
+    #   tier 3 (final fallback, sometimes drone): openai/gpt-5.5
+    # Removed from the old list: google-2/gemini-2.5-flash (404),
+    # openai/gpt-5.4-mini (connection error), anthropic/claude-sonnet-4-6 (no
+    # API key for this agent).
+    #   tier 4 (added 2026-07-04): exo:auto — the local exo cluster ring (this
+    #   Mac + the DGX node, OpenAI-compatible API). Last resort so the morning
+    #   still produces a transcript on local weights when every cloud route is
+    #   down or quota'd at 6:30 AM.
+    or "minimax/MiniMax-M3,google/gemini-3-flash-preview,nvidia/nemotron-3-super-120b-a12b,openai/gpt-5.5,exo:auto"
 )
 
 # Substrings that mean "this route is unusable right now" (provider/transport/
@@ -149,8 +154,11 @@ Hard format requirements:
 - Word choice: keep the vocabulary on builder workflows — how you use it, in practice, what you get, build/configure/deploy/wire/ship. Minimize the literal words "document(s)", "file(s)", "folder(s)", "copy", "move(d)", "storage", "record(s)" — when mechanics involve them, name the concrete surface instead (config, session, payload, API, schema). QC counts these words and fails drafts that lean on file/document plumbing language.
 - Use SHORTENED version numbers when spoken, never full ones. For OpenClaw "v2026.5.28" say "5.28" (month dot day); for Claude Code "2.1.159" say ".159" or "two point one". Never read a full version aloud: not "v2026.5.28", not "2026.5.28", not "2.1.159".
 - Keep the episode focused on concrete AI/agent/model/tooling news, mechanisms, releases, repos, workflows, and why they matter.
-- The transcript must be at least 5,000 words and should land around 5,200 to 6,500 words — tight and dense, not padded. Expand each story with concrete mechanisms, examples, tradeoffs, capabilities, and real-world reactions — NOT with tests or checklists.
-- If reviewer feedback says the episode is "too long", "too much homework", or "do this then do that", that means cut the procedural/test/checklist content and front-loaded operational slog — it does NOT mean drop below the 5,000-word floor. Replace every removed test/checklist block with informational substance: what the thing is, how you actually use it, what it provides, who is using it and how it is landing, and where vendor claims still need confirmation. Keep workflow/capability language dense and avoid lingering on file/document/copy/move/record plumbing.
+- LENGTH BAND (locked 2026-07-04, EP079 rejection): the floor IS back. Target 4,800-5,200 words to land the show at 30+ minutes, hard ceiling 5,400 words. EP076 (2026-06-29) said "I don't have a floor anymore ... add more stories" and the floor was dropped; EP079 came in at 2,898 words / 19 minutes and Toby rejected it as "unacceptable to deliver." History: EP072 at 8,052 words / 55 min was rejected as drone — DO NOT regress to that. The new range (4,800-5,400) sits below the drone ceiling and above the floor, and is calibrated against EP071 v3 (the 30-minute approval benchmark) and EP075 recovery. If you are short, deepen model/capability stories with concrete mechanisms, benchmark numbers, and integration patterns — never by adding procedural/tests/checklist material. If you are long, cut repeated closing summaries and operational slog. Never extend past 5,400.
+- CRITICAL STORY-LEVEL RULE: each story segment uses at most 4 NOVA/ALLOY turns before [PAUSE]. The pattern NOVA-news → ALLOY-implication → NOVA-deeper → ALLOY-builder-relevance → [PAUSE] is the two-voice exposition loop; do not repeat the same opening verb phrase across consecutive stories. Vary the arc per story: NOVA-hard-news → ALLOY-one-implication → NOVA-quick-context → ALLOY-bullet-risk; or ALLOY-news → NOVA-mechanism → ALLOY-bullet-risk → NOVA-watch-next; or a single NOVA monologue for short items.
+- HARD WORD BUDGET per story (TTS-spoken body between two [PAUSE] tags, excluding the segment label): 270-320 words target for non-release stories, 350-420 words target for release stories. Anything under 270 (or 350 for release) gets the episode rejected as too short — locked 2026-07-04, EP079 (19-min / 2,898-word rejection). Anything over 320 / 480 is the drone pattern from EP072 — also rejected. Hit the band: dense paragraphs, two concrete mechanisms per story, but no padding filler or repeated closing summaries.
+- If reviewer feedback says the episode is "too long", "too much homework", "do this then do that", or "boring drone", the fix is structural surgery on the slate and transcript, not light phrase cleanup. Cut procedural/test/checklist content and front-loaded operational slog. Replace removed content with a tight 270-320 word block (350-420 for release stories), not with more material.
+- If reviewer feedback says the episode is "too short" / "needs way more news" / "should be 30 minutes" / "unacceptable length" (locked 2026-07-04, EP079), the fix is to ADD stories to the numbered slate (target 14, not 10) and DEEPEN each story segment to the 270-320 word band — never to lower the floor, never to drop coverage of radar / spotlight / extras. Hit the band, not the floor.
 - Do not make the episode feel like homework. Avoid repeated "run this test", "here is the checklist", "recommended test", or "try this drill" framing. Use checks sparingly only where they explain real migration risk or observed breakage. For model releases, prioritize capabilities, improvement size, real-world reaction, what people are doing with it, and where vendor claims still need independent confirmation.
 - If the show notes contain user feedback that a prior draft felt like "do this, then do that" homework, rebuild the structure from scratch. The episode should feel informational and opinionated, not like a migration checklist. Keep the agent-harness coverage concise and informational — do not spend the first 20 minutes on operational validation/tests.
 - Do not pad the ending with repeated summaries, repeated "one extra detail" blocks, or near-identical practical-move paragraphs. Every paragraph must advance the episode.
@@ -164,9 +172,24 @@ REQUIRED STRUCTURE — the episode must ALWAYS start with the agent-harness upda
 3. After the harness updates, cover the flagship model story (the biggest model drop in the show notes, e.g. MiniMax M3) and then the other slate stories in show-note order — same informational depth: what it is, how you use it, what it provides, who is using it and how it is landing, and where vendor claims still need confirmation.
 4. The agent-harness updates lead; the model/news stories follow. Never open the episode on a non-harness story.
 - HARD: the spoken transcript must name every covered release in SHORTENED form (e.g. "5.28") within the first 320 words — never the full "v2026.5.28".
-- HARD: total length 5,200-6,500 words (never below 5,000). If you are short, deepen the model/capability stories with real-world reactions — never by adding tests.
+- HARD: floor 4,800 words (30-minute target); ceiling 5,400 words (drone ceiling). Both enforced by check_episode.py. EP072 at 8,052 words was rejected as drone; EP079 at 2,898 words was rejected as too short.
 - HARD: end with the show-notes CTA and the EXACT phrase "We'll be back soon." Never "we'll be back next week".
 - HARD: never write the words "story slate" or "show notes block" in the spoken transcript, and never write a full version like "2.1.159" or "v2026.5.28" — use the shortened spoken form (".159", "5.28").
+- EDITORIAL REGISTER (locked 2026-06-29, EP076 rejection): write concrete facts and direct observations. Avoid abstract-noun framings like "The X is the Y" / "the signal is" / "the pattern is" / "the mechanism is" / "the architecture is" / "the strategic read is" / "the practical read is" / "the failure mode is" / "the bottleneck is" / "the risk is" / "the builder relevance is" — use them sparingly (no more than 4 times in one segment, 10 times across the whole episode). If a sentence could start with "This is the X," rewrite it as a concrete observation. Never open with "Today, the X is the Y" — open with the news itself. Do not write listener-facing pin/version-target/back-merge advice (no "you should pin", no "as a target version"). Avoid "for builders" verdicts stacked at the end of paragraphs — write one concrete takeaway per story, not a checklist.
+
+REQUIRED FULL-SURFACE COVERAGE (locked 2026-06-18, EP072 round 3 — Toby: "you're missing the GitHub projects and all of that stuff that's in the show notes"): the transcript must cover EVERY required show-notes section, not just the 10-story numbered slate. After the slate stories, add spoken segments in this order:
+
+  a. **GitHub Project Radar segment** — at minimum 3 repos from the show notes' GitHub Project Radar. One short segment per repo, each ≤320 words, naming the repo, what it does, the headline mechanism, and a concrete integration angle. Total radar block ≤720 words.
+
+  b. **Model Discovery Check segment** — every model marked "Selected" in the show notes' Model Discovery Check gets its own short spoken beat (≤200 words each). Any "Not Selected" entries get one collective beat in a single sentence.
+
+  c. **Local LLM Spotlight segment** — one short segment (≤200 words) on the spotlighted model with the practical "Try now" angle from the show notes.
+
+  d. **Extra Research Candidates segment** — three short segments (one per extra), each ≤200 words, drawn from the show notes' Extra Research Candidates block. If the show lands under 30 minutes after the rest of the script is built, expand each extra to a non-release slate story (≤320 words). If the show lands over 30 minutes, summarize as one tight beat naming each extra in one line.
+
+  e. **Practical queue** — one line per major thread, no checklist, no repeated summaries.
+
+Treat the show notes as the source of truth for what must be spoken. Skipping any of the above is a hard QC failure.
 
 Approved show notes are the source of truth:
 --- SHOW NOTES START ---
@@ -237,6 +260,17 @@ def _strip_state_banner(text: str) -> str:
 
 
 def run_model(prompt: str, model: str, timeout: int) -> str:
+    if model.startswith("exo:"):
+        # Local exo cluster route (added 2026-07-04). Reuses the builder's
+        # HTTP helper; a full transcript needs a large output budget. Route
+        # failures raise and are matched by ROUTE_FAIL_MARKERS upstream.
+        import build_show_notes as _bsn
+        text = _bsn._run_exo(model[4:], prompt, timeout, max_tokens=12000)
+        text = re.sub(r"^```(?:markdown|md)?\s*", "", text.strip(), flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text)
+        if not text:
+            raise RuntimeError("exo route returned empty transcript")
+        return text.strip() + "\n"
     cmd = [
         "openclaw",
         "infer",
@@ -463,8 +497,18 @@ def main() -> int:
     # (timeout, momentary 5xx, the openclaw state-migration noise) must never
     # permanently kill a known long-form workhorse like MiniMax M3 (EP071,
     # 2026-06-15: one transient demoted MiniMax and left only short-output routes).
+    #
+    # Locked 2026-07-01 (post-EP078): the voice-match tier (M3) gets an inline
+    # backoff probe on a route-fail marker so a momentary provider blip doesn't
+    # burn the strike and demote M3 straight into GPT-5.5 (which produces the
+    # drone cadence Toby has rejected twice). One retry with 6-12s sleep on the
+    # same blip before counting it as strike 1.
     strikes: dict[str, int] = {}
     DEMOTE_AT = 2
+    VOICE_MATCH_TIER = {"minimax/MiniMax-M3"}  # add future voice-match models here
+    blip_retries: dict[str, int] = {}  # blip-retry budget per model, separate from strikes
+    BLIP_RETRY_BUDGET = 2  # up to 2 inline retries on the same blip before counting a strike
+    blip_backoff = 6  # seconds; doubles each retry
 
     def viable() -> list[str]:
         return [m for m in models if m not in dead]
@@ -498,6 +542,25 @@ def main() -> int:
         except RuntimeError as exc:
             msg = str(exc).lower()
             if any(marker in msg for marker in ROUTE_FAIL_MARKERS):
+                # Voice-match tier (M3) gets an inline backoff probe on blips so
+                # a momentary provider hiccup doesn't burn a strike. EP078
+                # blipped M3 twice in a row at 30s apart, demoted it, and the
+                # fallback to GPT-5.5 produced the same drone Toby rejected in
+                # EP076. Retry the same call up to BLIP_RETRY_BUDGET times with
+                # exponential backoff before counting strike 1.
+                if model in VOICE_MATCH_TIER and blip_retries.get(model, 0) < BLIP_RETRY_BUDGET:
+                    sleep_s = blip_backoff * (2 ** blip_retries.get(model, 0))
+                    blip_retries[model] = blip_retries.get(model, 0) + 1
+                    print(f"[EP{ep_str}] route {model} blipped — probing voice-match "
+                          f"tier with {sleep_s}s backoff (blip-retry "
+                          f"{blip_retries[model]}/{BLIP_RETRY_BUDGET}, no strike "
+                          f"counted): {str(exc)[:120]}", flush=True)
+                    import time
+                    time.sleep(sleep_s)
+                    # Roll back route_tries / mi so this attempt is free.
+                    route_tries -= 1
+                    mi -= 1
+                    continue
                 strikes[model] = strikes.get(model, 0) + 1
                 if strikes[model] >= DEMOTE_AT:
                     dead.add(model)

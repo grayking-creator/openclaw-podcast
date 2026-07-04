@@ -39,7 +39,7 @@ TITLE_OVERLAP_STOPWORDS = {
     "about", "across", "after", "agent", "agents", "agentstack", "around",
     "because", "before", "bring", "brings", "build", "builder", "builders",
     "code", "copilot", "daily", "from", "github", "into", "make", "makes", "model", "models",
-    "release", "releases", "ship", "ships", "stack", "story", "that",
+    "openai", "readout", "release", "releases", "ship", "ships", "stack", "story", "that",
     "the", "their", "this", "through", "with", "work", "workflow", "workflows",
 }
 
@@ -112,6 +112,67 @@ def extract_extra_candidate_titles(notes: str) -> list[str]:
 def title_tokens(title: str) -> set[str]:
     tokens = set(re.findall(r"[a-z0-9][a-z0-9.+-]{2,}", title.lower()))
     return {token for token in tokens if token not in TITLE_OVERLAP_STOPWORDS}
+
+
+def normalize_product_tokens(tokens: set[str]) -> set[str]:
+    """Collapse version-suffixed tokens to their product base so 'glm-5.2'
+    and 'glm' compare equal. Locked 2026-07-04 (EP079 regen): the same ZCode
+    launch entered the slate twice from two different HN submissions because
+    'GLM-5.2' and 'GLM' tokenize differently, leaving only 'zcode' shared —
+    under the 3-token duplicate threshold."""
+    out = set()
+    for tok in tokens:
+        m = re.match(r"([a-z]{3,})[-.]v?\d+(?:\.\d+)*$", tok)
+        out.add(m.group(1) if m else tok)
+    return out
+
+
+def title_lead_tokens(title: str, n: int = 4) -> set[str]:
+    """The first few non-stopword tokens of a title — its subject. Two slate
+    titles that share a normalized subject token are talking about the same
+    product even when the rest of the wording differs."""
+    toks = re.findall(r"[a-z0-9][a-z0-9.+-]{2,}", title.lower())
+    return normalize_product_tokens(set(toks[:n]) - TITLE_OVERLAP_STOPWORDS)
+
+
+# Words that satisfy the 3+-char token regex but carry no topical signal
+# (the 3-shared-token rule tolerates their noise; the 2-token lead rule
+# below must not count them).
+_TITLE_FUNCTION_WORDS = {
+    "for", "the", "and", "with", "from", "into", "over", "after", "that",
+    "this", "are", "its", "has", "how", "now", "new", "all", "out", "your",
+    "you", "via", "gets", "get", "not", "but", "her", "his", "their", "own",
+}
+# Vendor names alone can't establish same-topic: two different stories about
+# the same vendor in one cycle are normal coverage, not double coverage. A
+# shared lead PRODUCT token (zcode, leanstral, webbrain, …) is the signal.
+_TITLE_VENDOR_TOKENS = {
+    "mistral", "anthropic", "google", "gemini", "meta", "llama", "alibaba",
+    "nvidia", "microsoft", "amazon", "apple", "deepseek", "qwen", "minimax",
+    "moonshot", "moonshotai", "kimi", "z.ai", "zhipu", "openrouter",
+    "github", "hugging", "huggingface", "reddit", "salesforce", "oracle",
+}
+
+
+def titles_are_same_topic(title_a: str, title_b: str) -> bool:
+    """True when two story titles cover the same topic/product. Two rules:
+    (1) the classic 3-shared-token overlap; (2) 2+ shared normalized
+    content tokens where at least one non-vendor token is the lead subject
+    of BOTH titles (the EP079 ZCode double-coverage case)."""
+    ta, tb = title_tokens(title_a), title_tokens(title_b)
+    if not ta or not tb:
+        return False
+    shared = ta & tb
+    if len(shared) >= 3 and len(shared) / min(len(ta), len(tb)) >= 0.5:
+        return True
+    na, nb = normalize_product_tokens(ta), normalize_product_tokens(tb)
+    shared_norm = (na & nb) - _TITLE_FUNCTION_WORDS
+    if len(shared_norm) >= 2:
+        lead_shared = (title_lead_tokens(title_a) & title_lead_tokens(title_b)
+                       & shared_norm) - _TITLE_VENDOR_TOKENS
+        if lead_shared:
+            return True
+    return False
 
 
 def extract_release_tags(notes: str) -> list[str]:
@@ -187,7 +248,7 @@ def public_facing_text(notes: str) -> str:
     return "".join(kept)
 
 
-def find_prior_episode_repeats(notes_path: Path, ep_num: int, story_titles: list[str], lookback: int = 3) -> list[str]:
+def find_prior_episode_repeats(notes_path: Path, ep_num: int, story_titles: list[str], lookback: int = 5) -> list[str]:
     """Compare current story titles against the last ``lookback`` episodes of show notes.
 
     The No Back-to-Back Topic Repeats rule (locked 2026-05-24, EP070 patch 2026-06-14) requires
@@ -197,6 +258,12 @@ def find_prior_episode_repeats(notes_path: Path, ep_num: int, story_titles: list
     material_followup exemption (covering words like "suspend", "directive", "government",
     "access") was removed because it let a story we already led with yesterday pass as a
     fresh topic; that was the EP070 Story 1 regression.
+
+    EP074 (2026-06-22): the message string for each repeat now also lists the specific
+    non-stopword tokens that caused the overlap, so the morning-pipeline operator (and
+    the deterministic title-rewrite in `build_show_notes.rewrite_colliding_title`) can
+    see exactly which tokens to drop or substitute without re-running the full token
+    extraction by hand.
     """
     if ep_num <= 1:
         return []
@@ -219,14 +286,25 @@ def find_prior_episode_repeats(notes_path: Path, ep_num: int, story_titles: list
         tokens = title_tokens(title)
         if len(tokens) < 3:
             continue
-        matched: list[str] = []
+        matched: list[tuple[str, set[str], float]] = []
         for prior_label, prior_tokens in seen_pairs:
             hits = tokens & prior_tokens
             overlap = len(hits) / min(len(tokens), len(prior_tokens))
-            if len(hits) >= 3 and overlap >= 0.45:
-                matched.append(f"{prior_label.split('::', 1)[1]!r} ({len(hits)} shared title tokens)")
+            # EP074 (2026-06-23) regression: the old `len(hits) >= 3 and overlap >= 0.45`
+            # gate missed the Fable 5 / Mythos 5 repeat because the prior story had 7
+            # tokens and the new one had 8 (3 hits / 7 = 0.428, just under 0.45). The
+            # prior-episode `material_followup` exemption that previously masked
+            # similar repeats was removed 2026-06-14 (EP070), so the numeric floor is
+            # the only thing standing between a re-run topic and the public slate.
+            # If we already have 3+ shared tokens and 4+ token overlap is a hard
+            # repeat (3/4 = 0.75, 3/5 = 0.6), we trust the hit count over the ratio.
+            if len(hits) >= 3 and (overlap >= 0.45 or len(hits) >= 4):
+                matched.append((prior_label.split("::", 1)[1], hits, overlap))
         if matched:
-            repeats.append(f"{title} repeats a recent episode's topic: " + "; ".join(matched[:3]))
+            parts = []
+            for label, hits, _ratio in matched[:3]:
+                parts.append(f"{label!r} (shared tokens: {sorted(hits)})")
+            repeats.append(f"{title} repeats a recent episode's topic: " + "; ".join(parts))
     return repeats
 
 
@@ -276,7 +354,11 @@ def run_checks(path: str) -> None:
           hint="Missing `## Show Notes` fenced markdown block.")
     check("Story slate exists", len(story_titles) >= 1,
           hint="Missing `## Story Slate` titles.")
-    if ep_num >= 68:
+    if ep_num >= 79:
+        check("AgentStack Daily slate has fourteen real topics",
+              len(story_titles) >= 14,
+              hint=f"Expected at least 14 numbered Story Slate topics for EP079+ (Toby: '30 minute videos with way more news, way more content'); found {len(story_titles)}. Promote entries from Extra Research Candidates and GitHub Trending into the numbered slate — never leave viable topics parked as Extras.")
+    elif ep_num >= 68:
         check("AgentStack Daily slate has ten real topics",
               len(story_titles) >= 10,
               hint=f"Expected at least 10 numbered Story Slate topics for EP068+; found {len(story_titles)}. Do not leave viable topics under Extra Research Candidates when building the draft.")
@@ -285,15 +367,51 @@ def run_checks(path: str) -> None:
               len(story_titles) >= 6,
               hint=f"Expected at least 6 numbered Story Slate topics for EP055+; found {len(story_titles)}. Do not leave viable topics under Extra Research Candidates when building the draft.")
     if ep_num >= 57:
-        prior_repeats = find_prior_episode_repeats(notes_path, ep_num, story_titles)
+        # Release readout is deterministic and naturally repeats names/versions; exempt it.
+        titles_to_check = story_titles[1:] if (release_tags and story_titles) else story_titles
+        prior_repeats = find_prior_episode_repeats(notes_path, ep_num, titles_to_check)
         check("Story slate does not repeat the previous episode's topics",
               len(prior_repeats) == 0,
               hint="Replace repeated topics before transcript generation: " + "; ".join(prior_repeats[:6]))
+
+    # Within-slate duplicates (locked 2026-07-04, EP079 regen): the same ZCode
+    # launch entered the slate as two separate stories from two different HN
+    # submissions. Cross-episode dedupe can't catch same-day double coverage;
+    # this check does. The message format is parsed by build_show_notes.py's
+    # repair loop — keep "Story N duplicates Story M in the same slate" stable.
+    within_slate_dups = []
+    for j in range(1, len(story_titles)):
+        for i in range(j):
+            if titles_are_same_topic(story_titles[i], story_titles[j]):
+                within_slate_dups.append(
+                    f"Story {j + 1} duplicates Story {i + 1} in the same slate: "
+                    f"{story_titles[j]!r} vs {story_titles[i]!r}")
+                break
+    check("Story slate has no within-episode duplicate topics",
+          len(within_slate_dups) == 0,
+          hint="The same product/launch is covered as two separate numbered stories. "
+               "Drop the later one and backfill a distinct topic: " + "; ".join(within_slate_dups[:4]))
 
     if show_notes_block:
         intro_words = len(first_words(show_notes_block, 999999).split())
         check("Show notes block is substantial", intro_words >= 450, severity="WARNING",
               hint=f"Show-notes block is only {intro_words} words. Deep episodes usually need more structure/detail.")
+        if ep_num >= 79:
+            # Pre-audio length gate (locked 2026-07-04, EP079 rejection).
+            # The show-notes fenced block is the spoken material the
+            # transcript expands from; if it is thin, the transcript stage
+            # discovers the 4,800-word floor failure only AFTER burning
+            # model rounds, and a repair-loop miss means the failure is
+            # found after audio is rendered. Catch it here instead: a
+            # 14-story slate at the 270-320 segment band plus intro/radar/
+            # spotlight/queue lands ≥4,400 words; the rejected 19-minute
+            # EP079 block would have been ~2,500. 4,200 is the alarm line.
+            check("Show notes block carries 30-minute spoken material (≥4,200 words)",
+                  intro_words >= 4200,
+                  hint=f"Show-notes block is {intro_words:,} words — the transcript expands from "
+                       f"this material, and under ~4,200 words the 4,800-word transcript floor is "
+                       f"unreachable without padding. Deepen story segments to the 270-320 band "
+                       f"and promote Extra Research Candidates into the slate; do not pad prose.")
 
     no_release_watch_hits = []
     for pattern in [
@@ -719,12 +837,16 @@ def run_checks(path: str) -> None:
               hint=f"Expected all release tags in the first 180 words: {release_tags}")
 
         non_release_story_count = max(0, len(story_titles) - 1)
-        runtime_exception = bool(re.search(r"\b40–48 min\b|\b40-48 min\b|\b50|60 minutes\b|\bkeep the existing builder stories\b", notes, re.IGNORECASE))
+        runtime_exception = bool(re.search(r"\b40–48 min\b|\b40-48 min\b|\b30\+ minutes\b|\bkeep the existing builder stories\b|\bway more stories\b|\bunacceptable length\b|\b30 minute videos\b", notes, re.IGNORECASE))
         # EP068+: standing 10-topic slate (Toby, 2026-06-10) — one release readout
         # plus nine non-release stories is the daily format, not sprawl.
-        non_release_cap = 9 if ep_num >= 68 else 3
+        # EP079+: widened to 14-story slate (Toby, 2026-07-04 — "30 minute videos
+        # with way more news, way more content"). One release readout + up to
+        # 13 non-release stories is the new daily format. The runtime_exception
+        # regex covers earlier feedback phrases that also unlock the cap.
+        non_release_cap = 13 if ep_num >= 79 else (9 if ep_num >= 68 else 3)
         check("Release episode keeps extra stories tightly limited", non_release_story_count <= non_release_cap or runtime_exception,
-              hint=f"Found {non_release_story_count} non-release stories (cap {non_release_cap}). Cut lower-priority stories before cutting release detail unless Toby explicitly asked to keep the existing builder stories and extend runtime.")
+              hint=f"Found {non_release_story_count} non-release stories (cap {non_release_cap} for EP079+). Cut lower-priority stories before cutting release detail unless Toby explicitly asked to keep the existing builder stories and extend runtime.")
 
         if len(segments) >= 2:
             first_story_title, first_story_body = segments[1]
@@ -789,6 +911,124 @@ def run_checks(path: str) -> None:
         check("Public show notes do not mention off-slate old version tags",
               len(off_slate_version_tags) == 0,
               hint=f"Old-version roll calls are banned from public episode material: {off_slate_version_tags[:8]}")
+
+    # ── Body-level repeated-doctrine check (EP071 enforcement, show-notes side) ──
+    # Toby flagged the 24-minute mark of EP071: the same Anthropic fallback-
+    # architecture doctrine (fallback path / inference backend / abstraction
+    # layer / capability degradation / different model family) was being
+    # delivered as the "what this means for builders" implication across
+    # multiple consecutive segments of the same episode, on a model family
+    # that had also been the headline of the prior 3 episodes. The slate-
+    # level prior-episode check (titles) and the cold-open release-anchor
+    # check catch structural cases; this catches the case where the *body*
+    # re-litigates the same architectural implication that prior episodes
+    # already covered. EP070's rule file flagged this as "the next thing to
+    # build"; the matching transcript-side check is in check_episode.py.
+    BODY_DOCTRINE_CLUSTERS = {
+        "anthropic_fallback_architecture": [
+            r"\b(?:fallback paths?|local fallback paths?)\b",
+            r"\b(?:inference[- ]?backend|inference backends|inference[- ]?backend abstraction)\b",
+            r"\b(?:abstraction layers?|abstraction layer)\b",
+            r"\bcapability degradation\b",
+            r"\b(?:different model family|distinct inference backend|distinct model family)\b",
+            r"\bprovider failover\b",
+            r"\bswap inference backends?\b",
+            r"\bhosted frontier (?:dependency|model|models)\b",
+            r"\bmulti[- ]?model designs?\b",
+        ],
+    }
+    BODY_DOCTRINE_FAMILIES = {
+        "anthropic": [
+            r"\bAnthropic\b", r"\bClaude\b", r"\bFable\b", r"\bMythos\b",
+        ],
+    }
+    show_notes_cluster_hits: dict[str, int] = {}
+    for cluster_name, patterns in BODY_DOCTRINE_CLUSTERS.items():
+        cluster_total = 0
+        for pat in patterns:
+            cluster_total += len(re.findall(pat, public_episode_material, re.IGNORECASE))
+        if cluster_total:
+            show_notes_cluster_hits[cluster_name] = cluster_total
+    show_notes_family_present: dict[str, int] = {}
+    for family_name, patterns in BODY_DOCTRINE_FAMILIES.items():
+        family_total = 0
+        for pat in patterns:
+            family_total += len(re.findall(pat, public_episode_material, re.IGNORECASE))
+        if family_total:
+            show_notes_family_present[family_name] = family_total
+
+    prior_show_notes_repeats: dict[str, dict[str, int]] = {}
+    if show_notes_family_present and ep_num >= 2:
+        notes_path = Path(path)
+        for back in range(1, 4):  # last 3 episodes
+            prior_path = notes_path.with_name(f"show_notes_episode_{ep_num - back:03d}.md")
+            if not prior_path.exists():
+                continue
+            try:
+                prior_text = prior_path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+            prior_material = "\n".join([
+                extract_show_notes_block(prior_text),
+                extract_section(prior_text, "Story Slate"),
+                extract_section(prior_text, "Tagline"),
+                extract_section(prior_text, "Feed Description"),
+            ])
+            prior_cluster_hits: dict[str, int] = {}
+            for cluster_name, patterns in BODY_DOCTRINE_CLUSTERS.items():
+                cluster_total = 0
+                for pat in patterns:
+                    cluster_total += len(re.findall(pat, prior_material, re.IGNORECASE))
+                if cluster_total >= 2:
+                    prior_cluster_hits[cluster_name] = cluster_total
+            prior_family_present: dict[str, int] = {}
+            for family_name, patterns in BODY_DOCTRINE_FAMILIES.items():
+                family_total = 0
+                for pat in patterns:
+                    family_total += len(re.findall(pat, prior_material, re.IGNORECASE))
+                if family_total:
+                    prior_family_present[family_name] = family_total
+            for family, _hits in prior_family_present.items():
+                for cluster, c_hits in prior_cluster_hits.items():
+                    prior_show_notes_repeats.setdefault(f"EP{ep_num - back:03d}::{family}", {})[cluster] = c_hits
+
+    show_notes_doctrine_failures: list[str] = []
+    body_cluster_within_episode = {
+        name: n for name, n in show_notes_cluster_hits.items() if n >= 3
+    }
+    if body_cluster_within_episode:
+        show_notes_doctrine_failures.append(
+            f"Within-episode doctrine cluster re-litigation: {body_cluster_within_episode}. "
+            "The same architectural doctrine (fallback path / inference backend / "
+            "abstraction layer / capability degradation / different model family) is "
+            "being delivered as the 'what this means for builders' implication 3+ times "
+            "in this episode's show notes. Cut or rephrase the repeated passages and "
+            "land a *different* implication for the second-and-later stories that "
+            "touch the same shape."
+        )
+    if show_notes_family_present and prior_show_notes_repeats:
+        overlap = []
+        for prior_label, clusters in prior_show_notes_repeats.items():
+            for cluster, c_hits in clusters.items():
+                cur_hits = show_notes_cluster_hits.get(cluster, 0)
+                if cur_hits >= 2:
+                    overlap.append(
+                        f"{prior_label} used {c_hits} doctrine phrases on the same model family; "
+                        f"this episode's show notes re-use {cur_hits} phrases for {cluster}."
+                    )
+        if overlap:
+            show_notes_doctrine_failures.append(
+                "Body-level talking-point duplication on the same model family: "
+                + " ".join(overlap)
+                + " When the same model family / news thread lands within 3 episodes, "
+                "land a *different* implication (e.g. specific operational signal, "
+                "deployment/eval detail, regulatory mechanism) — do not re-deliver the "
+                "fallback-architecture doctrine that the prior episode already covered."
+            )
+    if show_notes_doctrine_failures:
+        check("Show notes do not re-litigate prior-episode talking points (EP071 enforcement)",
+              False,
+              hint=" | ".join(show_notes_doctrine_failures))
 
     if "images 2.0" in notes.lower() or "gpt-image-2" in notes.lower():
         image_story_context = extract_section(notes, "Story Slate") + "\n" + show_notes_block

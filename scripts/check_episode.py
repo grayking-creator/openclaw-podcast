@@ -86,12 +86,29 @@ def theme_glue_hits(text):
 
 
 def timestamped_segments(content):
-    matches = list(re.finditer(r"^##\s+\[(\d{2}:\d{2}(?:[–-]\d{2}:\d{2})?)\]\s*(.+)$", content, re.MULTILINE))
+    # Boundary headers include both timestamped story segments (## [NN:NN] Title)
+    # and untimestamped episode-level sections (## Local LLM Spotlight, ##
+    # GitHub Project Radar, ## [NN:NN] Practical Queue, etc.). Without this,
+    # the last numbered story swallows everything until the end-of-document
+    # boundary, inflating its word count past the per-story ceiling.
+    boundary_re = re.compile(
+        r"^##\s+(?:\[\d{2}:\d{2}(?:[–-]\d{2}:\d{2})?\]\s*.+"
+        r"|Local LLM Spotlight"
+        r"|GitHub Project Radar"
+        r"|Practical Queue"
+        r"|Model Discovery Check"
+        r"|Extra Research Candidates"
+        r"|Practical Queue"
+        r")\s*$",
+        re.MULTILINE,
+    )
+    matches = list(boundary_re.finditer(content))
     segments = []
     for i, match in enumerate(matches):
         start = match.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
-        segments.append((match.group(1), match.group(2).strip(), content[start:end].strip()))
+        title = match.group(0).strip().lstrip("# ").strip()
+        segments.append((match.group(1) if match.lastindex else "", title, content[start:end].strip()))
     return segments
 
 def shorten_release_tag(tag):
@@ -194,17 +211,114 @@ def run_checks(path):
         r"\brelease window\b",
         r"\bselected from the fetched\b",
         r"\bdaily release check\b",
+        r"\bmodel discovery scan\b",
+        r"\bmodel lanes? scanned\b",
+        r"\bscanned lanes\b",
+        r"\bprovider lanes\b",
+        r"\bnot selected entries\b",
+        r"\bnot selected\b[^.\n]{0,80}\bgrouped\b",
+        r"\bno new (?:or materially updated )?model candidates?\b",
+        r"\bno additional model candidate\b",
+        r"\bno additional model candidates?\b",
+        r"\bno model was promoted\b",
+        r"\bpromoted just for churn\b",
         r"\bno new stable .*selected\b",
         r"\bno new stable .*candidate\b",
         r"\bstrong new .*release block\b",
         r"\bcurrent stable feed window\b",
         r"\brecent-version scan\b",
+        # EP075 bleed-term lockdown (2026-06-27). Every phrase on this list
+        # appeared in the EP075 review-audio "Model Discovery Check" close
+        # and disclosed how the episode was researched. They must NEVER
+        # appear in any future transcript, regardless of whether the model
+        # is being asked to explain itself or not. Locked invariant.
+        r"\bthe (?:this )?morning'?s research\b",
+        r"\bbuild (?:picked up|has|chose|chose to|chose the|will)\b",
+        r"\bmodel (?:was |is )?not (?:promoted|selected|featured|covered)\b",
+        r"\bno (?:new )?candidates? (?:was |were |is |are )?(?:not )?(?:selected|featured|covered|promoted)\b",
+        r"\bnot selected\b[^.\n]{0,80}\b(?:as|for) (?:a |one )?(?:read|beat|line)\b",
+        r"\bcurrent release cycle\b",
+        r"\bfor this (?:run|build|episode|cycle|cycle's release)\b",
     ]
     internal_impl_hits = []
     for pat in internal_impl_patterns:
         internal_impl_hits.extend(re.findall(pat, content, re.IGNORECASE))
     check("No internal research/build implementation language", len(internal_impl_hits) == 0,
           hint=f"Remove internal process/research/build wording from public episode: {internal_impl_hits[:8]}")
+
+    # EP075 v2 lockdown (locked 2026-06-28, post-Toby feedback after EP075
+    # review audio shipped). Two related anti-patterns the transcript
+    # rewrite introduced and Toby has now explicitly banned:
+    #
+    #   1. "Pin to a specific model/version" advice. Nobody can pin to a
+    #      model that is gated, deprecated, or renamed; when such a model
+    #      goes away the routing layer falls back to the next available
+    #      model automatically (e.g. Fable -> Opus) — it does NOT crash.
+    #      Telling listeners to pin is wrong on the facts AND unhelpful
+    #      even if it weren't, because the moment the model is removed the
+    #      "pin" is a no-op. Banned permanently, every episode.
+    #
+    #   2. Inferences about / direct recommendations toward a specific
+    #      ephemeral version like "GPT-5.6" as if it were a stable target
+    #      the listener can actually reach. Listeners can't pin to gated
+    #      previews either. If the model is gated, the only correct
+    #      framing is "if/when you can reach it." Banned permanently.
+    #
+    # These are LISTENER-ADVICE bleed terms, distinct from the
+    # production-process bleed terms above. Different intent, same QC
+    # gate: hard-fail in check_episode.py, no --force, no override.
+    model_pinning_advice_patterns = [
+        # Direct "pin to a model/version/coding-agent" advice in any form.
+        # The middle of the phrase varies ("pin a stable release of the
+        # terminal-based AI coding agent", "pin Claude Code", "pin the
+        # command-line surface", "pin 5.6"), so we allow several words
+        # between the verb and the target. Any sentence that tells the
+        # listener to pin a specific product/model/release is banned.
+        r"\bpin(?:ning|ned|s)? (?:[A-Za-z][A-Za-z0-9 .'_-]{0,40} )?(?:terminal[- ]based )?(?:AI )?coding[- ]agent\b",
+        r"\bpin(?:ning|ned|s)? (?:[A-Za-z][A-Za-z0-9 .'_-]{0,30} )?(?:claude code|codex|openclaw|hermes)\b",
+        r"\bpin(?:ning|ned|s)? (?:[A-Za-z][A-Za-z0-9 .'_-]{0,30} )?(?:model|version|release|target|surface|cli|command[- ]line)\b",
+        r"\bpin(?:ning|ned|s)? (?:[A-Za-z][A-Za-z0-9 .'_-]{0,30} )?(?:GPT[- ]?5\.6|GPT[- ]?5|Opus|Sonnet|Haiku|Fable)\b",
+        # The "fresh stable pin" / "new stable pin" / "stable pin" family
+        r"\bfresh stable pin\b",
+        r"\bnew (?:stable )?pin(?:ning|s)?\b",
+        r"\bstable pin(?:ning|s)?\b",
+        # "pin (for|of) {terminal|reproducibility|repeatable|stability|stable}"
+        r"\bpin(?:ning|ned|s)? (?:for|of) (?:terminal|reproducibility|repeatable|stability|stable behavior)\b",
+        # "pinned {command-line|cli|surface|release|target|model|behavior}"
+        r"\b(?:a |the )?pinned (?:command[- ]line|cli|surface|release|target|model|behavior)\b",
+        # Direct "you should pin" / "you can pin" / "builders should pin"
+        r"\b(?:you|builders?|teams?|users?) (?:can|should|could|may|might|need to|have to|want to) pin\b",
+        r"\bcan be pinned\b",
+        # "if you had pinned" / "if you pinned" hypothetical framing
+        r"\bif you (?:had |have )?pin(?:ned)?\b",
+        r"\bpinning .*would (?:have )?(?:gone back|fallen back|reverted|defaulted)\b",
+        # Anti-pattern: gated/pinnable model lore the listener does not
+        # need ("didn't crash", "defaulted back", "fell back to the
+        # previous model")
+        r"\b(?:it )?didn'?t (?:actually )?crash\b",
+        r"\bdefaulted back (?:to|onto) [A-Za-z][A-Za-z0-9 .'_-]{0,40}\b",
+        r"\bfell back to (?:the |a )?(?:last|previous|prior) model\b",
+        # Ephemeral version inferences used as pinnable / plan-around targets
+        r"\bplan(?:ning)? around (?:GPT[- ]?5\.6|GPT[- ]?5|Opus|Sonnet|Haiku)\b",
+        r"\b5\.6 (?:is |as )?(?:available|reachable|pinnable|stable|shipped)\b",
+        r"\bpin(?:ning|ned|s)? (?:[A-Za-z][A-Za-z0-9 .'_-]{0,20} )?5\.6\b",
+    ]
+    model_pinning_hits: list[str] = []
+    for pat in model_pinning_advice_patterns:
+        model_pinning_hits.extend(re.findall(pat, content, re.IGNORECASE))
+    check(
+        "No listener-facing model-pinning or version-targeting advice",
+        len(model_pinning_hits) == 0,
+        severity="ERROR",
+        hint=(
+            "Remove 'pin to a specific model/version' advice and inferences "
+            "about ephemeral version numbers as pinnable targets. The runtime "
+            "falls back automatically when a pinned model is removed; telling "
+            "listeners to pin is wrong and unhelpful. Use the existing "
+            "fallback behavior instead. Offending phrase(s): "
+            f"{model_pinning_hits[:8]}"
+        ),
+    )
 
     # No default orchestration-advice overcorrection: unless explicitly requested,
     # AgentStack Daily should primarily answer "what's new?" in LLMs/agents.
@@ -372,17 +486,248 @@ def run_checks(path):
           hint=f"Found {len(unique_endings)} distinct closing phrases in the outro window — may indicate repeated outro sections")
 
     # ── Content checks ────────────────────────────────────────────────────────
-    # AgentStack Daily target: tight, dense, no homework filler. Toby prefers a
-    # shorter episode that gets to the point over a padded one, so the floor is
-    # ~5,000 words (~31 min at ~159 wpm). 60 min is ~9,540 words.
-    check("Minimum length (5,000 words)", word_count >= 5000,
-          hint=f"Got {word_count:,} words — minimum is 5,000. Add informational substance (capabilities, real-world reactions), never homework/test filler.")
+    # AgentStack Daily length target: a 30+ minute episode with full-surface
+    # coverage. The hard floor is back, locked 2026-07-04 after EP079
+    # rejection. EP079 came in at 19 minutes / 2,898 words — segments hit the
+    # old 150-160 word floor and stopped, and the transcript came in at half
+    # the target length. Toby's exact words: "30 minute videos with way more
+    # news. Get me far more news articles and get me a far better episode.
+    # I'm not even going to bother listening to that. I want way more
+    # content than what was provided in this episode. That's unacceptable
+    # to deliver to me. There should be way more stories, way more content."
+    #
+    # History of this gate (do not regress):
+    # - EP072: 8,052 words / 55 min — rejected as drone. Ceiling locked.
+    # - EP076 (2026-06-29): Toby said "I don't have a floor anymore ... add
+    #   more stories". Floor was dropped; editorial-register gates (drone,
+    #   "for builders" verdict, advisory pin) added instead.
+    # - EP079 (2026-07-04): floor-less rule produced a 19-min / 2,898-word
+    #   show with 10 stories at 150-160 words each. Rejected. Floor is back.
+    #
+    # Floor (4,800) and ceiling (5,400) are now BOTH enforced. Anything
+    # below 4,800 is too short to cover a 14-story slate + radar + spotlight
+    # + queue; anything above 5,400 is the EP072 drone pattern.
+    floor = 4800
+    ceiling = 5400
+    check(f"Hard floor ({floor:,} words — 30-minute target)",
+          word_count >= floor,
+          hint=f"Got {word_count:,} words — floor is {floor:,} to land at 30+ minutes. EP079 came in at 2,898 words and was rejected as 'unacceptable' length. Add stories and deepen segments, do not loosen the floor.")
+    check(f"Hard ceiling ({ceiling:,} words)",
+          word_count <= ceiling,
+          hint=f"Got {word_count:,} words — hard ceiling is {ceiling:,}. Anything above is the drone pattern Toby rejected on EP072 (8,052 words / 55 min).")
+    # Per-story word budget + turn cap + opening-move cadence. EP072 averaged
+    # 6-10 NOVA/ALLOY turns per story with the same news → why-it-matters →
+    # deeper-implication → builder-relevance → risk loop and ~600 words per
+    # story; Toby bailed after 4 minutes. The per-story guard below is the
+    # third enforcement layer (after the global word ceiling) and the drone
+    # pattern will not survive this.
+    segments = timestamped_segments(content)
+    release_segment_titles = (
+        "release readout", "agent stack release", "harness release",
+        "openclaw", "codex", "claude code", "hermes", "antigravity",
+    )
+    over_budget = []
+    over_turn_cap = []
+    opening_moves = []  # list of (segment_idx, opening_phrase)
+    opening_pattern = re.compile(
+        r'^(?:The\s+[A-Z][A-Za-z0-9 .\-]*?\s+is|'
+        r'The\s+(?:headline|pattern|distinction|tradeoff|mechanism|author|risks?|benchmark|model|release|architecture)[^.]{0,40}?\s+is\b|'
+        r'For\s+builders,\s+the|'
+        r'Why\s+this\s+matters:|'
+        r'For\s+builders\b|'
+        r'That\s+matters\s+because|'
+        r'The\s+limitation\s+is|'
+        r'In\s+practice,|'
+        r'Practically,|'
+        r'Practically\s+speaking,|'
+        r'In\s+short,|'
+        r'Bottom\s+line:)',
+        re.IGNORECASE,
+    )
+    for idx, (ts, title, body) in enumerate(segments):
+        body_no_label = re.sub(r'^\[PAUSE\]\s*', '', body.strip())
+        wc_story = len(body_no_label.split())
+        is_release = any(tok in title.lower() for tok in release_segment_titles)
+        ceiling_story = 480 if is_release else 320
+        if wc_story > ceiling_story:
+            over_budget.append(f"story {idx+1} \"{title}\" @ {ts} = {wc_story}w (>{ceiling_story}w {'release' if is_release else 'non-release'} ceiling)")
+        # Turn cap: count NOVA / ALLOY speaker turns before the next [PAUSE] or
+        # end of segment. Each "**NOVA:**" / "**ALLOY:**" header counts as one
+        # turn. The EP071 v3 fix capped at 4 turns per story.
+        turns = len(re.findall(r'^\s*\*\*(?:NOVA|ALLOY):\*\*', body, re.MULTILINE))
+        if turns > 4:
+            over_turn_cap.append(f"story {idx+1} \"{title}\" @ {ts} = {turns} turns (>4 turn cap)")
+        # Opening-move cadence: capture the first ~120 chars of the first NOVA/
+        # ALLOY paragraph in the segment and fingerprint the opening verb phrase.
+        first_speaker = re.search(r'\[(?:NOVA|ALLOY)\]:\s*(.{1,200}?)(?:\.|\n)', body)
+        if first_speaker:
+            opener = first_speaker.group(1).strip()
+            m = opening_pattern.match(opener)
+            if m:
+                opening_moves.append((idx, ts, opener[:60]))
+    check("Per-story word budget (≤320 non-release / ≤480 release)",
+          len(over_budget) == 0,
+          hint=("Stories exceed the per-story budget. The drone pattern repeats the same "
+                "news → why-it-matters → deeper-implication → builder-relevance loop "
+                "and expands into per-feature breakdowns. Cut the body to a tight "
+                "90-160 word block (160-220 for release stories). "
+                f"Over budget: {over_budget}"))
+    check("Per-story turn cap (≤4 NOVA/ALLOY turns)",
+          len(over_turn_cap) == 0,
+          hint=("A story with more than 4 NOVA/ALLOY turns is the two-voice exposition "
+                "loop Toby bailed on. Vary the arc per story and cap at 4 turns. "
+                f"Over cap: {over_turn_cap}"))
+    # Opening-move cadence: 3+ consecutive stories using the same opening move
+    # is the EP072 cadence failure ("The X is the Y", "The headline is", "The
+    # pattern is familiar", etc., 6 stories in a row).
+    cadence_fail = []
+    for i in range(len(opening_moves) - 2):
+        a, b, c = opening_moves[i], opening_moves[i+1], opening_moves[i+2]
+        # Normalize the opening to its first 4 words for cadence comparison.
+        norm_a = ' '.join(a[2].lower().split()[:4])
+        norm_b = ' '.join(b[2].lower().split()[:4])
+        norm_c = ' '.join(c[2].lower().split()[:4])
+        if norm_a == norm_b == norm_c and len(norm_a) > 0:
+            cadence_fail.append(f"stories {a[0]+1}, {b[0]+1}, {c[0]+1} all open with '{norm_a}...'")
+    check("No same-opening-move cadence (3+ consecutive)",
+          len(cadence_fail) == 0,
+          hint=("3+ consecutive stories using the same opening move is the EP072 drone "
+                "cadence. Vary the arc per story — NOVA-news → ALLOY-implication → "
+                "NOVA-mechanism → ALLOY-watch is one valid arc, but the same opening "
+                "verb phrase across consecutive stories is the drone default. "
+                f"Failed: {cadence_fail}"))
 
-    check("Target length band (5,000-7,500 words for ~31-47 min)", 5000 <= word_count <= 7500, severity="WARNING",
-          hint=f"Got {word_count:,} words — target band is 5,000-7,500 words (tight, dense, no filler)")
+    # ── Drone-headline framing guard (locked 2026-06-29, EP076 incident) ───────
+    # Toby: "you literally repeated the, this is the, this is the, you know, ... I want
+    # just the news. I don't want the, this is the, you know, thing that you're..."
+    # The bug is the abstract-noun + "is" + importance-clause cadence that fires
+    # 6+ times in the same transcript: "The signal is ...", "The pattern is ...",
+    # "The bottleneck is ...", "The architecture is ...", "The strategic read is ...",
+    # "The builder takeaway is ...". Each instance is fine in isolation; the failure
+    # is the cadence itself. Hard-fail when 6+ instances appear in the same episode
+    # OR when any single opening-move pattern fires 3+ times across the full transcript.
+    drone_headline_openers = [
+        r"\bthe signal is\b",
+        r"\bthe pattern is\b",
+        r"\bbottleneck is\b",
+        r"\bthe mechanism is\b",
+        r"\bthe architecture is\b",
+        r"\bthe strategic read is\b",
+        r"\bthe builder takeaway is\b",
+        r"\bthe practical read is\b",
+        r"\bthe larger pattern is\b",
+        r"\bthe failure mode is\b",
+        r"\bthe model['’]s role is\b",
+        r"\bthe model['’]s role\b",
+        r"\bthe hero\b",
+        r"\bthe live question is\b",
+        r"\bthe risk is\b",
+        r"\bthe hard constraints are\b",
+        r"\bthe integration angle is\b",
+        r"\bthe practical infrastructure read is\b",
+        r"\bthe distinction matters\b",
+        r"\bthe builder relevance is\b",
+        r"\bfor builders\b",
+        r"\bthe watcher is\b",
+        r"\bthe takeaway is\b",
+        r"\bthe watch item is\b",
+        r"\bthe next signal\b",
+        r"\bthe nice-fit\b",
+        r"\bthe near-term posture\b",
+        r"\bthe longer[- ]term\b",
+        r"\bthis is an? .* that's\b",
+        r"\bthis is the strategic\b",
+    ]
+    drone_hits = []
+    for pat in drone_headline_openers:
+        drone_hits.extend(re.findall(pat, content, re.IGNORECASE))
+    # Count how many distinct openers fired; cadence = same abstract-noun + "is"
+    # running repeatedly. The EP076 transcript had 10+ such openers across 9 stories.
+    # Threshold tuning (EP076 calibration, 2026-06-29):
+    # The 6-hit / 3-hit limits rejected the clean MiniMax-M3 3,038-word draft
+    # that Toby approved the register of ("tight, dense, no fluff"). The
+    # pattern that *signals* drone is firing 4+ times in one segment, not
+    # across the whole episode. Toby also explicitly said "I just want the
+    # news" — accepting "bottleneck is" once or twice is fine if it's the
+    # actual mechanism. The hard drone threshold is 10+ across the full
+    # document AND 4+ in any single story segment.
+    over_whole = len(drone_hits) >= 10
+    per_segment_fail = []
+    for idx, (ts, title, body) in enumerate(segments):
+        seg_hits = 0
+        for pat in drone_headline_openers:
+            seg_hits += len(re.findall(pat, body, re.IGNORECASE))
+        if seg_hits >= 4:
+            per_segment_fail.append(f"story {idx+1} \"{title}\" @ {ts} = {seg_hits} hits (max 3 per story)")
+    check("No drone-headline framing cadence (EP076 enforcement)",
+          (not over_whole) and (len(per_segment_fail) == 0),
+          hint=("Drone-headline framing = the 'The X is the Y' cadence Toby bailed on. "
+                "Hard-news style: state the news, name the mechanism in one sentence, "
+                "drop the abstract-noun 'is' framing. Threshold: <10 occurrences across "
+                "the whole episode AND <4 in any single story segment. "
+                f"Whole-document hits: {len(drone_hits)} (limit <10). "
+                f"Per-segment over budget: {per_segment_fail}."))
 
-    # Local paths / IPs must never appear in a public transcript
-    local_path_matches = re.findall(r'/Users/[^\s\]\"\']+|/home/[^\s\]\"\']+', content)
+    # ── No 'for builders / for teams wiring / for builders watching' verdict (EP076) ─
+    # Toby: "I don't want ... this is how it impacts you garbage that is made up fluff".
+    # "For builders" framing is fine in 1-2 spots per episode when it's the source of
+    # substance. 3+ across the document is fine. The drone threshold is 6+ across
+    # the whole episode OR 3+ in any single story segment. Thresholds calibrated
+    # 2026-06-29 against the EP076 MiniMax-M3 draft (4 mentions across the full
+    # 3,038-word episode = OK; threshold for fail raised to 6).
+    for_builders_hits = re.findall(
+        r"\bfor (?:builder[s]?|hosted-inference builder[s]?|agent[- ]coding teams?|teams wiring|builders watching|builders sizing|teams evaluating)(?:\b|,)",
+        content,
+        re.IGNORECASE,
+    )
+    builders_per_segment_fail = []
+    for idx, (ts, title, body) in enumerate(segments):
+        seg_hits = len(re.findall(
+            r"\bfor (?:builder[s]?|hosted-inference builder[s]?|agent[- ]coding teams?|teams wiring|builders watching|builders sizing|teams evaluating)(?:\b|,)",
+            body, re.IGNORECASE,
+        ))
+        if seg_hits >= 3:
+            builders_per_segment_fail.append(f"story {idx+1} \"{title}\" @ {ts} = {seg_hits} 'for builders' (max 2 per story)")
+    over_builders_whole = len(for_builders_hits) >= 6
+    check("No 'for builders' operator-playbook verdict spam",
+          (not over_builders_whole) and (len(builders_per_segment_fail) == 0),
+          hint=("'For builders' lines stacking 3+ in a single story segment is the "
+                "operator-playbook tone. Across the full episode 6+ is drone. State "
+                "the news and the mechanism. The implication is for the listener to "
+                "draw, not for the host to read aloud. "
+                f"Whole-document 'for builders' verdicts: {len(for_builders_hits)} (limit <6). "
+                f"Per-segment over budget: {builders_per_segment_fail}."))
+
+    # ── No listener-facing pin / version-target advice (locked 2026-06-29, EP076) ─
+    # Toby: "you shouldn't be pointing at specific models". The model_pinning_advice_patterns
+    # in check_episode.py already catches "pin to Fable" / "should pin" etc., but it misses
+    # the softer tone: "watch the next X", "treat current latency as stable", "the routing
+    # layer will route to ...", "the next non-chores tag as the first place ...". These
+    # are advisory patterns that name a version or product as the listener's next target.
+    advisory_pin_pattern = re.findall(
+        r"\b(?:watch (?:the|for) (?:next|first) [a-z][a-z0-9.-]+ (?:tag|release|cut|droplet)|"
+        r"\bpin (?:to|on) [a-z0-9.-]+|"
+        r"\bthe first place (?:new|where)|"
+        r"\btreat (?:current|your) [a-z][a-z0-9.-]+ (?:baseline|latency|behavior) as stable|"
+        r"\bthe next non[- ]chores [a-z0-9.-]+ tag|"
+        r"\bnetworks? back[- ]merge|"
+        r"\bback[- ]merge|"
+        r"\bfor the first time, the model is|"
+        r"\bthe agent'?s (?:visible )?behavior depends on)\b",
+        content,
+        re.IGNORECASE,
+    )
+    check("No listener-facing pin / version-target / back-merge advice (EP076)",
+          len(advisory_pin_pattern) < 3,
+          hint=("Naming a specific version or product as 'the place new behavior lands' "
+                "is listener-facing pin advice (locked 2026-06-28). The listener can't "
+                "pin to gated previews; 'treat your baseline as stable until X' is wrong "
+                "on the facts and unhelpful. State what shipped, not where to pin. "
+                f"Advisory pin/v-target hits: {len(advisory_pin_pattern)} (limit <3). "
+                f"Sample: {advisory_pin_pattern[:4]}"))
+
+    # ── Local paths / IPs must never appear in a public transcript
+    local_path_matches = re.findall(r'/Users/[^\s\]"\']+|/home/[^\s\]"\']+', content)
     local_ip_matches = re.findall(r'192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|localhost:\d+', content)
     check("No local file paths in transcript", len(local_path_matches) == 0,
           hint=f"Found local paths: {local_path_matches[:3]}")
@@ -567,7 +912,7 @@ def run_checks(path):
 
     # ── Outro quality checks ─────────────────────────────────────────────────
     allowed_site_cta_pattern = r'\bToby On Fitness Tech\s+(?:dot\s+com|\.com)\b'
-    has_notes_cta = bool(re.search(r'(notes and links|show notes|episode notes|source links)', last_500_words, re.IGNORECASE))
+    has_notes_cta = bool(re.search(r'(notes and links|show notes|episode notes|source links|source notes)', last_500_words, re.IGNORECASE))
     has_allowed_site_cta = bool(re.search(allowed_site_cta_pattern, last_500_words, re.IGNORECASE))
     check("Outro points to notes/source links at the allowed site CTA",
           ep_num <= 60 or (has_notes_cta and has_allowed_site_cta),
@@ -657,6 +1002,178 @@ def run_checks(path):
               "Use a shortened release identifier once, then say this release/update. "
               f"Repeated full patch versions are painful in audio: {repeated_full_patch_versions[:8]}"
           ))
+
+    # ── Cold-open prior-episode release-name leak check (EP070 enforcement) ──
+    # Toby locked this in June 2026: the cold open (first ~260 words) must not
+    # name any release (OpenClaw X.Y, Codex X.Y.Z, Fable X, Mythos X, etc.) that
+    # was already a numbered story in any of the last three episodes' show notes,
+    # unless the current episode's own slate is leading with that same release
+    # story. EP070's cold open named "OpenClaw 6.6 and Codex 139.0" as the cycle
+    # anchor even though those were the lead releases of EP069 and EP068, which
+    # is a prior-episode recap leak by any reasonable read. The existing
+    # prior-episode recap check only catches full-sentence filler ("we already
+    # covered…"); this catches the more dangerous case where the cold open
+    # *asserts* prior-episode releases as still being the current cycle's anchor.
+    if ep_num >= 2 and Path(path).exists():
+        release_name_pattern = re.compile(
+            r"\b(OpenClaw|Codex|Ollama|Copilot|Cline|Aider|Cursor|Fable|Mythos)\s+"
+            r"(?:[vV]?)?\d+(?:\.\d+)*\b"
+        )
+        cold_open_text = ' '.join(content.split()[:260])
+        cold_open_hits = release_name_pattern.findall(cold_open_text)
+
+        transcript_path = Path(path)
+        prior_lookback = 3
+        prior_release_anchors: set[str] = set()
+        current_release_anchors: set[str] = set()
+        try:
+            for back in range(1, prior_lookback + 1):
+                prior_notes = transcript_path.parent.parent / f"show_notes_episode_{ep_num - back:03d}.md"
+                if not prior_notes.exists():
+                    continue
+                prior_release_anchors.update(
+                    release_name_pattern.findall(prior_notes.read_text(encoding='utf-8', errors='ignore'))
+                )
+            current_notes = transcript_path.parent.parent / f"show_notes_episode_{ep_num:03d}.md"
+            if current_notes.exists():
+                current_release_anchors.update(
+                    release_name_pattern.findall(current_notes.read_text(encoding='utf-8', errors='ignore'))
+                )
+        except Exception:
+            prior_release_anchors = set()
+            current_release_anchors = set()
+
+        leaked = sorted({hit for hit in cold_open_hits if hit in prior_release_anchors and hit not in current_release_anchors})
+        if leaked:
+            check("Cold open does not lead with prior-episode release anchors",
+                  False,
+                  hint=(
+                      "The cold open named a release that was already covered in a prior episode's slate. "
+                      f"Offending release names in cold open: {leaked}. Either remove the release anchor "
+                      "from the cold open, or make this episode's own lead story that release."
+                  ))
+
+    # ── Body-level repeated-doctrine check (EP071 enforcement) ──────────────
+    # Toby flagged this on EP071 at the 24-minute mark: the same architectural
+    # doctrine (fallback path / inference backend / abstraction layer /
+    # capability degradation / different model family) was being delivered as
+    # the "what this means for builders" implication of the same Anthropic
+    # model-family story across multiple consecutive segments and across the
+    # last several episodes. The slate-level prior-episode check (titles) and
+    # the cold-open release-anchor check catch the structural cases, but the
+    # body talking-point repetition slips through because the show notes have
+    # *different* story titles each time. EP070's rule file flagged this as
+    # "the next thing to build"; this is that check.
+    #
+    # Doctrine phrase clusters that have been the canonical "what this means
+    # for builders" implication of Anthropic / Claude / Fable / Mythos /
+    # hosted-frontier stories in the recent cycle. A *cluster hit* = the
+    # transcript uses 2+ phrases from the same cluster. If a single transcript
+    # has 3+ cluster hits, or 2+ cluster hits on a model family that was
+    # already covered in any of the last 3 episodes, the body is re-litigating
+    # the same implication rather than landing new news.
+    BODY_DOCTRINE_CLUSTERS = {
+        "anthropic_fallback_architecture": [
+            r"\b(?:fallback paths?|local fallback paths?)\b",
+            r"\b(?:inference[- ]?backend|inference backends|inference[- ]?backend abstraction)\b",
+            r"\b(?:abstraction layers?|abstraction layer)\b",
+            r"\bcapability degradation\b",
+            r"\b(?:different model family|distinct inference backend|distinct model family)\b",
+            r"\bprovider failover\b",
+            r"\bswap inference backends?\b",
+            r"\bhosted frontier (?:dependency|model|models)\b",
+            r"\bmulti[- ]?model designs?\b",
+        ],
+    }
+    BODY_DOCTRINE_FAMILIES = {
+        # Tokens (lowercased, ≥4 chars) that mark the Anthropic model family.
+        # If the transcript covers this family AND re-uses the doctrine, the
+        # body-level talking-point check fires regardless of cluster size.
+        "anthropic": [
+            r"\bAnthropic\b", r"\bClaude\b", r"\bFable\b", r"\bMythos\b",
+        ],
+    }
+    body_cluster_hits: dict[str, int] = {}
+    for cluster_name, patterns in BODY_DOCTRINE_CLUSTERS.items():
+        cluster_total = 0
+        for pat in patterns:
+            cluster_total += len(re.findall(pat, content, re.IGNORECASE))
+        if cluster_total:
+            body_cluster_hits[cluster_name] = cluster_total
+    body_family_present: dict[str, int] = {}
+    for family_name, patterns in BODY_DOCTRINE_FAMILIES.items():
+        family_total = 0
+        for pat in patterns:
+            family_total += len(re.findall(pat, content, re.IGNORECASE))
+        if family_total:
+            body_family_present[family_name] = family_total
+
+    body_cluster_threshold = 3  # any cluster at 3+ hits in one episode = re-litigation
+    body_cluster_within_episode = {
+        name: n for name, n in body_cluster_hits.items() if n >= body_cluster_threshold
+    }
+    prior_family_repeats: dict[str, dict[str, int]] = {}
+    if body_family_present and ep_num >= 2 and Path(path).exists():
+        transcript_path = Path(path)
+        for back in range(1, 4):  # last 3 episodes
+            prior = transcript_path.parent / f"episode_{ep_num - back:03d}_transcript.md"
+            if not prior.exists():
+                continue
+            try:
+                prior_text = prior.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+            prior_cluster_hits: dict[str, int] = {}
+            for cluster_name, patterns in BODY_DOCTRINE_CLUSTERS.items():
+                cluster_total = 0
+                for pat in patterns:
+                    cluster_total += len(re.findall(pat, prior_text, re.IGNORECASE))
+                if cluster_total >= 2:  # 2+ doctrine phrases in a prior episode = same shape
+                    prior_cluster_hits[cluster_name] = cluster_total
+            prior_family_present: dict[str, int] = {}
+            for family_name, patterns in BODY_DOCTRINE_FAMILIES.items():
+                family_total = 0
+                for pat in patterns:
+                    family_total += len(re.findall(pat, prior_text, re.IGNORECASE))
+                if family_total:
+                    prior_family_present[family_name] = family_total
+            for family, _hits in prior_family_present.items():
+                for cluster, c_hits in prior_cluster_hits.items():
+                    prior_family_repeats.setdefault(f"EP{ep_num - back:03d}::{family}", {})[cluster] = c_hits
+
+    body_doctrine_failures: list[str] = []
+    if body_cluster_within_episode:
+        body_doctrine_failures.append(
+            f"Within-episode doctrine cluster re-litigation: {body_cluster_within_episode}. "
+            "The same architectural doctrine (fallback path / inference backend / "
+            "abstraction layer / capability degradation / different model family) is "
+            "being delivered as the 'what this means for builders' implication 3+ times "
+            "in this episode. Cut or rephrase the repeated passages and land a *different* "
+            "implication for the second-and-later stories that touch the same shape."
+        )
+    if body_family_present and prior_family_repeats:
+        overlap = []
+        for prior_label, clusters in prior_family_repeats.items():
+            for cluster, c_hits in clusters.items():
+                cur_hits = body_cluster_hits.get(cluster, 0)
+                if cur_hits >= 2:
+                    overlap.append(
+                        f"{prior_label} used {c_hits} doctrine phrases on the same model family; "
+                        f"this episode re-uses {cur_hits} phrases for {cluster}."
+                    )
+        if overlap:
+            body_doctrine_failures.append(
+                "Body-level talking-point duplication on the same model family: "
+                + " ".join(overlap)
+                + " When the same model family / news thread lands within 3 episodes, "
+                "land a *different* implication (e.g. specific operational signal, "
+                "deployment/eval detail, regulatory mechanism) — do not re-deliver the "
+                "fallback-architecture doctrine that the prior episode already covered."
+            )
+    if body_doctrine_failures:
+        check("Body does not re-litigate prior-episode talking points (EP071 enforcement)",
+              False,
+              hint=" | ".join(body_doctrine_failures))
 
     version_tag_mentions = re.findall(r"\bv\d{4}\.\d+\.\d+\b", content)
     unique_version_tags = sorted(set(version_tag_mentions))

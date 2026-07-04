@@ -21,7 +21,7 @@ AUDIO_DIR = Path.home() / ".openclaw/workspace/openclaw-podcast-audio"
 TRANSLATED_AUDIO_PROXY_BASE = "https://openclaw-audio-proxy.tobypeters.workers.dev/audio"
 WORK_DIR = PODCAST_DIR / "content_staging" / "shorts"
 DEFAULT_AGENT = "shorts-gpt52"
-DEFAULT_METADATA_AGENT = "codex"
+DEFAULT_METADATA_AGENT = "deterministic"
 WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
 LANGUAGE_NAMES = {
     "es": "Latin American Spanish",
@@ -288,7 +288,7 @@ def _coerce_description(description: str, hashtags: list[str]) -> str:
         if len(chosen_hashtags) == 3:
             break
     if len(chosen_hashtags) < 3:
-        for fallback in ("#OpenClawDaily", "#Shorts", "#AI"):
+        for fallback in ("#AgentStackDaily", "#Shorts", "#AI"):
             if fallback not in chosen_hashtags:
                 chosen_hashtags.append(fallback)
             if len(chosen_hashtags) == 3:
@@ -439,6 +439,50 @@ def generate_metadata(
     }
 
 
+def fallback_metadata(
+    episode: int,
+    lang: str,
+    clip_text: str,
+    episode_title: str,
+    full_episode_url: str,
+) -> dict:
+    title = _clean_title(build_segment_title(clip_text)) or f"AgentStack Daily EP{episode:03d}"
+    hashtags = ["#AgentStackDaily", "#AI", "#Shorts"]
+    tags = [
+        "AgentStack Daily",
+        "AI agents",
+        "LLM tooling",
+        "AI news",
+        "Shorts",
+        LANGUAGE_NAMES.get(lang, lang),
+    ]
+    tag_groups = {
+        "post_specific": tags[:3],
+        "niche_specific": ["AI agents", "developer tools", "LLM evaluation"],
+        "broad": ["AI", "technology", "podcast"],
+    }
+    description = _coerce_description(
+        f"{episode_title}\nFull episode: {full_episode_url}",
+        hashtags,
+    )
+    alternate_titles = [
+        _clean_title(f"{title} explained"),
+        _clean_title(f"Why this matters now"),
+    ]
+    alternate_titles = [item for item in alternate_titles if item and item != title][:2]
+    while len(alternate_titles) < 2:
+        alternate_titles.append(f"AgentStack Daily EP{episode:03d}")
+    return {
+        "title": title,
+        "alternate_titles": alternate_titles[:2],
+        "description": description,
+        "hashtags": hashtags,
+        "tag_groups": tag_groups,
+        "tags": tags,
+        "fallback_reason": "metadata_agent_unavailable",
+    }
+
+
 def ensure_transcript(audio_path: Path, transcript_json: Path) -> dict:
     transcript_json.parent.mkdir(parents=True, exist_ok=True)
     wav_path = transcript_json.parent / f"{audio_path.stem}.wav"
@@ -464,12 +508,12 @@ def find_best_segment_window(transcript_data: dict, clip_text: str) -> tuple[flo
     for i in range(len(segments)):
         merged_text = ""
         start = float(segments[i]["start"])
-        for j in range(i, min(len(segments), i + 18)):
+        for j in range(i, min(len(segments), i + 45)):
             merged_text = f"{merged_text} {segments[j].get('text', '')}".strip()
             duration = float(segments[j]["end"]) - start
             if duration < 12:
                 continue
-            if duration > 35:
+            if duration > 65:
                 break
             score = jaccard(clip_tokens, word_tokens(merged_text))
             if best is None or score > best[2]:
@@ -609,7 +653,11 @@ def main() -> int:
         print(f"Extracted {args.lang} translation from script")
         if args.lang in ROMANIZED_LANGS:
             alignment_text = extracted_text
-            clip_text = translate_clip_text(args.agent, args.lang, source_text)
+            try:
+                clip_text = translate_clip_text(args.agent, args.lang, source_text)
+            except Exception as exc:
+                print(f"WARNING: romanized {args.lang} translation failed; using extracted script translation: {exc}", file=sys.stderr)
+                clip_text = extracted_text
         else:
             clip_text = extracted_text
             alignment_text = extracted_text
@@ -651,14 +699,33 @@ def main() -> int:
 
     metadata = None
     if args.episode_title and args.full_episode_url:
-        metadata = generate_metadata(
-            episode=args.episode,
-            agent=args.metadata_agent,
-            lang=args.lang,
-            clip_text=clip_text,
-            episode_title=args.episode_title,
-            full_episode_url=args.full_episode_url,
-        )
+        if args.metadata_agent in {"", "deterministic", "none", "off"}:
+            metadata = fallback_metadata(
+                episode=args.episode,
+                lang=args.lang,
+                clip_text=clip_text,
+                episode_title=args.episode_title,
+                full_episode_url=args.full_episode_url,
+            )
+        else:
+            try:
+                metadata = generate_metadata(
+                    episode=args.episode,
+                    agent=args.metadata_agent,
+                    lang=args.lang,
+                    clip_text=clip_text,
+                    episode_title=args.episode_title,
+                    full_episode_url=args.full_episode_url,
+                )
+            except Exception as exc:
+                print(f"WARNING: metadata generation failed; using deterministic fallback: {exc}", file=sys.stderr)
+                metadata = fallback_metadata(
+                    episode=args.episode,
+                    lang=args.lang,
+                    clip_text=clip_text,
+                    episode_title=args.episode_title,
+                    full_episode_url=args.full_episode_url,
+                )
         write_json(metadata_path, metadata)
 
     print(json.dumps({

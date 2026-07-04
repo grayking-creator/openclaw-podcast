@@ -10,8 +10,12 @@ scripts below remain the recovery path and the post-approval path.
 `scripts/agentstack_morning.sh` (launched via `scripts/show_notes_research_guard.sh`)
 produces a complete reviewable episode by ~8:00 AM ET:
 
-1. `gather_research_context.py` — deterministic research data (GitHub releases,
-   npm/PyPI, OpenRouter diffs, HN, lab RSS, GitHub radar) → `/tmp/agent_research_context.{md,json}`
+1. `gather_research_context.py` — deterministic research data (harness GitHub
+   releases, local-AI/inference infra releases, npm/PyPI, OpenRouter diffs, HN,
+   a ~24-feed RSS roster across labs / local AI / compute / commentary / press,
+   arXiv + HuggingFace Daily Papers, HuggingFace trending models, Reddit
+   local-AI communities, GitHub trending + radar; expanded 2026-07-04 after the
+   EP079 "way more stories" rejection) → `/tmp/agent_research_context.{md,json}`
 2. `build_show_notes.py <N>` — deterministic show-notes builder: structure,
    Release Coverage Check, Harness Version Reference, Model Discovery, Chapters,
    Primary Links and timestamps are computed in code; models only write small
@@ -24,8 +28,10 @@ produces a complete reviewable episode by ~8:00 AM ET:
 
 **The pipeline stops at the review post. Publish still requires Toby's ✅.**
 Failures at any stage append to `/tmp/show_notes_build.log` and post to the
-Discord alerts channel. An existing unreleased draft HOLDs the pipeline (exit 2)
-for a human numbering decision via `resolve_episode_gap.py`.
+Discord alerts channel. If the next episode already has review audio recorded
+and that audio is not approved, cron HOLDs (exit 2) instead of reusing or
+reposting stale show notes/audio. An existing unreleased draft that cannot
+resume safely also HOLDs for recovery.
 
 ---
 
@@ -94,17 +100,20 @@ python3 scripts/release_episode.py 28 --from-phase covers --pub-date "..."
 
 ### Transcript
 - **NEVER reuse an existing `episode_0NN_transcript.md` without verifying it matches the approved story slate.** `build_episode.py` enforces this automatically. If you're writing a transcript manually, read `show_notes_episode_0NN.md` first and verify every story title appears in the transcript before running the build script.
-- **Episode runtime target is about 30 minutes.** At the current EN voices and pacing, that means roughly 4,600 to 4,800 words, not a 35-40 minute script.
+- **Episode runtime target is 30+ minutes.** At the current EN voices and pacing, that means 4,800 to 5,400 words — both enforced as hard floor/ceiling by `check_episode.py` (floor re-locked 2026-07-04, EP079 rejection; ceiling locked after the EP072 55-minute drone).
 - **If release coverage exists, the release block comes first and gets the deepest coverage.** Do not bury the release details under a long theme-setting intro.
-- **EP068+: the Story Slate is exactly 10 topics** (release readout first when any
-  agent-stack product shipped). At the ~30-minute runtime that means tighter,
-  denser story segments — never pad to fill, never cut OpenClaw release detail
-  before cutting lower-priority stories.
+- **EP079+: the Story Slate is at least 14 topics** (release readout first when any
+  agent-stack product shipped; was exactly 10 for EP068–EP078, changed 2026-07-04
+  after Toby rejected the 19-minute EP079: "way more stories, way more content").
+  Each non-release segment runs 270-320 words (~2 spoken minutes) — never pad to
+  fill, never cut OpenClaw release detail before cutting lower-priority stories.
 - **Technical deep-dive standard:** use the EP042 model for future episodes: explain what each technology is, how the stack works, concrete mechanisms/APIs/configs/architecture, tradeoffs, failure modes, operational impact, and practical recommendations or ratings where useful. Less article recap; more technical review and analysis.
 - **Spoken version numbers:** do not read full patch notation aloud in the transcript. Say a shortened release identifier once, then switch to "this release", "the update", or the product name. Full dot notation is fine in show notes, feed metadata, and links; it is painful in audio and should not appear in future spoken transcripts.
 - **GitHub project profiles:** GitHub project segments must include popularity/velocity signals, integrations or plug-in surfaces, concrete use cases, and workflow scenarios for builders. Treat the best repos as showcases/profiles with useful stack context, not as a late star-count list.
 - **Theme-first umbrella framing is banned.** Do not build the show around phrases like “trust layer,” “common thread,” or “these stories are all connected.”
 - **Never mention Toby or listener-specific setup details in the episode body.** Use generic workflow language instead. Never include drafting/request meta like “Toby wanted/requested/asked” or “requested format.” The only default exception is the exact end CTA “Toby On Fitness Tech dot com.”
+- **Never expose production/research process in the spoken episode.** Do not say how the episode was built, how source/model lanes were scanned, that there were no new candidates, that items were not selected, or that the show avoided promoting churn. If a lane has nothing worth covering, omit it from audio.
+- **Never tell the listener to pin a specific model or version** (locked 2026-06-28, post-EP075-rewrite). The runtime already falls back automatically when a pinned model is removed (Fable → Opus), so the pin advice is wrong on the facts AND unhelpful. The listener cannot pin to gated previews like GPT-5.6 either. Never narrate fallback lore ("didn't actually crash", "defaulted back to", "fell back to the previous model"). `check_episode.py` hard-fails this via `model_pinning_advice_patterns`.
 
 ### Feeds
 - **NEVER hand-edit feed.xml or translation feeds.** `release_episode_approved.py` uses `release_episode.py` + `add_feed_entry.py`, which validates XML before and after. Hand-editing broke EP024 feeds.
@@ -115,7 +124,7 @@ python3 scripts/release_episode.py 28 --from-phase covers --pub-date "..."
 - The release launcher is fail-closed: `build_episode.py` records the exact reviewed EN audio hash and Discord review post, and `launch_approved_release.py` / `release_episode_approved.py` refuse to publish unless that same hash has explicit approval recorded from a verified non-bot Discord reply after the review post. Use `--audio-approved-by-toby --approval-message-id <toby_reply_message_id>` only after Toby actually approves the audio.
 
 ### Shorts
-- AgentStack Daily/OpenClaw Daily Shorts are **approved and active** (re-approved 2026-06-06). The `youtube_shorts_pipeline.py --mode cron` runs daily at 09:30 ET and stages 2 EN short candidates per episode. Failures post to Discord `#build-log`. Do not disable the pipeline or add `SystemExit` guards without an explicit instruction from Toby. Full episode uploads and shorts staging run as separate cron processes to prevent resource contention.
+- AgentStack Daily/OpenClaw Daily Shorts are not approved. Do not generate, stage, upload, schedule, QA, or post Discord alerts for them. Full episode YouTube uploads remain part of approved publish; shorts are a separate banned workflow unless Toby explicitly changes it.
 
 ### Build-log / Discord replies
 - **Only post URL-based links.** Never post filesystem paths (`/Users/...`, `/tmp/...`).

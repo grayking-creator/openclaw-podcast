@@ -2104,10 +2104,17 @@ def phase_discord(ep_num, state):
         discord_state["working_channel_deleted"] = False
         discord_state["working_channel_delete_missing_names"] = list(working_channel_names)
         save_state(ep_num, state)
-        raise RuntimeError(
-            "Discord working channel not found for cleanup; looked for "
-            + ", ".join(f"#{name}" for name in working_channel_names)
+        log(
+            f"  ⚠️  Working channel not found for cleanup; looked for "
+            f"{', '.join('#' + name for name in working_channel_names)}. "
+            f"Marking cleanup complete anyway — daily post already sent."
         )
+        # Do NOT raise; working channel absence is not a publish-blocking failure.
+        # The EN post to #agentstack-daily is the critical deliverable.
+        discord_state["working_channel_deleted"] = True
+        discord_state["working_channel_deleted_names"] = []
+        discord_state.pop("working_channel_delete_missing_names", None)
+        save_state(ep_num, state)
 
     return state
 

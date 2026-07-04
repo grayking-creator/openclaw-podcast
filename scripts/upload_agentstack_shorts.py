@@ -37,6 +37,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
+from validate_shorts_media import MediaValidationError, validate_media_file
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
@@ -181,6 +182,16 @@ def clip_path_for(ep_num: int, clip_idx: int, lang: str) -> Path:
     return ep_dir / "translations" / lang / "rollout_render" / f"clip_{clip_idx:02d}.mp4"
 
 
+def validate_clip_path(path: Path) -> tuple[bool, str]:
+    try:
+        validate_media_file(path, require_video=True)
+        return True, ""
+    except MediaValidationError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"media validation failed: {exc}"
+
+
 def get_episode_title(ep_num: int) -> str:
     ep_str = f"{ep_num:03d}"
     feed_path = PODCAST_DIR / "feed.xml"
@@ -214,22 +225,17 @@ def clip_label(ep_num: int, clip_idx: int) -> str:
 
 
 def build_short_title(ep_num: int, clip_idx: int) -> str:
-    ep_str = f"{ep_num:03d}"
-    label = clip_label(ep_num, clip_idx)
-    # YouTube Shorts needs #Shorts in title or description; put it last
-    title = f"EP{ep_str} | {label} #Shorts"
-    return title[:100]
+    selected = load_selected_clip(ep_num, clip_idx)
+    return title_from_clip_text(selected.get("text", ""), get_episode_title(ep_num))[:100]
 
 
 def build_short_description(ep_num: int) -> str:
-    ep_str = f"{ep_num:03d}"
     title = get_episode_title(ep_num)
     show_notes_url = f"https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/"
-    return (
-        f"EP{ep_str} | {title}\n\n"
+    return ensure_description_hashtags(
+        f"{title}\n\n"
         f"Full episode: {show_notes_url}\n"
-        f"Listen everywhere: https://tobyonfitnesstech.com/podcasts/\n\n"
-        f"#AgentStackDaily #AIPodcast #Shorts"
+        f"Listen everywhere: https://tobyonfitnesstech.com/podcasts/"
     )
 
 
@@ -263,11 +269,54 @@ def discover_episode_order() -> list[int]:
     return sorted(set(episodes))
 
 
+def episode_has_rendered_en_package(ep_num: int) -> bool:
+    for idx in (1, 2):
+        clip_path = clip_path_for(ep_num, idx, "en")
+        if not clip_path.exists():
+            return False
+        is_valid, _ = validate_clip_path(clip_path)
+        if not is_valid:
+            return False
+    return True
+
+
+def missing_render_episodes() -> list[int]:
+    missing = []
+    for ep_num in sorted(released_episode_numbers()):
+        if ep_num < MIN_EPISODE:
+            continue
+        if not episode_has_rendered_en_package(ep_num):
+            missing.append(ep_num)
+    return missing
+
+
+def alert_missing_renders_once(state: dict, missing: list[int]) -> None:
+    if not missing:
+        return
+    signature = ",".join(f"{ep:03d}" for ep in missing)
+    if state.get("last_missing_render_alert") == signature:
+        return
+    state["last_missing_render_alert"] = signature
+    save_state(state)
+    first = missing[0]
+    last = missing[-1]
+    if first == last:
+        span = f"EP{first:03d}"
+    else:
+        span = f"EP{first:03d}-EP{last:03d}"
+    msg = (
+        f"❌ [AgentStack Shorts] No pending uploads because released {span} "
+        "have no rendered shorts package. Build the missing shorts before the uploader can publish."
+    )
+    print(msg)
+    discord_build_log(msg)
+
+
 # ---------------------------------------------------------------------------
 # Upload
 # ---------------------------------------------------------------------------
 
-def upload_short(clip_path: Path, title: str, description: str, lang: str) -> str:
+def upload_short(clip_path: Path, title: str, description: str, lang: str, tags: list[str]) -> str:
     """Upload a short MP4 to the specified language channel. Returns video ID."""
     token_path = SCRIPTS_DIR / f"youtube_token_{lang}.json"
     with open(token_path) as f:
@@ -283,7 +332,7 @@ def upload_short(clip_path: Path, title: str, description: str, lang: str) -> st
         "snippet": {
             "title": title,
             "description": description,
-            "tags": ["AgentStack Daily", "AI podcast", "AI news", "Shorts"],
+            "tags": tags[:15],
             "categoryId": "28",
         },
         "status": {
@@ -307,34 +356,173 @@ def upload_short(clip_path: Path, title: str, description: str, lang: str) -> st
 # ---------------------------------------------------------------------------
 # Queue builder
 # ---------------------------------------------------------------------------
-def load_metadata_for_clip(ep_num: int, clip_idx: int, lang: str) -> tuple[str, str]:
-    """Load localized title and description if available, else fall back to English."""
-    ep_str = f"{ep_num:03d}"
-    if lang == "en":
-        title = build_short_title(ep_num, clip_idx)
-        description = build_short_description(ep_num)
-        return title, description
+BAD_TITLE_PREFIXES = (
+    "i'm nova",
+    "i'm alloy",
+    "this is agentstack",
+    "this is agentstack daily",
+    "today,",
+    "today we",
+    "you'll hear",
+    "in this episode",
+    "story one",
+    "story two",
+    "the order is deliberate",
+    "for the project radar tools",
+)
 
-    metadata_path = STAGING_ROOT / f"episode_{ep_str}" / "translations" / lang / "rollout_render" / f"clip_{clip_idx:02d}_metadata.json"
-    if metadata_path.exists():
+
+def clean_short_title(raw: str, max_len: int = 72) -> str:
+    title = re.sub(r"\[(?:NOVA|ALLOY)\]:", "", raw or "", flags=re.IGNORECASE)
+    title = title.replace("AgentStackDaily", "AgentStack Daily")
+    title = re.sub(r"#\S+", "", title)
+    title = re.sub(r"^EP\d{2,3}\s*[|:-]\s*", "", title.strip(), flags=re.IGNORECASE)
+    title = title.replace('"', "").replace("“", "").replace("”", "")
+    title = re.sub(r"\s+", " ", title).strip(" -:;,.")
+    if len(title) > max_len:
+        title = title[:max_len].rsplit(" ", 1)[0].strip(" -:;,")
+    if title and title[0].islower():
+        title = title[0].upper() + title[1:]
+    return title
+
+
+def title_is_weak(title: str) -> bool:
+    lowered = title.lower().strip()
+    if len(title) < 18:
+        return True
+    if any(lowered.startswith(prefix) for prefix in BAD_TITLE_PREFIXES):
+        return True
+    if "#short" in lowered or re.search(r"\bep\d{2,3}\b", lowered):
+        return True
+    return False
+
+
+def load_selected_clip(ep_num: int, clip_idx: int) -> dict:
+    ep_str = f"{ep_num:03d}"
+    manifest = STAGING_ROOT / f"episode_{ep_str}" / f"episode_{ep_str}_work" / "selected_clips.json"
+    if not manifest.exists():
+        return {}
+    try:
+        clips = json.loads(manifest.read_text())
+    except Exception:
+        return {}
+    if clip_idx - 1 >= len(clips):
+        return {}
+    return clips[clip_idx - 1] if isinstance(clips[clip_idx - 1], dict) else {}
+
+
+def title_from_clip_text(text: str, fallback: str) -> str:
+    sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", text or "") if part.strip()]
+    for sentence in sentences[:5]:
+        title = clean_short_title(sentence)
+        if title and not title_is_weak(title):
+            return title
+    title = clean_short_title(fallback)
+    if title and not title_is_weak(title):
+        return title
+    return "Why This AI Agent Stack Matters"
+
+
+def metadata_paths_for_clip(ep_num: int, clip_idx: int, lang: str) -> list[Path]:
+    ep_str = f"{ep_num:03d}"
+    ep_dir = STAGING_ROOT / f"episode_{ep_str}"
+    if lang == "en":
+        return [
+            ep_dir / f"clip_{clip_idx:02d}_metadata.json",
+            ep_dir / f"clip_{clip_idx}_metadata.json",
+        ]
+    return [
+        ep_dir / "translations" / lang / "rollout_render" / f"clip_{clip_idx:02d}_metadata.json",
+    ]
+
+
+def flatten_metadata_tags(meta: dict) -> list[str]:
+    tags = []
+    groups = meta.get("tag_groups", {})
+    if isinstance(groups, dict):
+        for key in ("post_specific", "niche_specific", "broad"):
+            for item in groups.get(key, []) or []:
+                tag = str(item).strip().lstrip("#")
+                if tag and tag not in tags:
+                    tags.append(tag)
+    for item in meta.get("tags", []) or []:
+        tag = str(item).strip().lstrip("#")
+        if tag and tag not in tags:
+            tags.append(tag)
+    return tags
+
+
+def default_short_tags(ep_num: int, title: str = "") -> list[str]:
+    tags = [
+        "AgentStack Daily",
+        "AI agents",
+        "coding agents",
+        "developer tools",
+        "AI news",
+        "software development",
+        "Shorts",
+        f"episode {ep_num}",
+        f"ep{ep_num:03d}",
+    ]
+    lower = title.lower()
+    topic_tags = [
+        ("codex", "Codex"),
+        ("claude", "Claude Code"),
+        ("hermes", "Hermes Agent"),
+        ("mcp", "MCP"),
+        ("local", "local AI"),
+        ("memory", "agent memory"),
+        ("eval", "AI evaluations"),
+    ]
+    for needle, tag in topic_tags:
+        if needle in lower and tag not in tags:
+            tags.append(tag)
+    return tags
+
+
+def ensure_description_hashtags(description: str) -> str:
+    desc = (description or "").strip()
+    if "#Shorts" not in desc and "#shorts" not in desc:
+        desc = f"{desc.rstrip()}\n\n#AgentStackDaily #AIAgents #Shorts".strip()
+    return desc
+
+
+def build_fallback_short_description(ep_num: int, title: str, clip_text: str) -> str:
+    show_notes_url = f"https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/"
+    snippet = re.sub(r"\s+", " ", clip_text or "").strip()
+    if len(snippet) > 220:
+        snippet = snippet[:220].rsplit(" ", 1)[0].rstrip(" ,;:.") + "."
+    lead = title if title else get_episode_title(ep_num)
+    if snippet and snippet.lower() != lead.lower():
+        lead = f"{lead}\n\n{snippet}"
+    return ensure_description_hashtags(
+        f"{lead}\n\nFull episode: {show_notes_url}\nListen everywhere: https://tobyonfitnesstech.com/podcasts/"
+    )
+
+
+def load_metadata_for_clip(ep_num: int, clip_idx: int, lang: str) -> tuple[str, str, list[str]]:
+    """Load localized title and description if available, else fall back to English."""
+    for metadata_path in metadata_paths_for_clip(ep_num, clip_idx, lang):
+        if not metadata_path.exists():
+            continue
         try:
             meta = json.loads(metadata_path.read_text())
-            title = meta.get("title", "").strip()
-            desc = meta.get("description", "").strip()
-            if title:
-                if "#Shorts" not in title and "#shorts" not in title:
-                    title = f"{title} #Shorts"
-                title = title[:100]
+            title = clean_short_title(str(meta.get("title", "")), max_len=72)
+            if title and not title_is_weak(title):
+                desc = ensure_description_hashtags(str(meta.get("description", "")).strip())
                 if not desc:
-                    desc = build_short_description(ep_num)
-                return title, desc
+                    selected = load_selected_clip(ep_num, clip_idx)
+                    desc = build_fallback_short_description(ep_num, title, selected.get("text", ""))
+                tags = flatten_metadata_tags(meta) or default_short_tags(ep_num, title)
+                return title[:100], desc, tags
         except Exception:
             pass
 
     # Fallback to English
-    title = build_short_title(ep_num, clip_idx)
-    description = build_short_description(ep_num)
-    return title, description
+    selected = load_selected_clip(ep_num, clip_idx)
+    title = title_from_clip_text(selected.get("text", ""), get_episode_title(ep_num))
+    description = build_fallback_short_description(ep_num, title, selected.get("text", ""))
+    return title[:100], description, default_short_tags(ep_num, title)
 
 
 def collect_pending_batches(state: dict) -> list[dict]:
@@ -346,21 +534,29 @@ def collect_pending_batches(state: dict) -> list[dict]:
         for clip_idx in (1, 2):
             items = []
             missing_langs = []
+            invalid_langs = []
+            invalid_reasons = {}
             for lang in CHANNELS:
                 clip_path = clip_path_for(ep_num, clip_idx, lang)
                 key = clip_key(ep_num, clip_idx, lang)
+                if key in uploaded:
+                    continue
                 if not clip_path.exists():
                     missing_langs.append(lang)
                     continue
-                if key not in uploaded:
-                    items.append({
-                        "key": key,
-                        "ep_num": ep_num,
-                        "clip_idx": clip_idx,
-                        "lang": lang,
-                        "clip_path": str(clip_path),
-                    })
-            if items:
+                is_valid, reason = validate_clip_path(clip_path)
+                if not is_valid:
+                    invalid_langs.append(lang)
+                    invalid_reasons[lang] = reason
+                    continue
+                items.append({
+                    "key": key,
+                    "ep_num": ep_num,
+                    "clip_idx": clip_idx,
+                    "lang": lang,
+                    "clip_path": str(clip_path),
+                })
+            if items or missing_langs or invalid_langs:
                 batches.append({
                     "batch_key": batch_key(ep_num, clip_idx),
                     "ep_num": ep_num,
@@ -368,7 +564,9 @@ def collect_pending_batches(state: dict) -> list[dict]:
                     "clip_idx": clip_idx,
                     "items": items,
                     "missing_langs": missing_langs,
-                    "complete": not missing_langs,
+                    "invalid_langs": invalid_langs,
+                    "invalid_reasons": invalid_reasons,
+                    "complete": not missing_langs and not invalid_langs,
                 })
     return batches
 
@@ -434,17 +632,23 @@ def build_upload_queue(state: dict, persist_schedule: bool = False) -> list[dict
 
 def note_missing_batch_once(state: dict, batch: dict) -> None:
     missing = batch.get("missing_langs", [])
-    if not missing:
+    invalid = batch.get("invalid_langs", [])
+    if not missing and not invalid:
         return
-    signature = ",".join(missing)
+    signature = f"missing={','.join(missing)};invalid={','.join(invalid)}"
     alerts = state.setdefault("missing_render_alerts", {})
     if alerts.get(batch["batch_key"]) == signature:
         return
     alerts[batch["batch_key"]] = signature
     save_state(state)
+    problems = []
+    if missing:
+        problems.append(f"missing rendered language(s): {','.join(missing)}")
+    if invalid:
+        problems.append(f"invalid rendered language(s): {','.join(invalid)}")
     msg = (
         f"❌ [AgentStack Shorts] EP{batch['ep_str']} clip {batch['clip_idx']} "
-        f"held: missing rendered language(s): {signature}"
+        f"held: {'; '.join(problems)}"
     )
     print(msg)
     discord_build_log(msg)
@@ -457,6 +661,10 @@ def note_missing_batch_once(state: dict, batch: dict) -> None:
 def run_cron(state: dict, catch_up_now: bool = False) -> int:
     queue = build_upload_queue(state, persist_schedule=True)
     if not queue:
+        missing = missing_render_episodes()
+        if missing:
+            alert_missing_renders_once(state, missing)
+            return 1
         print("No pending shorts to upload.")
         return 0
 
@@ -477,9 +685,13 @@ def run_cron(state: dict, catch_up_now: bool = False) -> int:
 
     errors = []
     for batch in due:
-        if batch.get("missing_langs"):
+        if batch.get("missing_langs") or batch.get("invalid_langs"):
             note_missing_batch_once(state, batch)
-            errors.append(f"{batch['batch_key']} missing {','.join(batch['missing_langs'])}")
+            errors.append(
+                f"{batch['batch_key']} incomplete "
+                f"missing={','.join(batch.get('missing_langs', []))} "
+                f"invalid={','.join(batch.get('invalid_langs', []))}"
+            )
             continue
 
         uploaded_urls = []
@@ -490,11 +702,11 @@ def run_cron(state: dict, catch_up_now: bool = False) -> int:
             lang = item["lang"]
             ep_str = f"{ep_num:03d}"
 
-            title, description = load_metadata_for_clip(ep_num, clip_idx, lang)
+            title, description, tags = load_metadata_for_clip(ep_num, clip_idx, lang)
 
             print(f"Uploading EP{ep_str} clip {clip_idx} ({lang}): {title}")
             try:
-                vid_id = upload_short(clip_path, title, description, lang)
+                vid_id = upload_short(clip_path, title, description, lang, tags)
                 url = f"https://www.youtube.com/shorts/{vid_id}"
                 print(f"  ✅ {url}")
                 state.setdefault("uploaded", []).append(item["key"])
@@ -528,6 +740,7 @@ def run_status(state: dict) -> None:
     queue = build_upload_queue(state)
     uploaded = state.get("uploaded", [])
     urls = state.get("urls", {})
+    missing = missing_render_episodes()
 
     print(f"\n=== AgentStack Daily Shorts Status ===")
     print(f"Uploaded: {len(uploaded)}")
@@ -537,10 +750,22 @@ def run_status(state: dict) -> None:
 
     pending_items = sum(len(batch["items"]) for batch in queue)
     print(f"\nPending batches: {len(queue)} ({pending_items} videos)")
+    if missing:
+        span = ", ".join(f"EP{ep:03d}" for ep in missing)
+        print(f"Missing rendered shorts packages: {span}")
     for batch in queue:
         langs = ",".join(item["lang"] for item in batch["items"])
         missing = ",".join(batch.get("missing_langs", []))
-        status = "BUILT" if not missing else f"HELD missing={missing}"
+        invalid = ",".join(batch.get("invalid_langs", []))
+        if missing or invalid:
+            parts = []
+            if missing:
+                parts.append(f"missing={missing}")
+            if invalid:
+                parts.append(f"invalid={invalid}")
+            status = "HELD " + " ".join(parts)
+        else:
+            status = "BUILT"
         print(
             f"  [{status}] EP{batch['ep_num']:03d} clip {batch['clip_idx']} "
             f"({langs}) → {batch['scheduled_at']}"

@@ -9,7 +9,8 @@ set -u
 BUILD_LOG="${SHOW_NOTES_BUILD_LOG:-/tmp/show_notes_build.log}"
 RUN_LOG="${SHOW_NOTES_RESEARCH_LOG:-/tmp/show_notes_research.log}"
 SCRIPT="${SHOW_NOTES_RESEARCH_SCRIPT:-/Users/tobyglennpeters/.openclaw/workspace/openclaw-podcast/scripts/agentstack_morning.sh}"
-POST_BUILD_LOG="${SHOW_NOTES_POST_BUILD_LOG:-/Users/tobyglennpeters/.openclaw/workspace/scripts/utils/post_build_log.py}"
+POST_BUILD_LOG="${SHOW_NOTES_POST_BUILD_LOG:-/Users/tobyglennpeters/.openclaw/scripts/utils/post_build_log.py}"
+SCRIPTS_DIR="$(dirname "$SCRIPT")"
 
 timestamp() {
   date '+%Y-%m-%d %H:%M:%S'
@@ -44,6 +45,23 @@ fail_guard() {
   post_discord_build_log "$message" || true
   exit "$code"
 }
+
+# Pre-flight: routing assertion (locked 2026-06-27, post-EP075 incident).
+# Wipe __pycache__ to defeat any stale .pyc from a half-edited module, then
+# run the assertion. The assertion sends a one-line ping to the operator's
+# Telegram DM (chat id 8319992332) to prove the bot is wired to the right
+# place; if anything is wrong it sends a 🚨 ROUTING MIS-WIRED alert and
+# exits 2, which causes this guard to fail the morning build loudly.
+if [ -d "${SCRIPTS_DIR}/__pycache__" ]; then
+  rm -rf "${SCRIPTS_DIR}/__pycache__" 2>/dev/null || true
+fi
+if [ -f "${SCRIPTS_DIR}/assert_telegram_routing.py" ]; then
+  if ! python3 "${SCRIPTS_DIR}/assert_telegram_routing.py" >> "$RUN_LOG" 2>&1; then
+    append_build_log "show_notes_research_guard: ROUTING MIS-WIRED — Telegram pre-flight failed; ABORTING"
+    fail_guard "Telegram routing pre-flight failed (see $RUN_LOG for the assertion output). The morning pipeline refuses to build until the bot is wired to the operator's DM (chat id 8319992332)." 2
+  fi
+  append_build_log "show_notes_research_guard: Telegram routing pre-flight PASS"
+fi
 
 append_build_log "show_notes_research_guard: starting"
 

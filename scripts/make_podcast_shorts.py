@@ -33,6 +33,20 @@ HOOK_WORDS = {
     'agent','agents','memory','workflow','release','platform','self-hosting','openai'
 }
 LOW_VALUE_TERMS = {'audio','camera','hear','hello','mic','mute','okay guys','ready','test','testing'}
+FRAGMENT_OPENERS = {
+    'and',
+    'are',
+    'because',
+    'being',
+    'but',
+    'is',
+    'or',
+    'that',
+    'then',
+    'was',
+    'were',
+    'which',
+}
 HOOK_PHRASES = {
     'here is why',
     'heres why',
@@ -49,7 +63,13 @@ HOOK_PHRASES = {
     'you should',
 }
 WEAK_OPENERS = (
+    "i'm nova",
+    "i'm alloy",
+    "this is agentstack",
+    "this is agentstack daily",
     'today we',
+    'today,',
+    "you'll hear",
     'in this episode',
     'story one',
     'story two',
@@ -76,6 +96,17 @@ IDEAL_SHORT_HIGH = 52.0
 SOFT_MAX_SHORT_DURATION = 55.0
 HARD_MAX_SHORT_DURATION = 60.0
 SELECTION_OVERLAP_MAX = 3.0
+MIN_SELECTION_START_SEC = 90.0
+INTRO_TEXT_PATTERNS = (
+    "i'm nova",
+    "i'm alloy",
+    "this is agentstack",
+    "today,",
+    "you'll hear",
+    "here's the map",
+    "here is the map",
+    "we'll start",
+)
 
 
 @dataclass
@@ -147,6 +178,23 @@ def hook_strength(text: str) -> tuple[float, list[str]]:
         score -= 0.7
         reasons.append('hook_clausey')
     return score, reasons
+
+
+def fragment_start_penalty(text: str, starts_cleanly: bool) -> tuple[float, list[str]]:
+    stripped = text.strip()
+    tokens = word_tokens(stripped)
+    reasons: list[str] = []
+    penalty = 0.0
+    if not starts_cleanly:
+        penalty += 8.5
+        reasons.append('not_sentence_start')
+    if stripped[:1].islower():
+        penalty += 2.5
+        reasons.append('lowercase_start')
+    if tokens and tokens[0] in FRAGMENT_OPENERS:
+        penalty += 5.5
+        reasons.append(f'fragment_opener={tokens[0]}')
+    return penalty, reasons
 
 
 def duration_fit_score(duration: float) -> float:
@@ -335,6 +383,7 @@ def score_window(
     question_bonus = text.count('?')
     emphasis_bonus = text.count('!') + len(re.findall(r'\b(no|never|always|literally|actually|finally|exactly)\b', text.lower()))
     low_value_hits = sum(1 for term in LOW_VALUE_TERMS if term in text.lower())
+    intro_hits = sum(1 for term in INTRO_TEXT_PATTERNS if term in text.lower())
     speech_density = len(tokens) / max(duration, 1.0)
     probs = [float(word.get('probability', 0.0)) for segment in segments for word in (segment.get('words') or []) if word.get('probability') is not None]
     confidence = float(np.mean(probs)) if probs else 0.0
@@ -345,7 +394,7 @@ def score_window(
     intro_penalty = 0.0  # keep strong openers in play for podcast shorts
     duration_fit = duration_fit_score(duration)
     repetition_penalty = max(0.0, top_word_ratio - 0.22) * 26.0 + max(0.0, top_bigram_ratio - 0.14) * 44.0
-    sentence_boundary_penalty = 0.0 if starts_cleanly else 4.8
+    sentence_boundary_penalty, boundary_reasons = fragment_start_penalty(text, starts_cleanly)
     score = (
         unique_ratio * 7.0
         + hook_hits * 1.25
@@ -360,6 +409,7 @@ def score_window(
         + open_score * 2.2
         + duration_fit * 1.8
         - low_value_hits * 2.2
+        - intro_hits * 6.0
         - intro_penalty
         - repetition_penalty
         - sentence_boundary_penalty
@@ -375,6 +425,9 @@ def score_window(
         f'repeat={top_word_ratio:.2f}/{top_bigram_ratio:.2f}',
         f'energy={energy_mean:.3f}/{energy_p90:.3f}',
         f'confidence={confidence:.2f}',
+        f'intro_hits={intro_hits}',
+        f'boundary_penalty={sentence_boundary_penalty:.1f}',
+        *boundary_reasons,
         *open_reasons,
     ]
     return score, reasons
@@ -394,7 +447,9 @@ def content_similarity(a: str, b: str) -> float:
 
 def choose_candidates(candidates: list[Candidate], num_clips: int) -> list[Candidate]:
     picked: list[Candidate] = []
-    ranked = sorted(candidates, key=lambda item: item.score, reverse=True)
+    preferred = [candidate for candidate in candidates if candidate.start >= MIN_SELECTION_START_SEC]
+    pool = preferred if len(preferred) >= num_clips else candidates
+    ranked = sorted(pool, key=lambda item: item.score, reverse=True)
     for candidate in ranked:
         if any(overlap(candidate, existing) > SELECTION_OVERLAP_MAX for existing in picked):
             continue
