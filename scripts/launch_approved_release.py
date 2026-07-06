@@ -181,6 +181,15 @@ def launch(args: argparse.Namespace) -> int:
             token=rel.load_env_key("DISCORD_BOT_TOKEN"),
         )
         rel.save_state(ep_num, state)
+    if not state.get("audio_approval", {}).get("approved"):
+        state = approval_gate.mark_audio_approved_from_recent_telegram_text(
+            state,
+            audio_path=audio_path,
+            ep_num=ep_num,
+            approver=args.approver,
+        )
+        if state.get("audio_approval", {}).get("approved"):
+            rel.save_state(ep_num, state)
     approval_gate.assert_audio_approved(state, audio_path=audio_path, ep_num=ep_num)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     log_path = LOG_DIR / f"ep{ep_str}_approved_release_{ts}.log"
