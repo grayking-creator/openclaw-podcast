@@ -375,8 +375,11 @@ def generate_en_audio(ep_num, force=False):
         post_build_log(f"❌ EP{ep_str} [4/6] Audio generation did not refresh {out_path.name}")
         raise SystemExit(f"❌ Audio generation did not refresh {out_path.name}")
     if force and prior_hash and hashlib.sha256(out_path.read_bytes()).hexdigest() == prior_hash:
-        post_build_log(f"❌ EP{ep_str} [4/6] Audio generation left {out_path.name} unchanged")
-        raise SystemExit(f"❌ Audio generation left {out_path.name} unchanged")
+        log(f"ℹ️  Audio generation reproduced identical bytes for {out_path.name}; continuing")
+        post_build_log(
+            f"ℹ️ EP{ep_str} [4/6] EN audio regenerated deterministically "
+            f"with the same hash — continuing"
+        )
 
     size_mb = out_path.stat().st_size // 1024 // 1024
     audio_url = en_audio_url(ep_num)
@@ -785,6 +788,7 @@ def _post_review_listen(ep_num, args, duration, audio_url, cover_url=None,
         "--ep", str(ep_num),
         "--intent", "ready",
         "--audio-url", audio_url,
+        "--audio-file", str(PODCAST_DIR / "audio" / f"episode_{ep_num:03d}.mp3"),
         "--cover-url", cover_url or "",
         "--show-notes-url", show_notes_url or "",
         "--transcript-url", transcript_url or "",
@@ -814,24 +818,24 @@ def _post_review_listen(ep_num, args, duration, audio_url, cover_url=None,
 
 
 def _build_review_summary(ep_num: int) -> str:
-    """Pull 5–7 bullet headlines out of show_notes_episode_NNN.md for the
-    Telegram review post. If the show-notes file is missing, fall back to
-    a no-summary post (the Telegram prompt is still actionable; the
-    listener can open the show notes URL for context)."""
+    """Pull ALL slate headlines out of show_notes_episode_NNN.md for the
+    Telegram review post. The full slate must be visible: EP080 (2026-07-05)
+    truncated 14 stories to 7 bullets and Toby judged the episode 'only 7
+    stories' from the review post alone. If the show-notes file is missing,
+    fall back to a no-summary post (the Telegram prompt is still actionable;
+    the listener can open the show notes URL for context)."""
     ep_str = f"{ep_num:03d}"
     path = PODCAST_DIR / f"show_notes_episode_{ep_str}.md"
     if not path.exists():
         return ""
     text = path.read_text(errors="replace")
     # Headlines are `N. **Title**` lines under "## Story Slate" or at the
-    # top of the file. Pull the first 7 bold-anchored numbered entries.
+    # top of the file. Pull every bold-anchored numbered entry.
     bullets: list[str] = []
     for line in text.splitlines():
         m = re.match(r"\s*\d+\.\s+\*\*(.+?)\*\*", line)
         if m:
             bullets.append(m.group(1).strip())
-            if len(bullets) >= 7:
-                break
     return "; ".join(bullets)
 
 

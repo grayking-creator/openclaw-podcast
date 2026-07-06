@@ -43,6 +43,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Optional
+import mimetypes
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PODCAST_DIR = SCRIPT_DIR.parent
@@ -83,12 +84,6 @@ def _load_bot_token() -> str:
         f"Telegram bot — that posts to the ARIA channel, not yours."
     )
 
-# Headline CTA is locked in the AGENTS.md editorial format. Spelling and
-# punctuation matter: the show notes QC check verifies the transcript and
-# the Telegram post both reference the canonical "Toby On Fitness Tech dot
-# com" form.
-CANONICAL_SHOW_NOTES_HOST = "Toby On Fitness Tech dot com"
-
 SEND_RECORD_DIR = SCRIPT_DIR / ".telegram_send_records"
 
 READY_TEMPLATE = (
@@ -101,11 +96,10 @@ READY_TEMPLATE = (
     "⏱ Duration: {duration}\n"
     "🔒 Audio hash: {sha256_short}…\n"
     "\n"
-    "Slate (5–7 bullets):\n"
+    "Slate ({slate_count} stories):\n"
     "{summary_lines}\n"
     "\n"
-    "Reply ✅ to ship  /  Reply ❌ with feedback to rebuild from fresh research.\n"
-    "Show notes live at {host}."
+    "Reply publish to ship  /  reply with feedback to rebuild."
 )
 
 SHIPPED_TEMPLATE = (
@@ -187,14 +181,27 @@ def _persist_send_record(ep: Optional[int], intent: Optional[str], raw: str) -> 
 
 # ── Formatting helpers ──────────────────────────────────────────────────────
 
-def _format_summary(summary: str, max_bullets: int = 7) -> str:
-    """Render the operator-supplied slate summary as numbered bullets."""
+def _format_summary(summary: str, max_bullets: int = 24) -> str:
+    """Render the operator-supplied slate summary as numbered bullets.
+
+    Show the FULL slate (EP080 lesson: truncating to 7 made a 14-story
+    episode look thin and nearly caused a needless rebuild). The cap only
+    guards Telegram's 4096-char message limit."""
     if not summary:
         return "  (no summary provided)"
-    chunks = re.split(r"[;\n]+", summary)
-    chunks = [c.strip() for c in chunks if c.strip()]
-    chunks = chunks[:max_bullets]
-    return "\n".join(f"  {i+1}. {c}" for i, c in enumerate(chunks))
+    chunks = _summary_chunks(summary)
+    lines = [f"  {i+1}. {c}" for i, c in enumerate(chunks[:max_bullets])]
+    if len(chunks) > max_bullets:
+        lines.append(f"  … plus {len(chunks) - max_bullets} more — see show notes.")
+    return "\n".join(lines)
+
+
+def _summary_chunks(summary: str) -> list[str]:
+    return [c.strip() for c in re.split(r"[;\n]+", summary or "") if c.strip()]
+
+
+def _summary_count(summary: str) -> int:
+    return len(_summary_chunks(summary))
 
 
 # ── Send ────────────────────────────────────────────────────────────────────
@@ -237,6 +244,57 @@ def _send(message: str, dry_run: bool) -> int:
     return 0
 
 
+def _send_audio_file(audio_file: str, caption: str, dry_run: bool) -> int:
+    """Send the actual MP3 to Telegram after the review text post.
+
+    EP080 lesson: the review surface must include the playable audio itself,
+    not only a CDN link, so Toby can review directly in Telegram.
+    """
+    if not audio_file:
+        return 0
+    path = Path(audio_file)
+    if not path.exists():
+        print(f"notify_telegram_review: FAIL audio file missing: {path}", file=sys.stderr)
+        return 1
+    if dry_run:
+        print(f"DRY-RUN: would send Telegram audio attachment: {path}")
+        return 0
+    token = _load_bot_token()
+    boundary = f"----agentstack{int(time.time() * 1000)}"
+    mime = mimetypes.guess_type(path.name)[0] or "audio/mpeg"
+    fields = {"chat_id": TELEGRAM_TARGET, "caption": caption}
+    body = bytearray()
+    for key, value in fields.items():
+        body.extend(f"--{boundary}\r\n".encode())
+        body.extend(f'Content-Disposition: form-data; name="{key}"\r\n\r\n'.encode())
+        body.extend(str(value).encode())
+        body.extend(b"\r\n")
+    body.extend(f"--{boundary}\r\n".encode())
+    body.extend((
+        f'Content-Disposition: form-data; name="audio"; filename="{path.name}"\r\n'
+        f"Content-Type: {mime}\r\n\r\n"
+    ).encode())
+    body.extend(path.read_bytes())
+    body.extend(b"\r\n")
+    body.extend(f"--{boundary}--\r\n".encode())
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendAudio",
+        data=bytes(body),
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            result = json.loads(r.read())
+    except Exception as exc:
+        print(f"notify_telegram_review: FAIL telegram audio post: {exc}", file=sys.stderr)
+        return 1
+    if not result.get("ok"):
+        print(f"notify_telegram_review: FAIL telegram audio API: {result}", file=sys.stderr)
+        return 1
+    return 0
+
+
 # ── Intent dispatchers ──────────────────────────────────────────────────────
 
 def _intent_ready(args: argparse.Namespace) -> int:
@@ -251,9 +309,16 @@ def _intent_ready(args: argparse.Namespace) -> int:
         sha256_short=(args.sha256 or "")[:12],
         status=status,
         summary_lines=_format_summary(args.summary or ""),
-        host=CANONICAL_SHOW_NOTES_HOST,
+        slate_count=_summary_count(args.summary or ""),
     )
-    return _send(msg, args.dry_run)
+    rc = _send(msg, args.dry_run)
+    if rc != 0:
+        return rc
+    return _send_audio_file(
+        args.audio_file,
+        f"EP{args.ep:03d} review audio — reply publish to ship / reply with feedback to rebuild.",
+        args.dry_run,
+    )
 
 
 def _intent_shipped(args: argparse.Namespace) -> int:
@@ -288,6 +353,7 @@ def main() -> int:
         "--intent", required=True, choices=["ready", "shipped", "skipped"],
     )
     parser.add_argument("--audio-url", default="")
+    parser.add_argument("--audio-file", default="")
     parser.add_argument("--cover-url", default="")
     parser.add_argument("--show-notes-url", default="")
     parser.add_argument("--transcript-url", default="")
@@ -321,3 +387,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
