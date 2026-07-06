@@ -13,7 +13,7 @@ Uses OpenClaw's configured OpenAI image provider to generate a square visual
 anchor, then writes a small Pillow draw_art() module that composites that image
 into the standard cover renderer.
 """
-import os, sys, subprocess, re, textwrap, importlib.util, traceback
+import os, sys, subprocess, re, textwrap, importlib.util, time, traceback
 from pathlib import Path
 
 PODCAST_DIR = Path(__file__).parent.parent
@@ -23,6 +23,9 @@ ART_DIR.mkdir(exist_ok=True)
 IMAGE_DIR   = PODCAST_DIR / "images"
 IMAGE_DIR.mkdir(exist_ok=True)
 DEFAULT_OPENAI_IMAGE_MODEL = "openai/gpt-image-2"
+# Tried in order after the primary model fails all its attempts.
+# minimax/image-01: no --size (use --aspect-ratio), ignores png hint, always writes JPEG.
+FALLBACK_IMAGE_MODELS = ["minimax/image-01"]
 
 
 def find_show_notes(ep_num):
@@ -112,23 +115,51 @@ def build_prompt(ep_num, show_notes_text):
     """).strip()
 
 
-def generate_openai_image(prompt, ep_num):
-    out_path = IMAGE_DIR / f"episode_{ep_num:03d}_openai_art.png"
-    model = os.getenv("OPENAI_EPISODE_ART_IMAGE_MODEL", DEFAULT_OPENAI_IMAGE_MODEL)
+def _image_cmd_and_path(model, prompt, ep_num):
+    provider = model.split("/", 1)[0]
+    if provider == "minimax":
+        out_path = IMAGE_DIR / f"episode_{ep_num:03d}_{provider}_art.jpg"
+        extra = ["--aspect-ratio", "1:1"]
+    else:
+        out_path = IMAGE_DIR / f"episode_{ep_num:03d}_{provider}_art.png"
+        extra = ["--size", "1024x1024", "--output-format", "png"]
     cmd = [
         "openclaw", "infer", "image", "generate",
         "--model", model,
-        "--size", "1024x1024",
-        "--output-format", "png",
+        *extra,
         "--output", str(out_path),
         "--timeout-ms", "300000",
         "--prompt", prompt,
     ]
-    result = subprocess.run(cmd, cwd=str(PODCAST_DIR), capture_output=True, text=True, timeout=330)
-    if result.returncode != 0 or not out_path.exists() or out_path.stat().st_size < 100_000:
-        detail = (result.stderr or result.stdout or "no output").strip()[:1200]
-        raise RuntimeError(f"OpenAI image generation failed via OpenClaw: {detail}")
-    return out_path
+    return cmd, out_path
+
+
+def generate_episode_image(prompt, ep_num):
+    primary = os.getenv("OPENAI_EPISODE_ART_IMAGE_MODEL", DEFAULT_OPENAI_IMAGE_MODEL)
+    candidates = [(primary, 3)] + [(m, 2) for m in FALLBACK_IMAGE_MODELS if m != primary]
+    failures = []
+    for model, attempts in candidates:
+        cmd, out_path = _image_cmd_and_path(model, prompt, ep_num)
+        last_detail = "no output"
+        for attempt in range(1, attempts + 1):
+            try:
+                result = subprocess.run(cmd, cwd=str(PODCAST_DIR), capture_output=True, text=True, timeout=330)
+                if result.returncode == 0 and out_path.exists() and out_path.stat().st_size >= 100_000:
+                    return out_path
+                last_detail = (result.stderr or result.stdout or "no output").strip()[:1200]
+            except subprocess.TimeoutExpired:
+                last_detail = f"openclaw infer timed out after 330s (attempt {attempt}/{attempts})"
+            if attempt < attempts:
+                delay = 15 * attempt
+                print(f"  [!] {model} attempt {attempt}/{attempts} failed: {last_detail.splitlines()[-1] if last_detail else last_detail}")
+                print(f"      Retrying in {delay}s...")
+                time.sleep(delay)
+        failures.append(f"{model}: {last_detail}")
+        print(f"  [!] {model} exhausted after {attempts} attempts; trying next provider...")
+    raise RuntimeError(
+        "Episode art image generation failed on all providers via OpenClaw: "
+        + " | ".join(failures)
+    )
 
 
 def module_for_image(ep_num, image_name):
@@ -194,7 +225,7 @@ def test_module(code_str, ep_num):
         tmp.unlink(missing_ok=True)
 
 
-def generate(ep_num, retry=2):
+def generate(ep_num):
     show_notes = find_show_notes(ep_num)
     if not show_notes:
         print(f"[!] No show notes found for EP{ep_num:03d}. Aborting.")
@@ -202,8 +233,8 @@ def generate(ep_num, retry=2):
 
     print(f"[EP{ep_num:03d}] Generating art module...")
     prompt = build_prompt(ep_num, show_notes)
-    image_path = generate_openai_image(prompt, ep_num)
-    print(f"  OpenAI image generated: {image_path.name} ({image_path.stat().st_size} bytes)")
+    image_path = generate_episode_image(prompt, ep_num)
+    print(f"  Image generated: {image_path.name} ({image_path.stat().st_size} bytes)")
     code = module_for_image(ep_num, image_path.name)
 
     ok, err = test_module(code, ep_num)
