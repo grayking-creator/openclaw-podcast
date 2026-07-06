@@ -417,6 +417,40 @@ def derive_cover_lines_from_title(title):
     return fallback_cover_lines(title)
 
 
+def _enforce_title_shape(title, ep_num, prefix, fallback_title):
+    """Deterministically rebuild the canonical '{prefix} {ep_num}: {body}' title.
+
+    Models drop or mangle the boilerplate part (EP080 HI, 2026-07-05: Gemini
+    returned 'एपिसोड GPT-5.5 …' with no episode number, so the translation QC
+    anchor '{prefix}\\s+{ep_num}' never matched and the release lane failed
+    3/3 attempts). The translated *body* is the model's job; the prefix and
+    number are ours. Strips any prefix/number variants the model emitted,
+    including Devanagari digits, then prepends the canonical form.
+    """
+    body = collapse_ws(title or "")
+    known_prefixes = "|".join(
+        re.escape(p) for p in sorted(set(TITLE_PREFIXES.values()) | {"Episode"})
+    )
+    # Boilerplate the model may have included: a known episode-word followed by
+    # a number and/or separator, or a bare leading number WITH separator. An
+    # episode-word with neither number nor separator is kept — it can open a
+    # legitimate title body (e.g. 'Folge den Daten'), as can a bare number
+    # without separator (e.g. a version like '2026.6.11 …').
+    prefix_re = re.compile(
+        rf"^(?:{known_prefixes})\s*[#.]?\s*(?:[0-9०-९]+\s*[:\-–—]?|[:\-–—])\s*",
+        re.IGNORECASE,
+    )
+    bare_num_re = re.compile(r"^[0-9०-९]{1,4}\s*[:\-–—]\s*")
+    for _ in range(3):
+        stripped = bare_num_re.sub("", prefix_re.sub("", body, count=1), count=1).strip()
+        if stripped == body:
+            break
+        body = stripped
+    if not body:
+        body = fallback_title
+    return f"{prefix} {ep_num}: {body}"
+
+
 def normalize_translated_metadata(meta, ep_num, prefix, fallback_title, fallback_tagline):
     normalized = dict(meta or {})
 
@@ -433,7 +467,9 @@ def normalize_translated_metadata(meta, ep_num, prefix, fallback_title, fallback
             return ""
         return text
 
-    title = clean_or_empty(normalized.get("title", "")) or f"{prefix} {ep_num}: {fallback_title}"
+    title = _enforce_title_shape(
+        clean_or_empty(normalized.get("title", "")), ep_num, prefix, fallback_title
+    )
     normalized["title"] = title
     normalized["description"] = clean_or_empty(normalized.get("description", "")) or fallback_tagline or fallback_title
 
@@ -1848,7 +1884,29 @@ def phase_translated_feeds(ep_num, state, pub_date, langs=None):
         prefix = TITLE_PREFIXES[lang]
 
         if f"<itunes:episode>{ep_num}</itunes:episode>" in feed_text:
-            log(f"  ⏭  {lang.upper()} feed already has EP{ep_num}")
+            # Entry exists — but only skip if it carries the canonical
+            # '{prefix} {ep_num}' anchor that check_episode_translations.py
+            # greps for. EP080 HI (2026-07-05): a model-mangled title with no
+            # episode number was inserted, this skip fired on every retry, and
+            # the lane failed 3/3 with the same QC error. Patch the title in
+            # place instead of skipping so retries actually converge.
+            if re.search(rf"{re.escape(prefix)}\s+{ep_num}\b", feed_text):
+                log(f"  ⏭  {lang.upper()} feed already has EP{ep_num}")
+                continue
+            meta = normalize_translated_metadata(
+                translations.get(lang, {}).get("meta", {}),
+                ep_num,
+                prefix,
+                en_meta["episode_title"],
+                en_meta["description"],
+            )
+            translations.setdefault(lang, {})["meta"] = meta
+            state["translations"] = translations
+            log(
+                f"  ♻️  {lang.upper()} feed has EP{ep_num} but the title is "
+                f"missing the '{prefix} {ep_num}' anchor — patching in place"
+            )
+            update_translated_feed_entry(ep_num, lang, title=meta.get("title"))
             continue
 
         lang_audio = PODCAST_DIR / "audio" / f"episode_{ep_str}_{lang}.mp3"
