@@ -42,11 +42,18 @@ DEFAULT_MODEL_SPEC = (
     # Removed from the old list: google-2/gemini-2.5-flash (404),
     # openai/gpt-5.4-mini (connection error), anthropic/claude-sonnet-4-6 (no
     # API key for this agent).
-    #   tier 4 (added 2026-07-04): exo:auto — the local exo cluster ring (this
+    #   tier 4 (added 2026-07-05, EP080 incident): freecall free-model routes —
+    #   minimax (MiniMax-M2.7, 200k ctx long-form), nvidia (DeepSeek V3.2),
+    #   groq (Llama 3.3 70B). These use the OpenClaw freecall runner with its
+    #   own key resolution, so they survive a same-day outage of the openclaw
+    #   infer providers above. (mistral omitted 2026-07-05: no resolvable key
+    #   on this machine — probe `freecall mistral` before re-adding.)
+    #   tier 5 (added 2026-07-04): exo:auto — the local exo cluster ring (this
     #   Mac + the DGX node, OpenAI-compatible API). Last resort so the morning
     #   still produces a transcript on local weights when every cloud route is
     #   down or quota'd at 6:30 AM.
-    or "minimax/MiniMax-M3,google/gemini-3-flash-preview,nvidia/nemotron-3-super-120b-a12b,openai/gpt-5.5,exo:auto"
+    or "minimax/MiniMax-M3,google/gemini-3-flash-preview,nvidia/nemotron-3-super-120b-a12b,openai/gpt-5.5,"
+       "freecall:minimax,freecall:nvidia,freecall:groq,exo:auto"
 )
 
 # Substrings that mean "this route is unusable right now" (provider/transport/
@@ -259,7 +266,43 @@ def _strip_state_banner(text: str) -> str:
     return "\n".join(keep).strip()
 
 
+FREECALL_BIN = "/Users/tobyglennpeters/.openclaw/bin/freecall"
+
+
+def _run_freecall(spec: str, prompt: str, timeout: int) -> str:
+    """Run a prompt through the freecall runner (free-model providers).
+
+    spec is the part after the `freecall:` prefix — a provider/alias
+    (minimax, mistral, groq, …), `best` for the cross-provider waterfall,
+    or an explicit model id containing `/`. Long-form output needs the
+    raised max-tokens budget (reasoning models truncate below 8192).
+    """
+    cmd = [FREECALL_BIN, spec, prompt, "--timeout", str(timeout), "--max-tokens", "16000"]
+    try:
+        proc = subprocess.run(
+            cmd, cwd=str(PODCAST_DIR), capture_output=True, text=True,
+            timeout=timeout + 60,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"LLM request failed: freecall {spec} timed out after {timeout}s") from exc
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "no output").strip()
+        raise RuntimeError(f"LLM request failed via freecall {spec}: {detail[:1600]}")
+    text = proc.stdout.strip()
+    # First line is the routing banner, e.g. "[via llama-3.3-70b-versatile]".
+    text = re.sub(r"^\[via [^\]]+\]\s*", "", text)
+    # Reasoning models (MiniMax M2.7, DeepSeek) may emit a <think> block.
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    text = re.sub(r"^```(?:markdown|md)?\s*", "", text.strip(), flags=re.IGNORECASE)
+    text = re.sub(r"\s*```$", "", text)
+    if not text.strip():
+        raise RuntimeError(f"LLM request failed: freecall {spec} returned no text output")
+    return text.strip() + "\n"
+
+
 def run_model(prompt: str, model: str, timeout: int) -> str:
+    if model.startswith("freecall:"):
+        return _run_freecall(model.split(":", 1)[1], prompt, timeout)
     if model.startswith("exo:"):
         # Local exo cluster route (added 2026-07-04). Reuses the builder's
         # HTTP helper; a full transcript needs a large output budget. Route
