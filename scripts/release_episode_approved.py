@@ -79,6 +79,12 @@ M4_SSH_KEY = Path.home() / ".ssh/id_ed25519"
 M4_PODCAST_DIR = Path("/Users/toby/podcast_gen")
 # First M4_LANG_SLOTS languages in LANGS order run on M4; the rest run locally on M3
 M4_LANG_SLOTS = 2
+# Concurrent LLM text translations. The lanes' 75-minute wall-clock (EP080)
+# was sequential translation, not TTS — translation is API-bound, so bounded
+# concurrency is the lever. 2 keeps the local Claude gateway / Gemini
+# fallback chain comfortable; set TRANSLATION_CONCURRENCY=1 to restore the
+# old strictly-sequential behavior.
+TRANSLATION_CONCURRENCY = max(1, int(os.environ.get("TRANSLATION_CONCURRENCY", "2")))
 
 STEP_SETUP = "setup"
 STEP_EN_PUBLISH = "lane_en_publish"
@@ -150,6 +156,22 @@ def save_state(ep_num: int, state: dict[str, Any]) -> None:
     with STATE_SAVE_LOCK:
         orchestrator_meta(state)["updated_at"] = utc_now()
         rel.save_state(ep_num, state)
+
+
+# rel.phase_translate calls rel.save_state internally; with translations now
+# running concurrently those writes must be serialized too. Lock ordering is
+# always STATE_SAVE_LOCK → _REL_SAVE_LOCK (save_state above), never the
+# reverse, so this cannot deadlock.
+_REL_SAVE_LOCK = threading.Lock()
+_rel_save_state_unlocked = rel.save_state
+
+
+def _locked_rel_save_state(ep_num, state):
+    with _REL_SAVE_LOCK:
+        _rel_save_state_unlocked(ep_num, state)
+
+
+rel.save_state = _locked_rel_save_state
 
 
 def mark_run_status(
@@ -658,17 +680,20 @@ def _tts_cover_publish(
 
 def translation_lane(ep_num: int, state: dict[str, Any], pub_date: str) -> dict[str, Any]:
     """
-    Incremental per-language pipeline:
-      For each language in order:
-        1. Translate (main thread, sequential — avoids API hammering)
-        2. Immediately dispatch TTS → cover → publish to a thread pool
-           • First M4_LANG_SLOTS languages get M4 (non-blocking semaphore acquire)
-           • Overflow falls through to M3 (local)
-      All TTS jobs run concurrently while translation of the next language proceeds.
+    Incremental per-language pipeline, fully parallel per language:
+      Each language runs as one worker (translate → TTS → cover → publish):
+        1. Translate — bounded by TRANSLATION_CONCURRENCY (default 2), the
+           EP080 lesson: strictly-sequential translation made the lane
+           75 minutes of wall-clock while TTS threads sat idle
+        2. TTS — first-come M4 slots (non-blocking semaphore), overflow M3
+        3. Cover + publish — serialized under shared_lock (feed/git writes)
+      State: translations merge into shared_state per-language under
+      shared_lock; rel.save_state is lock-wrapped at module level.
     """
     lane_state = copy.deepcopy(state)
     try:
-        log("[ LANE / TRANSLATIONS ] Starting (incremental per-language)...")
+        log(f"[ LANE / TRANSLATIONS ] Starting (parallel per-language, "
+            f"translate concurrency {TRANSLATION_CONCURRENCY})...")
 
         already_published = set(lane_state.get("incremental_translations_published", []))
         pending = [l for l in rel.LANGS if l not in already_published]
@@ -682,35 +707,35 @@ def translation_lane(ep_num: int, state: dict[str, Any], pub_date: str) -> dict[
         shared_lock = threading.Lock()
         # Semaphore gates M4 usage: up to M4_LANG_SLOTS concurrent TTS jobs on M4
         m4_sem = threading.Semaphore(M4_LANG_SLOTS)
+        # Semaphore bounds concurrent LLM translation calls
+        translate_sem = threading.Semaphore(TRANSLATION_CONCURRENCY)
 
-        tts_futures: dict[str, Any] = {}
+        def _language_lane(lang: str) -> None:
+            with shared_lock:
+                snap = copy.deepcopy(shared_state[0])
+            if not snap.get("translations", {}).get(lang, {}).get("done"):
+                with translate_sem:
+                    heartbeat(ep_num, snap, f"{STEP_TRANSLATIONS}:{lang}:translate")
+                    post_build_log(ep_num, f"⏳ [{lang.upper()}] translating...")
+                    snap = rel.phase_translate(ep_num, snap, langs=[lang])
+                with shared_lock:
+                    current = shared_state[0]
+                    current.setdefault("translations", {})[lang] = copy.deepcopy(
+                        snap.get("translations", {}).get(lang, {})
+                    )
+                    save_state(ep_num, current)
+                    shared_state[0] = current
+                post_build_log(ep_num, f"✅ [{lang.upper()}] text ready")
+            _tts_cover_publish(
+                ep_num, lang, pub_date, snap,
+                m4_sem, shared_state, shared_lock,
+            )
 
         with ThreadPoolExecutor(max_workers=len(pending)) as pool:
-            for lang in pending:
-                # ── Translation (main thread, sequential) ──────────────────
-                if not lane_state.get("translations", {}).get(lang, {}).get("done"):
-                    heartbeat(ep_num, lane_state, f"{STEP_TRANSLATIONS}:{lang}:translate")
-                    post_build_log(ep_num, f"⏳ [{lang.upper()}] translating...")
-                    lane_state = rel.phase_translate(ep_num, lane_state, langs=[lang])
-                    # Propagate translated state into shared state
-                    with shared_lock:
-                        shared_state[0]["translations"] = copy.deepcopy(
-                            lane_state.get("translations", {})
-                        )
-                    save_state(ep_num, lane_state)
-                    post_build_log(ep_num, f"✅ [{lang.upper()}] text ready")
+            lane_futures = {lang: pool.submit(_language_lane, lang) for lang in pending}
 
-                # ── Dispatch TTS immediately (thread pool) ─────────────────
-                snap = copy.deepcopy(lane_state)
-                tts_futures[lang] = pool.submit(
-                    _tts_cover_publish,
-                    ep_num, lang, pub_date, snap,
-                    m4_sem, shared_state, shared_lock,
-                )
-
-            # ── Wait for all TTS/publish threads ───────────────────────────
             errors = []
-            for lang, fut in tts_futures.items():
+            for lang, fut in lane_futures.items():
                 try:
                     fut.result()
                 except Exception as e:

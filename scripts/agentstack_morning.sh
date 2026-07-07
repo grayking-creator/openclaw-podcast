@@ -216,6 +216,17 @@ _SLATE_COUNT=$(grep -Ec '^\s*[0-9]+\.\s+\*\*' "$DRAFT_PATH" 2>/dev/null || echo 
 alert "🛠 EP${NEXT_EP_PAD} show notes QC-passed (${_SLATE_COUNT} stories) — transcript + audio generating.
 ${DRAFT_PATH}"
 
+# ── Stage 5.5: pre-generate bespoke art in the background ───────────────────
+#    Art depends only on show notes, so it overlaps the transcript stage.
+#    build_episode stage 5 finds the module ready (or regenerates with its
+#    own retries if this background attempt failed) — either way is safe.
+_ART_BG_PID=""
+if [ ! -f "${SCRIPT_DIR}/episode_art/episode_${NEXT_EP_PAD}_art.py" ]; then
+  python3 "${SCRIPT_DIR}/generate_episode_art.py" "$_NEXT_EP" >> "$RUN_LOG" 2>&1 &
+  _ART_BG_PID=$!
+  blog "agentstack_morning: EP${NEXT_EP_PAD} stage 5.5 — bespoke art pre-generating in background (pid ${_ART_BG_PID})"
+fi
+
 # ── Stage 6: transcript generation (model + check_episode.py QC loop) ────────
 blog "agentstack_morning: EP${NEXT_EP_PAD} stage 6 — generate transcript"
 if ! python3 "${SCRIPT_DIR}/generate_episode_transcript.py" "$_NEXT_EP" >> "$RUN_LOG" 2>&1; then
@@ -225,6 +236,12 @@ if [ ! -s "$TRANSCRIPT_PATH" ]; then
   fail_stage "transcript" "no transcript artifact at episodes/episode_${NEXT_EP_PAD}_transcript.md"
 fi
 blog "OK EP${NEXT_EP_PAD}: transcript written and QC-passed"
+
+# Close the art race before the build: if the background pre-generation is
+# still running, wait for it so build_episode never generates concurrently.
+if [ -n "$_ART_BG_PID" ]; then
+  wait "$_ART_BG_PID" 2>/dev/null || blog "agentstack_morning: WARN art pre-generation failed; build_episode will regenerate"
+fi
 
 # ── Stage 7: full episode build — audio, cover art, CDN, Discord review post ─
 blog "agentstack_morning: EP${NEXT_EP_PAD} stage 7 — build episode (audio + art + CDN + review post)"
