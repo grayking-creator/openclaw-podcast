@@ -115,6 +115,18 @@ def build_prompt(
     current_transcript: str = "",
 ) -> str:
     ep_str = f"{ep_num:03d}"
+    if current_transcript.strip() and len(show_notes) > 24000:
+        # Revision prompts embed the full current draft, which already
+        # carries every story. Adding the full ~70KB show-notes research on
+        # top pushed revision prompts past the MiniMax M3 provider's ~90KB
+        # request ceiling — M3 returned "No text output" on every revision
+        # while fresh drafts worked, masquerading as a provider outage
+        # (EP082, 2026-07-07). Keep the slate/early research for grounding;
+        # the draft below is the authoritative story list.
+        show_notes = show_notes[:24000] + (
+            "\n\n[Show notes truncated for this revision pass — the current "
+            "transcript below already contains every story.]"
+        )
     revision_block = ""
     if listener_feedback.strip():
         current_block = ""
