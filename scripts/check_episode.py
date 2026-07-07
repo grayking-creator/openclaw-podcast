@@ -504,11 +504,20 @@ def run_checks(path):
     # - EP079 (2026-07-04): floor-less rule produced a 19-min / 2,898-word
     #   show with 10 stories at 150-160 words each. Rejected. Floor is back.
     #
-    # Floor (4,800) and ceiling (5,400) are now BOTH enforced. Anything
+    # Floor (4,800) and ceiling (5,700) are now BOTH enforced. Anything
     # below 4,800 is too short to cover a 14-story slate + radar + spotlight
-    # + queue; anything above 5,400 is the EP072 drone pattern.
+    # + queue; anything well above ~5,700 trends toward the EP072 drone
+    # pattern (8,052 words / 55 min).
+    #
+    # Ceiling widened 5,400 → 5,700 on 2026-07-07 (EP082, editorial call
+    # delegated to ARIA by Toby: "make a editorial call yourself and get me
+    # something to listen to"). A 14-story slate at the per-story budgets
+    # lands ~5,300 words minimum, so 5,400 left no revision headroom —
+    # five runs died with otherwise-clean drafts at ~5,5xx (≈31 min, not
+    # drone territory). Per-story budgets and cadence checks still enforce
+    # density; the anti-drone intent is unchanged.
     floor = 4800
-    ceiling = 5400
+    ceiling = 5700
     check(f"Hard floor ({floor:,} words — 30-minute target)",
           word_count >= floor,
           hint=f"Got {word_count:,} words — floor is {floor:,} to land at 30+ minutes. EP079 came in at 2,898 words and was rejected as 'unacceptable' length. Add stories and deepen segments, do not loosen the floor.")
