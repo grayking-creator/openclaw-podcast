@@ -1259,8 +1259,17 @@ def main() -> int:
     except Exception as exc:
         log(f"\n❌ Approved release failed: {exc}")
         trace = "".join(traceback.format_exception_only(type(exc), exc)).strip()
-        mark_run_status(ep_num, state, "failed", orchestrator_meta(state).get("current_step"), {"failure": trace})
+        step = orchestrator_meta(state).get("current_step")
+        mark_run_status(ep_num, state, "failed", step, {"failure": trace})
         post_build_log(ep_num, f"❌ Approved release failed: {trace}")
+        # Run-stopping failures also go to Telegram (operator rule,
+        # 2026-07-07: Telegram = listenable audio + failures that stop
+        # audio generation or publishing). Best-effort.
+        telegram_alert(
+            ep_num,
+            f"❌ EP{ep_num:03d} approved release FAILED at {step or 'unknown step'} — "
+            f"{trace[:600]}\nRerun the approved release launcher to resume.",
+        )
         return 1
 
 

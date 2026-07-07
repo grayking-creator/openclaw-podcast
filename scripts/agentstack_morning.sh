@@ -59,6 +59,14 @@ fail_stage() {
 ${detail}
 Run log: ${RUN_LOG}
 Build log: ${BUILD_LOG}"
+  # Run-stopping failures also go to Telegram (operator rule, 2026-07-07:
+  # Telegram = listenable audio + failures that stop audio or publishing).
+  # Best-effort; never masks the failure exit.
+  if [ -n "${_NEXT_EP:-}" ] && [ -f "${SCRIPT_DIR}/notify_telegram_review.py" ]; then
+    python3 "${SCRIPT_DIR}/notify_telegram_review.py" --ep "$_NEXT_EP" --intent failed \
+      --reason "$stage" --detail "$detail" --build-log "$BUILD_LOG" \
+      >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN Telegram failure notice failed"
+  fi
   exit 1
 }
 

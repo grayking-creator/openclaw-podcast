@@ -80,6 +80,19 @@ def monitor_child(ep_num: int, pid: int, log_path: Path, poll_seconds: int) -> i
         f"(status {status}, step {step}, heartbeat {heartbeat}).{detail} "
         "Rerun the approved release launcher to resume.",
     )
+    # Run-stopping failures also go to Telegram (operator rule, 2026-07-07).
+    # Best-effort; the watcher's exit code is the record of truth.
+    subprocess.run(
+        [
+            sys.executable, str(SCRIPTS_DIR / "notify_telegram_review.py"),
+            "--ep", str(ep_num), "--intent", "failed",
+            "--reason", f"release ({step})",
+            "--detail", f"process exited before completion (status {status})."
+                        " Rerun the approved release launcher to resume.",
+            "--build-log", str(log_path),
+        ],
+        check=False, capture_output=True, timeout=60,
+    )
     return 1
 
 

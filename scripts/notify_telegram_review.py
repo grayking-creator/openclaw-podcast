@@ -102,11 +102,17 @@ READY_TEMPLATE = (
     "Reply publish to ship  /  reply with feedback to rebuild."
 )
 
-# Telegram carries ONLY listenable review audio (operator rule, 2026-07-07):
-# the "ready" post with audio attached, and the shipped confirmation that
-# links the published episode. Mid-stream gates, progress notes, and failure
-# notices belong in the Discord build log (agentstack_morning.sh alert()),
-# kept short. Do not add in-progress intents here.
+# Telegram routing (operator rule, 2026-07-07): listenable audio — the
+# "ready" post with audio attached and the shipped confirmation link — plus
+# run-stopping failures (anything that stops audio generation or publishing).
+# Progress notes and mid-stream gates belong in the Discord build log
+# (agentstack_morning.sh alert()), kept short. Do not add in-progress
+# intents here.
+FAILED_TEMPLATE = (
+    "❌ EP{ep:03d} {reason} FAILED — {detail}\n"
+    "Build log: {build_log}"
+)
+
 SHIPPED_TEMPLATE = (
     "🚀 EP{ep:03d} shipped\n"
     "\n"
@@ -326,6 +332,16 @@ def _intent_ready(args: argparse.Namespace) -> int:
     )
 
 
+def _intent_failed(args: argparse.Namespace) -> int:
+    msg = FAILED_TEMPLATE.format(
+        ep=args.ep,
+        reason=args.reason or "build",
+        detail=(args.detail or "(no detail)")[:600],
+        build_log=args.build_log or "/tmp/show_notes_build.log",
+    )
+    return _send(msg, args.dry_run)
+
+
 def _intent_shipped(args: argparse.Namespace) -> int:
     msg = SHIPPED_TEMPLATE.format(
         ep=args.ep,
@@ -355,7 +371,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ep", type=int, required=True)
     parser.add_argument(
-        "--intent", required=True, choices=["ready", "shipped", "skipped"],
+        "--intent", required=True,
+        choices=["ready", "failed", "shipped", "skipped"],
     )
     parser.add_argument("--audio-url", default="")
     parser.add_argument("--audio-file", default="")
@@ -383,6 +400,8 @@ def main() -> int:
 
     if args.intent == "ready":
         return _intent_ready(args)
+    if args.intent == "failed":
+        return _intent_failed(args)
     if args.intent == "shipped":
         return _intent_shipped(args)
     if args.intent == "skipped":
