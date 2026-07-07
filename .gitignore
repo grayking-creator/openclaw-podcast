@@ -74,3 +74,4 @@ scripts/release_ep*.json.bak-*
 
 # Runtime caches (rebuilt every research run)
 scripts/last_seen_models.json
+scripts/.telegram_send_records/
