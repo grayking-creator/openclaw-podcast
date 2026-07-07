@@ -59,6 +59,15 @@ fail_stage() {
 ${detail}
 Run log: ${RUN_LOG}
 Build log: ${BUILD_LOG}"
+  # The operator's Telegram surface must never be left saying "in progress"
+  # after the run has died (EP082 2026-07-07: stage 5 posted, stage 6 failed,
+  # Telegram stayed silent). Best-effort; never masks the failure exit.
+  if [ -n "${_NEXT_EP:-}" ] && [ -f "${SCRIPT_DIR}/notify_telegram_review.py" ]; then
+    python3 "${SCRIPT_DIR}/notify_telegram_review.py" --ep "$_NEXT_EP" --intent failed \
+      --reason "$stage" --detail "$detail" \
+      --run-log "$RUN_LOG" --build-log "$BUILD_LOG" \
+      >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN Telegram failure notice failed"
+  fi
   exit 1
 }
 
@@ -201,24 +210,22 @@ blog "OK EP${NEXT_EP_PAD}: show notes written and QC-passed"
 #    slate can be rejected mid-stream and the audio compute saved. The
 #    full listenable review (transcript + audio) follows from stage 7.
 if [ -f "${SCRIPT_DIR}/notify_telegram_review.py" ]; then
-  SHOW_NOTES_RAW_URL=""
-  if [ -f "${PODCAST_DIR}/show_notes_episode_${NEXT_EP_PAD}.md" ]; then
-    # The morning pipeline writes the show notes file but does not push
-    # it to the CDN itself; build_episode.py (stage 7) will. For the
-    # early gate we point operators at the local file path under
-    # podcast/ on the dashboard rather than guessing a URL. If a real
-    # CDN URL is available, build_episode.py replaces this with the
-    # canonical path.
-    SHOW_NOTES_RAW_URL="(stage 7 will publish the canonical URL)"
-  fi
-  python3 "${SCRIPT_DIR}/notify_telegram_review.py" --ep "$_NEXT_EP" --intent ready \
-    --audio-url "(stage 7 will publish)" \
-    --cover-url "(stage 7 will publish)" \
-    --show-notes-url "$SHOW_NOTES_RAW_URL" \
-    --transcript-url "(stage 6 in progress)" \
-    --duration "pending" --sha256 "" \
-    --summary "📝 EP${NEXT_EP_PAD} show notes generated, transcript generation in progress. Mid-stream reject gate: reply ❌ to stop the run before audio is wasted. Full listenable review follows from stage 7." \
-    >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN early Telegram ready-post failed (non-fatal; full review still follows from stage 7)"
+  # intent=progress renders the honest "build in progress — early slate gate"
+  # template: no "ready to review" header, no publish prompt, no URL fields,
+  # and its send record never becomes the approval gate's "ready" anchor
+  # (EP082 2026-07-07: the old intent=ready post here looked like a broken
+  # final review and anchored the gate before any audio existed).
+  _SLATE_SUMMARY=$(python3 - "$DRAFT_PATH" <<'PYEOF'
+import re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text(errors="replace")
+heads = [m.group(1).strip() for m in re.finditer(r"^\s*\d+\.\s+\*\*(.+?)\*\*", text, re.M)]
+print("; ".join(heads))
+PYEOF
+) || _SLATE_SUMMARY=""
+  python3 "${SCRIPT_DIR}/notify_telegram_review.py" --ep "$_NEXT_EP" --intent progress \
+    --summary "$_SLATE_SUMMARY" \
+    >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN early Telegram slate-gate post failed (non-fatal; full review still follows from stage 7)"
 else
   blog "agentstack_morning: WARN notify_telegram_review.py missing — early show-notes gate skipped"
 fi
