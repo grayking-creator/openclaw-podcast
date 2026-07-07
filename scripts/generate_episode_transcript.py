@@ -459,6 +459,20 @@ def apply_deterministic_qc_repairs(text: str) -> tuple[str, list[str]]:
         fixes.append("framed first Codex CLI mention")
         original = text
 
+    # check_episode.py rejects full three-part versions spoken aloud (EP082:
+    # the slate headline itself carried 'Claude Code CLI 2.1.195', so every
+    # model draft failed this gate twice per run). Shorten deterministically:
+    # generic semver 'a.b.c' → 'a.b' (skipping longer dotted chains like
+    # IPs), then year calver '2026.x.y[.z]' → 'x.y[.z]' to match the allowed
+    # shorten_release_tag() form. An already-short calver point tag like
+    # '5.29.2' also collapses to '5.29' — a minor fidelity loss that still
+    # reads naturally on air.
+    text = re.sub(r"(?<![.\d])(\d{1,3}\.\d{1,3})\.\d{1,4}(?![.\d])", r"\1", text)
+    text = re.sub(r"\bv?20\d{2}\.(\d+\.\d+(?:\.\d+)?)\b", r"\1", text)
+    if text != original:
+        fixes.append("shortened full version numbers for speech")
+        original = text
+
     last_500_words = " ".join(text.split()[-500:])
     has_outro = bool(re.search(
         r"(AgentStack Daily|that'?s? (it|all|a wrap)|thanks? for listening|next (time|episode)|see you|I'?m NOVA)",
