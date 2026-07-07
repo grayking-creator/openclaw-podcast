@@ -102,36 +102,11 @@ READY_TEMPLATE = (
     "Reply publish to ship  /  reply with feedback to rebuild."
 )
 
-# Mid-stream slate gate (stage 5 of the morning pipeline). Deliberately does
-# NOT look like the review post: no "ready to review", no publish prompt, no
-# URL fields. It exists only so a bad slate can be stopped before audio
-# compute is spent. Sent with intent "progress" so its send record never
-# becomes the approval gate's "ready" anchor.
-PROGRESS_TEMPLATE = (
-    "🛠 EP{ep:03d} build in progress — early slate gate\n"
-    "\n"
-    "Show notes passed QC; transcript and audio are still generating.\n"
-    "Nothing is listenable yet — the review post with audio follows when "
-    "the build completes.\n"
-    "\n"
-    "Slate ({slate_count} stories):\n"
-    "{summary_lines}\n"
-    "\n"
-    "Reply with feedback NOW to stop the run before audio is generated. "
-    "Replies here cannot publish anything."
-)
-
-FAILED_TEMPLATE = (
-    "❌ EP{ep:03d} build FAILED at stage: {reason}\n"
-    "\n"
-    "Detail: {detail}\n"
-    "\n"
-    "Nothing to review — disregard any earlier in-progress post for this "
-    "episode.\n"
-    "Run log: {run_log}\n"
-    "Build log: {build_log}"
-)
-
+# Telegram carries ONLY listenable review audio (operator rule, 2026-07-07):
+# the "ready" post with audio attached, and the shipped confirmation that
+# links the published episode. Mid-stream gates, progress notes, and failure
+# notices belong in the Discord build log (agentstack_morning.sh alert()),
+# kept short. Do not add in-progress intents here.
 SHIPPED_TEMPLATE = (
     "🚀 EP{ep:03d} shipped\n"
     "\n"
@@ -351,26 +326,6 @@ def _intent_ready(args: argparse.Namespace) -> int:
     )
 
 
-def _intent_progress(args: argparse.Namespace) -> int:
-    msg = PROGRESS_TEMPLATE.format(
-        ep=args.ep,
-        summary_lines=_format_summary(args.summary or ""),
-        slate_count=_summary_count(args.summary or ""),
-    )
-    return _send(msg, args.dry_run)
-
-
-def _intent_failed(args: argparse.Namespace) -> int:
-    msg = FAILED_TEMPLATE.format(
-        ep=args.ep,
-        reason=args.reason or "unspecified",
-        detail=args.detail or "(no detail)",
-        run_log=args.run_log or "/tmp/show_notes_research.log",
-        build_log=args.build_log or "/tmp/show_notes_build.log",
-    )
-    return _send(msg, args.dry_run)
-
-
 def _intent_shipped(args: argparse.Namespace) -> int:
     msg = SHIPPED_TEMPLATE.format(
         ep=args.ep,
@@ -400,8 +355,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ep", type=int, required=True)
     parser.add_argument(
-        "--intent", required=True,
-        choices=["ready", "progress", "failed", "shipped", "skipped"],
+        "--intent", required=True, choices=["ready", "shipped", "skipped"],
     )
     parser.add_argument("--audio-url", default="")
     parser.add_argument("--audio-file", default="")
@@ -429,10 +383,6 @@ def main() -> int:
 
     if args.intent == "ready":
         return _intent_ready(args)
-    if args.intent == "progress":
-        return _intent_progress(args)
-    if args.intent == "failed":
-        return _intent_failed(args)
     if args.intent == "shipped":
         return _intent_shipped(args)
     if args.intent == "skipped":

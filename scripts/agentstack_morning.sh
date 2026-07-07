@@ -59,15 +59,6 @@ fail_stage() {
 ${detail}
 Run log: ${RUN_LOG}
 Build log: ${BUILD_LOG}"
-  # The operator's Telegram surface must never be left saying "in progress"
-  # after the run has died (EP082 2026-07-07: stage 5 posted, stage 6 failed,
-  # Telegram stayed silent). Best-effort; never masks the failure exit.
-  if [ -n "${_NEXT_EP:-}" ] && [ -f "${SCRIPT_DIR}/notify_telegram_review.py" ]; then
-    python3 "${SCRIPT_DIR}/notify_telegram_review.py" --ep "$_NEXT_EP" --intent failed \
-      --reason "$stage" --detail "$detail" \
-      --run-log "$RUN_LOG" --build-log "$BUILD_LOG" \
-      >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN Telegram failure notice failed"
-  fi
   exit 1
 }
 
@@ -209,26 +200,13 @@ blog "OK EP${NEXT_EP_PAD}: show notes written and QC-passed"
 #    pass QC, BEFORE the expensive transcript + audio steps, so a bad
 #    slate can be rejected mid-stream and the audio compute saved. The
 #    full listenable review (transcript + audio) follows from stage 7.
-if [ -f "${SCRIPT_DIR}/notify_telegram_review.py" ]; then
-  # intent=progress renders the honest "build in progress — early slate gate"
-  # template: no "ready to review" header, no publish prompt, no URL fields,
-  # and its send record never becomes the approval gate's "ready" anchor
-  # (EP082 2026-07-07: the old intent=ready post here looked like a broken
-  # final review and anchored the gate before any audio existed).
-  _SLATE_SUMMARY=$(python3 - "$DRAFT_PATH" <<'PYEOF'
-import re, sys
-from pathlib import Path
-text = Path(sys.argv[1]).read_text(errors="replace")
-heads = [m.group(1).strip() for m in re.finditer(r"^\s*\d+\.\s+\*\*(.+?)\*\*", text, re.M)]
-print("; ".join(heads))
-PYEOF
-) || _SLATE_SUMMARY=""
-  python3 "${SCRIPT_DIR}/notify_telegram_review.py" --ep "$_NEXT_EP" --intent progress \
-    --summary "$_SLATE_SUMMARY" \
-    >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN early Telegram slate-gate post failed (non-fatal; full review still follows from stage 7)"
-else
-  blog "agentstack_morning: WARN notify_telegram_review.py missing — early show-notes gate skipped"
-fi
+# Operator rule (2026-07-07): Telegram carries ONLY listenable review audio.
+# The mid-stream slate gate goes to the Discord build log instead, short:
+# story count + file path. (The old intent=ready Telegram post here looked
+# like a broken final review — EP082 2026-07-07.)
+_SLATE_COUNT=$(grep -Ec '^\s*[0-9]+\.\s+\*\*' "$DRAFT_PATH" 2>/dev/null || echo "?")
+alert "🛠 EP${NEXT_EP_PAD} show notes QC-passed (${_SLATE_COUNT} stories) — transcript + audio generating.
+${DRAFT_PATH}"
 
 # ── Stage 6: transcript generation (model + check_episode.py QC loop) ────────
 blog "agentstack_morning: EP${NEXT_EP_PAD} stage 6 — generate transcript"
