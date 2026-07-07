@@ -581,8 +581,19 @@ def main() -> int:
         if not vm:
             print(f"[EP{ep_str}] all routes demoted (provider/auth/quota failures) — cannot generate", flush=True)
             break
-        model = vm[mi % len(vm)]
-        mi += 1
+        # Revisions ALWAYS go to the best available route (spec order), never
+        # the round-robin (locked 2026-07-07, EP082: a gpt-5.5 draft one error
+        # from passing was handed to a weaker freecall route for revision,
+        # which regressed it to 8 errors and burned three pipeline runs).
+        # Rotation only picks the route for fresh drafts; dead-route demotion
+        # still advances vm[0] when the best route hard-fails.
+        if repair_feedback:
+            model = vm[0]
+            advanced_mi = False
+        else:
+            model = vm[mi % len(vm)]
+            mi += 1
+            advanced_mi = True
         route_tries += 1
         prompt = build_prompt(
             ep_num, show_notes, examples,
@@ -614,9 +625,11 @@ def main() -> int:
                           f"counted): {str(exc)[:120]}", flush=True)
                     import time
                     time.sleep(sleep_s)
-                    # Roll back route_tries / mi so this attempt is free.
+                    # Roll back route_tries (and mi if the round-robin
+                    # advanced) so this attempt is free.
                     route_tries -= 1
-                    mi -= 1
+                    if advanced_mi:
+                        mi -= 1
                     continue
                 strikes[model] = strikes.get(model, 0) + 1
                 if strikes[model] >= DEMOTE_AT:
