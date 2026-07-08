@@ -31,10 +31,31 @@ LANGUAGE_NAMES = {
 }
 ROMANIZED_LANGS = {"hi"}
 MIN_MATCH_SCORE = {
-    "es": 0.25,
+    "es": 0.18,
     "de": 0.25,
     "pt": 0.25,
     "hi": 0.12,
+}
+
+ENGLISH_LANGUAGE_MARKERS = {
+    "the", "and", "that", "with", "for", "from", "this", "into", "where",
+    "could", "would", "should", "model", "models", "agent", "agents",
+}
+
+TARGET_LANGUAGE_MARKERS = {
+    "es": {
+        "el", "la", "los", "las", "de", "que", "con", "para", "por", "una",
+        "un", "se", "del", "como", "datos", "modelos",
+    },
+    "de": {
+        "der", "die", "das", "und", "mit", "für", "von", "ist", "sind",
+        "den", "dem", "ein", "eine", "daten", "modelle",
+    },
+    "pt": {
+        "o", "a", "os", "as", "de", "que", "com", "para", "por", "uma",
+        "um", "se", "dos", "como", "dados", "modelos",
+    },
+    "hi": set(),
 }
 
 
@@ -82,6 +103,20 @@ def normalize_text(text: str) -> str:
 
 def word_tokens(text: str) -> list[str]:
     return re.findall(r"[0-9A-Za-z\u00C0-\u024F\u0400-\u04FF\u0900-\u097F']+", normalize_text(text))
+
+
+def looks_like_wrong_language(lang: str, text: str) -> bool:
+    """Catch paragraph-alignment misses that return English from translated scripts."""
+    if lang == "hi":
+        return False
+    tokens = word_tokens(text)
+    if len(tokens) < 24:
+        return False
+    english_hits = sum(1 for token in tokens if token in ENGLISH_LANGUAGE_MARKERS)
+    target_hits = sum(1 for token in tokens if token in TARGET_LANGUAGE_MARKERS.get(lang, set()))
+    english_ratio = english_hits / max(1, len(tokens))
+    target_ratio = target_hits / max(1, len(tokens))
+    return english_hits >= 8 and english_ratio > 0.08 and target_ratio < 0.06
 
 
 def normalize_source_text(text: str) -> str:
@@ -611,7 +646,10 @@ def get_translation_from_script(ep_num: int, lang: str, source_text: str) -> str
 
     if best_window and best_score >= 0.25:
         start_idx, end_idx = best_window
-        return " ".join(tr_clean[start_idx:end_idx])
+        translated = " ".join(tr_clean[start_idx:end_idx])
+        if looks_like_wrong_language(lang, translated):
+            return None
+        return translated
 
     return None
 

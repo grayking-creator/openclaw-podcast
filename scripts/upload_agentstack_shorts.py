@@ -3,7 +3,7 @@
 
 Uploads rendered short MP4s from content_staging/shorts/ to the AgentStack
 Daily / OpenClaw Daily YouTube channels on a 3-per-day follow-up cadence
-(11:00, 16:00, and 23:00 ET).
+(08:00, 14:00, and 20:00 ET).
 
 No manual review gate. Liminal and IronVane use the separate crossfire-series
 shorts_upload.py. This script is AgentStack Daily / OpenClaw Daily only.
@@ -43,6 +43,8 @@ SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
 STAGING_ROOT = PODCAST_DIR / "content_staging" / "shorts"
 STATE_PATH = STAGING_ROOT / "upload_state.json"
+YOUTUBE_CHANNEL_STATE_PATH = SCRIPTS_DIR / "youtube_channel_state.json"
+RELATED_VIDEO_SCRIPT = SCRIPTS_DIR / "youtube_studio_set_related_video.py"
 BUILD_LOG_CHANNEL_ID = "1485243812442804327"
 
 # AgentStack/OpenClaw Daily shorts auto-upload covers EN plus translated
@@ -51,12 +53,17 @@ BUILD_LOG_CHANNEL_ID = "1485243812442804327"
 CHANNELS = ["en", "es", "de", "pt", "hi"]
 
 # 3 slots per day (ET) after the day-of-publish catch-up.
-UPLOAD_SLOTS_ET = ["11:00", "16:00", "23:00"]
+UPLOAD_SLOTS_ET = ["08:00", "14:00", "20:00"]
 
 # Discovery floor for the rendered AgentStack Daily backlog. Newer episodes are
 # picked up from content_staging/shorts/episode_NNN automatically.
 MIN_EPISODE = 58
 UPLOAD_SLOT_CATCHUP_WINDOW = timedelta(hours=2)
+SET_RELATED_VIDEOS = os.environ.get("AGENTSTACK_SHORTS_SET_RELATED", "1").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -72,11 +79,12 @@ def _load_env_key(name: str) -> str:
     return os.environ.get(name, "")
 
 
-def discord_build_log(msg: str) -> None:
+def discord_build_log(msg: str) -> bool:
     try:
         token = _load_env_key("DISCORD_BOT_TOKEN")
         if not token:
-            return
+            print("WARN: DISCORD_BOT_TOKEN missing; Build Log post skipped", file=sys.stderr)
+            return False
         payload = json.dumps({"content": msg}).encode()
         req = urllib.request.Request(
             f"https://discord.com/api/v10/channels/{BUILD_LOG_CHANNEL_ID}/messages",
@@ -88,9 +96,14 @@ def discord_build_log(msg: str) -> None:
             },
             method="POST",
         )
-        urllib.request.urlopen(req, timeout=8)
-    except Exception:
-        pass
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if resp.status not in (200, 201):
+                print(f"WARN: Discord Build Log post returned HTTP {resp.status}", file=sys.stderr)
+                return False
+        return True
+    except Exception as exc:
+        print(f"WARN: Discord Build Log post failed: {exc}", file=sys.stderr)
+        return False
 
 
 def load_state() -> dict:
@@ -180,6 +193,42 @@ def clip_path_for(ep_num: int, clip_idx: int, lang: str) -> Path:
     if lang == "en":
         return ep_dir / f"clip_{clip_idx:02d}.mp4"
     return ep_dir / "translations" / lang / "rollout_render" / f"clip_{clip_idx:02d}.mp4"
+
+
+def video_id_from_url(url: str) -> str:
+    match = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", url or "")
+    return match.group(1) if match else ""
+
+
+def youtube_client(lang: str):
+    token_path = SCRIPTS_DIR / f"youtube_token_{lang}.json"
+    with open(token_path) as f:
+        creds = Credentials.from_authorized_user_info(json.load(f))
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        with open(token_path, "w") as f:
+            f.write(creds.to_json())
+    return build("youtube", "v3", credentials=creds)
+
+
+def fetch_video_title(lang: str, video_id: str) -> str:
+    yt = youtube_client(lang)
+    response = yt.videos().list(part="snippet", id=video_id).execute()
+    items = response.get("items", [])
+    if not items:
+        raise RuntimeError(f"YouTube video not found: {video_id}")
+    return items[0]["snippet"]["title"].strip()
+
+
+def full_episode_video_id(ep_num: int, lang: str) -> str:
+    if not YOUTUBE_CHANNEL_STATE_PATH.exists():
+        return ""
+    try:
+        state = json.loads(YOUTUBE_CHANNEL_STATE_PATH.read_text())
+    except Exception:
+        return ""
+    entry = state.get(f"{ep_num:03d}") or state.get(str(ep_num)) or {}
+    return video_id_from_url(entry.get(f"{lang}_url", ""))
 
 
 def validate_clip_path(path: Path) -> tuple[bool, str]:
@@ -318,15 +367,7 @@ def alert_missing_renders_once(state: dict, missing: list[int]) -> None:
 
 def upload_short(clip_path: Path, title: str, description: str, lang: str, tags: list[str]) -> str:
     """Upload a short MP4 to the specified language channel. Returns video ID."""
-    token_path = SCRIPTS_DIR / f"youtube_token_{lang}.json"
-    with open(token_path) as f:
-        creds = Credentials.from_authorized_user_info(json.load(f))
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        with open(token_path, "w") as f:
-            f.write(creds.to_json())
-
-    yt = build("youtube", "v3", credentials=creds)
+    yt = youtube_client(lang)
 
     body = {
         "snippet": {
@@ -351,6 +392,132 @@ def upload_short(clip_path: Path, title: str, description: str, lang: str, tags:
             print(f"    {int(status.progress() * 100)}%...")
 
     return response["id"]
+
+
+def prepare_related_video_task(state: dict, item: dict, short_video_id: str) -> tuple[bool, str]:
+    """Record the Studio related-video task for a freshly uploaded short."""
+    if not SET_RELATED_VIDEOS:
+        return True, ""
+    ep_num = item["ep_num"]
+    lang = item["lang"]
+    related_id = full_episode_video_id(ep_num, lang)
+    if not related_id:
+        return False, f"missing full-episode YouTube ID for EP{ep_num:03d} ({lang})"
+    try:
+        related_title = fetch_video_title(lang, related_id)
+    except Exception as exc:
+        return False, f"could not fetch full-episode title for EP{ep_num:03d} ({lang}): {exc}"
+
+    tasks = state.setdefault("related_video_tasks", {})
+    existing = tasks.get(item["key"], {})
+    tasks[item["key"]] = {
+        "status": "pending",
+        "short_id": short_video_id,
+        "related_id": related_id,
+        "related_title": related_title,
+        "lang": lang,
+        "ep_num": ep_num,
+        "clip_idx": item["clip_idx"],
+        "attempts": int(existing.get("attempts", 0)),
+        "last_error": "",
+    }
+    save_state(state)
+    return True, ""
+
+
+def _related_success_ids(output: str) -> set[str]:
+    success_ids = set()
+    for line in output.splitlines():
+        match = re.match(r"([A-Za-z0-9_-]{11}): (?:set related video|already set) ->", line.strip())
+        if match:
+            success_ids.add(match.group(1))
+    return success_ids
+
+
+def process_related_video_tasks(state: dict, keys: list[str]) -> list[str]:
+    """Set queued Shorts related-video links through YouTube Studio."""
+    if not SET_RELATED_VIDEOS:
+        return []
+    if not RELATED_VIDEO_SCRIPT.exists():
+        return [f"related video helper missing: {RELATED_VIDEO_SCRIPT}"]
+
+    tasks = state.get("related_video_tasks", {})
+    pending = []
+    errors = []
+    for key in keys:
+        task = tasks.get(key)
+        if not task or task.get("status") == "done":
+            continue
+        if not all(task.get(field) for field in ("short_id", "related_id", "related_title")):
+            task["status"] = "failed"
+            task["attempts"] = int(task.get("attempts", 0)) + 1
+            task["last_attempt_at"] = now_et().isoformat()
+            task["last_error"] = "missing short_id, related_id, or related_title"
+            errors.append(f"{key} related-video task is incomplete")
+            continue
+        pending.append((key, task))
+
+    if not pending:
+        if errors:
+            save_state(state)
+        return errors
+
+    cmd = [sys.executable, str(RELATED_VIDEO_SCRIPT)]
+    for _, task in pending:
+        cmd.extend([
+            "--pair",
+            f"{task['short_id']}:{task['related_id']}:{task['related_title']}",
+        ])
+
+    print(f"Setting related full-episode video for {len(pending)} short(s) via YouTube Studio...")
+    started_at = now_et().isoformat()
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(PODCAST_DIR),
+            capture_output=True,
+            text=True,
+            timeout=max(300, 120 * len(pending)),
+        )
+    except Exception as exc:
+        for _, task in pending:
+            task["status"] = "failed"
+            task["attempts"] = int(task.get("attempts", 0)) + 1
+            task["last_error"] = str(exc)
+            task["last_attempt_at"] = started_at
+        save_state(state)
+        return [f"related video Studio automation failed to run: {exc}"]
+
+    output = "\n".join(part for part in (result.stdout, result.stderr) if part)
+    success_ids = _related_success_ids(output)
+
+    for key, task in pending:
+        task["attempts"] = int(task.get("attempts", 0)) + 1
+        task["last_attempt_at"] = started_at
+        if result.returncode == 0 or task.get("short_id") in success_ids:
+            task["status"] = "done"
+            task["last_error"] = ""
+            task["set_at"] = now_et().isoformat()
+            continue
+        task["status"] = "failed"
+        tail = "\n".join(output.splitlines()[-10:]).strip()
+        task["last_error"] = tail or f"Studio helper exited {result.returncode}"
+        errors.append(
+            f"related video not set for EP{task.get('ep_num'):03d} "
+            f"clip {task.get('clip_idx')} ({task.get('lang')}): {task['last_error']}"
+        )
+
+    save_state(state)
+    return errors
+
+
+def pending_related_video_task_keys(state: dict) -> list[str]:
+    tasks = state.get("related_video_tasks", {})
+    return [
+        key
+        for key, task in tasks.items()
+        if task and task.get("status") != "done"
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -683,6 +850,13 @@ def run_cron(state: dict, catch_up_now: bool = False) -> int:
         )
         return 0
 
+    if len(due) > 1:
+        print(
+            f"{len(due)} short batches are overdue; processing oldest only "
+            "to preserve the three-per-day cadence."
+        )
+        due = due[:1]
+
     errors = []
     for batch in due:
         if batch.get("missing_langs") or batch.get("invalid_langs"):
@@ -695,6 +869,7 @@ def run_cron(state: dict, catch_up_now: bool = False) -> int:
             continue
 
         uploaded_urls = []
+        related_task_keys = []
         for item in batch["items"]:
             ep_num = item["ep_num"]
             clip_idx = item["clip_idx"]
@@ -713,6 +888,17 @@ def run_cron(state: dict, catch_up_now: bool = False) -> int:
                 state.setdefault("urls", {})[item["key"]] = url
                 save_state(state)
                 uploaded_urls.append((lang, url))
+                ok, related_error = prepare_related_video_task(state, item, vid_id)
+                if ok:
+                    related_task_keys.append(item["key"])
+                else:
+                    msg = (
+                        f"❌ [AgentStack Shorts] EP{ep_str} clip {clip_idx} ({lang}) "
+                        f"related-video task not prepared: {related_error}"
+                    )
+                    print(msg)
+                    discord_build_log(msg)
+                    errors.append(msg)
             except Exception as exc:
                 msg = f"❌ [AgentStack Shorts] EP{ep_str} clip {clip_idx} ({lang}) upload failed: {exc}"
                 print(msg)
@@ -729,6 +915,16 @@ def run_cron(state: dict, catch_up_now: bool = False) -> int:
                 f"uploaded across: {lang_list}\n{url_lines}"
             )
 
+        related_keys_to_process = list(dict.fromkeys(
+            pending_related_video_task_keys(state) + related_task_keys
+        ))
+        related_errors = process_related_video_tasks(state, related_keys_to_process)
+        for related_error in related_errors:
+            msg = f"❌ [AgentStack Shorts] {related_error}"
+            print(msg)
+            discord_build_log(msg)
+            errors.append(msg)
+
     return 1 if errors else 0
 
 
@@ -741,6 +937,7 @@ def run_status(state: dict) -> None:
     uploaded = state.get("uploaded", [])
     urls = state.get("urls", {})
     missing = missing_render_episodes()
+    related_tasks = state.get("related_video_tasks", {})
 
     print(f"\n=== AgentStack Daily Shorts Status ===")
     print(f"Uploaded: {len(uploaded)}")
@@ -750,6 +947,13 @@ def run_status(state: dict) -> None:
 
     pending_items = sum(len(batch["items"]) for batch in queue)
     print(f"\nPending batches: {len(queue)} ({pending_items} videos)")
+    if related_tasks:
+        related_counts = {}
+        for task in related_tasks.values():
+            status = task.get("status", "unknown")
+            related_counts[status] = related_counts.get(status, 0) + 1
+        summary = ", ".join(f"{status}={count}" for status, count in sorted(related_counts.items()))
+        print(f"Related video tasks: {summary}")
     if missing:
         span = ", ".join(f"EP{ep:03d}" for ep in missing)
         print(f"Missing rendered shorts packages: {span}")

@@ -5,7 +5,7 @@
 # DGX: renders PT and HI shorts
 # Merges everything back onto M3.
 
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 PODCAST_DIR="$(dirname "$SCRIPTS_DIR")"
@@ -15,6 +15,7 @@ CDN_AUDIO_DIR="$HOME/.openclaw/workspace/openclaw-podcast-audio/audio"
 LOCAL_AUDIO_DIR="$PODCAST_DIR/audio"
 IMAGES_DIR="$PODCAST_DIR/images"
 LOG="$STAGING_ROOT/distribute_build.log"
+POST_BUILD_LOG="/Users/tobyglennpeters/.openclaw/workspace/scripts/utils/post_build_log.py"
 
 PYTHON_M3="/Users/tobyglennpeters/.codex-video-tools/.venv/bin/python"
 PYTHON_M4="/Users/toby/.openclaw/workspace/video-workspace/crossfire-series/.venv/bin/python"
@@ -22,6 +23,40 @@ PYTHON_DGX="/home/toby/.venv_shorts/bin/python3"
 
 mkdir -p "$STAGING_ROOT"
 echo "[$(date)] Starting distributed short build" | tee -a "$LOG"
+
+FAILURE_NOTIFIED=0
+CURRENT_EP="unknown"
+
+notify_build_log() {
+  local message="$1"
+  if [ -f "$POST_BUILD_LOG" ]; then
+    /usr/bin/python3 "$POST_BUILD_LOG" "$message" >> "$LOG" 2>&1 || \
+      echo "[$(date)] WARN: Discord Build Log post failed" >> "$LOG"
+  else
+    echo "[$(date)] WARN: missing Build Log helper: $POST_BUILD_LOG" >> "$LOG"
+  fi
+}
+
+notify_failure_once() {
+  local message="$1"
+  if [ "$FAILURE_NOTIFIED" -eq 0 ]; then
+    FAILURE_NOTIFIED=1
+    notify_build_log "$message"
+  fi
+}
+
+notify_known_failure() {
+  local message="$1"
+  notify_build_log "$message"
+}
+
+on_error() {
+  local status="$1"
+  local line="$2"
+  notify_failure_once "❌ [AgentStack Shorts Build] EP${CURRENT_EP} failed with exit ${status} near line ${line}. Log: ${LOG}"
+}
+
+trap 'on_error "$?" "$LINENO"' ERR
 
 resolve_audio() {
   local ep_str="$1"
@@ -99,6 +134,7 @@ FAILED=0
 
 for ep_num in "${EPISODES[@]}"; do
   ep_str=$(printf "%03d" "$ep_num")
+  CURRENT_EP="$ep_str"
   out_dir="$STAGING_ROOT/episode_${ep_str}"
   audio="$(resolve_audio "$ep_str" || true)"
   cover="$IMAGES_DIR/episode_${ep_str}_cover.png"
@@ -112,11 +148,13 @@ for ep_num in "${EPISODES[@]}"; do
   else
     if [ -z "$audio" ]; then
       echo "ERROR: EN audio missing for EP${ep_str}; checked media-en, CDN audio, and local podcast audio" | tee -a "$LOG"
+      notify_known_failure "❌ [AgentStack Shorts Build] EP${ep_str} failed: EN audio missing. Checked media-en, CDN audio, and local podcast audio. Log: ${LOG}"
       FAILED=1
       continue
     fi
     if [ ! -f "$cover" ]; then
       echo "ERROR: Cover art missing at $cover" | tee -a "$LOG"
+      notify_known_failure "❌ [AgentStack Shorts Build] EP${ep_str} failed: cover art missing at ${cover}. Log: ${LOG}"
       FAILED=1
       continue
     fi
@@ -231,6 +269,7 @@ print('AgentStack Daily EP$ep_str')
     echo "ERROR: One of the remote rendering jobs failed for EP${ep_str}." | tee -a "$LOG"
     echo "Check M4 log: $STAGING_ROOT/m4_render_ep${ep_str}.log" | tee -a "$LOG"
     echo "Check DGX log: $STAGING_ROOT/dgx_render_ep${ep_str}.log" | tee -a "$LOG"
+    notify_known_failure "❌ [AgentStack Shorts Build] EP${ep_str} remote rendering failed. M4 log: ${STAGING_ROOT}/m4_render_ep${ep_str}.log | DGX log: ${STAGING_ROOT}/dgx_render_ep${ep_str}.log | Build log: ${LOG}"
     exit 1
   fi
 

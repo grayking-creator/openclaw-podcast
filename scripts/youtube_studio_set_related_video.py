@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -17,7 +18,11 @@ from pathlib import Path
 
 CHROME_APP = "/Applications/Google Chrome.app"
 LOCAL_STATE = Path.home() / "Library/Application Support/Google/Chrome/Local State"
-DEFAULT_MANAGER_EMAIL = "tobyglenn@gmail.com"
+DEFAULT_MANAGER_EMAIL = os.environ.get("YOUTUBE_STUDIO_MANAGER_EMAIL") or "tobypeters@gmail.com"
+DEFAULT_PROFILE_DIRECTORY = os.environ.get("YOUTUBE_STUDIO_PROFILE_DIRECTORY", "")
+EMAIL_ALIASES = {
+    "tobyglenn@gmail.com": ["tobypeters@gmail.com"],
+}
 
 
 def run(
@@ -32,22 +37,47 @@ def run(
     )
 
 
-def run_applescript(script: str) -> str:
-    result = run(["osascript", "-e", script])
-    return result.stdout.strip()
+def activate_chrome_for_retry() -> None:
+    try:
+        run(
+            ["osascript", "-e", 'tell application "Google Chrome" to activate'],
+            check=False,
+            timeout=5.0,
+        )
+    except Exception:
+        pass
 
 
-def chrome_exec_js(js: str) -> str:
+def run_applescript(script: str, *, timeout: float = 20.0, retries: int = 2) -> str:
+    last_error = ""
+    for attempt in range(retries + 1):
+        try:
+            result = run(["osascript", "-e", script], timeout=timeout)
+            return result.stdout.strip()
+        except subprocess.TimeoutExpired as exc:
+            last_error = f"osascript timed out after {exc.timeout}s"
+        except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or exc.stdout or str(exc)).strip()
+            last_error = detail or f"osascript exited {exc.returncode}"
+
+        if attempt < retries:
+            activate_chrome_for_retry()
+            time.sleep(1.5 * (attempt + 1))
+
+    raise RuntimeError(f"AppleScript command failed after {retries + 1} attempts: {last_error}")
+
+
+def chrome_exec_js(js: str, *, timeout: float = 20.0, retries: int = 2) -> str:
     script = (
         'tell application "Google Chrome"\n'
         "set t to active tab of front window\n"
         f"return execute t javascript {json.dumps(js)}\n"
         "end tell"
     )
-    return run_applescript(script)
+    return run_applescript(script, timeout=timeout, retries=retries)
 
 
-def chrome_navigate(url: str) -> None:
+def chrome_navigate(url: str, *, profile_directory: str = "") -> None:
     script = (
         'tell application "Google Chrome"\n'
         "activate\n"
@@ -56,7 +86,17 @@ def chrome_navigate(url: str) -> None:
         f"{json.dumps(url)}\n"
         "end tell"
     )
-    run_applescript(script)
+    try:
+        run_applescript(script)
+    except RuntimeError as exc:
+        if not profile_directory:
+            raise
+        print(
+            f"AppleScript navigation failed ({exc}); opening a fresh Studio window",
+            file=sys.stderr,
+            flush=True,
+        )
+        launch_chrome(profile_directory, url, relaunch=False)
 
 
 def chrome_reload() -> None:
@@ -68,21 +108,53 @@ def chrome_reload() -> None:
     run_applescript(script)
 
 
+def _profile_emails(directory: str, info: dict) -> set[str]:
+    emails = {str(info.get("user_name") or "").lower()}
+    prefs_path = LOCAL_STATE.parent / directory / "Preferences"
+    if prefs_path.exists():
+        try:
+            prefs = json.loads(prefs_path.read_text())
+            for account in prefs.get("account_info", []) or []:
+                emails.add(str(account.get("email") or "").lower())
+        except Exception:
+            pass
+    return {email for email in emails if email}
+
+
 def resolve_profile(manager_email: str) -> str:
     if not LOCAL_STATE.exists():
         raise RuntimeError(f"Chrome Local State not found: {LOCAL_STATE}")
     data = json.loads(LOCAL_STATE.read_text())
     cache = data.get("profile", {}).get("info_cache", {})
     email = manager_email.lower()
-    for directory, info in cache.items():
-        if info.get("user_name", "").lower() == email:
+    candidate_emails = [email, *EMAIL_ALIASES.get(email, [])]
+    matches = [
+        directory
+        for directory, info in cache.items()
+        if _profile_emails(directory, info).intersection(candidate_emails)
+    ]
+    if not matches:
+        raise RuntimeError(
+            f"Could not resolve Chrome profile for {manager_email}. "
+            f"Known profile emails: {', '.join(sorted(set().union(*(_profile_emails(d, i) for d, i in cache.items()))))}"
+        )
+
+    profile_meta = data.get("profile", {})
+    preferred = [
+        profile_meta.get("last_used"),
+        *(profile_meta.get("last_active_profiles") or []),
+        *(profile_meta.get("profiles_order") or []),
+    ]
+    for directory in preferred:
+        if directory in matches:
             return directory
-    raise RuntimeError(f"Could not resolve Chrome profile for {manager_email}")
+    return matches[0]
 
 
-def launch_chrome(profile_directory: str, url: str) -> None:
-    run(["pkill", "-f", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"], check=False)
-    time.sleep(1.0)
+def launch_chrome(profile_directory: str, url: str, *, relaunch: bool = False) -> None:
+    if relaunch:
+        run(["pkill", "-f", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"], check=False)
+        time.sleep(1.0)
     run(
         [
             "open",
@@ -99,12 +171,21 @@ def launch_chrome(profile_directory: str, url: str) -> None:
 def wait_for(js: str, *, timeout_s: float = 20.0, interval_s: float = 0.5) -> str:
     deadline = time.time() + timeout_s
     last = ""
+    last_error = ""
     while time.time() < deadline:
-        last = chrome_exec_js(js)
+        try:
+            remaining = max(1.0, deadline - time.time())
+            last = chrome_exec_js(js, timeout=min(8.0, remaining), retries=0)
+            last_error = ""
+        except RuntimeError as exc:
+            last_error = str(exc)
+            time.sleep(interval_s)
+            continue
         if last and last not in {"false", "null", "undefined", "MISSING"}:
             return last
         time.sleep(interval_s)
-    raise TimeoutError(f"Timed out waiting for page condition. Last result: {last!r}")
+    suffix = f" Last error: {last_error}" if last_error else ""
+    raise TimeoutError(f"Timed out waiting for page condition. Last result: {last!r}.{suffix}")
 
 
 def ensure_page_ready(video_id: str) -> None:
@@ -168,6 +249,54 @@ def open_related_video_picker() -> None:
     )
 
 
+def related_video_label(expected_title: str = "") -> str:
+    return chrome_exec_js(
+        f"""(() => {{
+            const root = document.querySelector('#linked-video-editor-link');
+            if (!root) return '';
+            const expected = {json.dumps(expected_title)};
+            const fullText = (root.innerText || '').trim();
+            if (expected && fullText.includes(expected)) return expected;
+            return (
+              root.querySelector('.dropdown-trigger-text')?.innerText?.trim()
+              || fullText
+              || ''
+            );
+        }})()"""
+    )
+
+
+def close_related_video_picker() -> None:
+    chrome_exec_js(
+        """(() => {
+            const dialog = document.querySelector('ytcp-video-pick-dialog');
+            if (!dialog) return 'NO_DIALOG';
+            const close = dialog.querySelector('#close');
+            if (close) {
+              close.click();
+              return 'CLICKED';
+            }
+            return 'NO_CLOSE';
+        })()"""
+    )
+
+
+def has_pending_save() -> bool:
+    return chrome_exec_js(
+        """(() => {
+            const save = document.querySelector('#save') ||
+              [...document.querySelectorAll('*')].find(
+                el => (el.innerText || '').trim() === 'Save'
+              );
+            if (!save) return 'false';
+            const aria = save.getAttribute('aria-disabled');
+            return (aria === 'false' || (!save.hasAttribute('disabled') && aria !== 'true'))
+              ? 'true'
+              : 'false';
+        })()"""
+    ) == "true"
+
+
 def inject_related_video(related_video_id: str, related_title: str) -> None:
     payload = {"videoId": related_video_id, "sectionTitle": "", "title": related_title}
     result = chrome_exec_js(
@@ -182,21 +311,32 @@ def inject_related_video(related_video_id: str, related_title: str) -> None:
             }});
             if (dlg) dlg.dispatchEvent(ev);
             picker.dispatchEvent(ev);
-            const close = document.querySelector('ytcp-video-pick-dialog #close');
-            if (close) close.click();
-            return document.querySelector('#linked-video-editor-link .dropdown-trigger-text')?.innerText?.trim() || '';
+            return 'PICKED';
         }})()"""
     )
-    if result != related_title:
+    if result != "PICKED":
+        raise RuntimeError(f"Related-video injection failed: {result}")
+
+    deadline = time.time() + 10.0
+    actual = ""
+    while time.time() < deadline:
+        actual = related_video_label(related_title)
+        if actual == related_title:
+            close_related_video_picker()
+            return
+        time.sleep(0.5)
+    close_related_video_picker()
+    if actual != related_title:
         raise RuntimeError(
-            f"Picker label did not update to expected title. expected={related_title!r} actual={result!r}"
+            f"Picker label did not update to expected title. expected={related_title!r} actual={actual!r}"
         )
 
 
 def save_changes() -> None:
-    chrome_exec_js(
+    result = chrome_exec_js(
         """(() => {
-            const save = [...document.querySelectorAll('*')].find(
+            const save = document.querySelector('#save') ||
+              [...document.querySelectorAll('*')].find(
               el => (el.innerText || '').trim() === 'Save'
             );
             if (!save) return 'NO_SAVE';
@@ -204,14 +344,17 @@ def save_changes() -> None:
             return 'CLICKED';
         })()"""
     )
+    if result != "CLICKED":
+        raise RuntimeError(f"Could not click Save: {result}")
     wait_for(
         """(() => {
-            const save = [...document.querySelectorAll('*')].find(
+            const save = document.querySelector('#save') ||
+              [...document.querySelectorAll('*')].find(
               el => (el.innerText || '').trim() === 'Save'
             );
             const body = document.body ? document.body.innerText : '';
             const disabled = save ? (save.getAttribute('aria-disabled') || String(save.hasAttribute('disabled'))) : '';
-            return body.includes('All changes saved.') && (disabled === 'true' || disabled === 'True')
+            return body.includes('All changes saved') && (disabled === 'true' || disabled === 'True')
               ? 'SAVED'
               : '';
         })()""",
@@ -230,7 +373,13 @@ def verify_related_title(expected_title: str) -> None:
         timeout_s=20.0,
     )
     label = chrome_exec_js(
-        """(() => document.querySelector('#linked-video-editor-link .dropdown-trigger-text')?.innerText?.trim() || '')()"""
+        f"""(() => {{
+            const root = document.querySelector('#linked-video-editor-link');
+            const expected = {json.dumps(expected_title)};
+            const fullText = (root?.innerText || '').trim();
+            if (fullText.includes(expected)) return expected;
+            return root?.querySelector('.dropdown-trigger-text')?.innerText?.trim() || fullText || '';
+        }})()"""
     )
     if label != expected_title:
         raise RuntimeError(
@@ -238,15 +387,26 @@ def verify_related_title(expected_title: str) -> None:
         )
 
 
-def set_related_video(short_video_id: str, related_video_id: str, related_title: str) -> None:
+def set_related_video(
+    short_video_id: str,
+    related_video_id: str,
+    related_title: str,
+    *,
+    profile_directory: str = "",
+) -> None:
     print(f"{short_video_id}: opening Studio edit page", flush=True)
-    chrome_navigate(f"https://studio.youtube.com/video/{short_video_id}/edit")
+    chrome_navigate(
+        f"https://studio.youtube.com/video/{short_video_id}/edit",
+        profile_directory=profile_directory,
+    )
     time.sleep(8.0)
     ensure_page_ready(short_video_id)
-    current = chrome_exec_js(
-        """(() => document.querySelector('#linked-video-editor-link .dropdown-trigger-text')?.innerText?.trim() || '')()"""
-    )
+    current = related_video_label(related_title)
     if current == related_title:
+        close_related_video_picker()
+        if has_pending_save():
+            print(f"{short_video_id}: related video selected but unsaved; saving", flush=True)
+            save_changes()
         verify_related_title(related_title)
         print(f"{short_video_id}: already set -> {related_title}", flush=True)
         return
@@ -266,7 +426,12 @@ def set_related_video(short_video_id: str, related_video_id: str, related_title:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manager-email", default=DEFAULT_MANAGER_EMAIL)
-    parser.add_argument("--profile-directory")
+    parser.add_argument("--profile-directory", default=DEFAULT_PROFILE_DIRECTORY)
+    parser.add_argument(
+        "--relaunch-chrome",
+        action="store_true",
+        help="Close existing Chrome processes before opening the Studio automation window.",
+    )
     parser.add_argument("--pair", action="append", default=[], help="short_id:related_id:related_title")
     args = parser.parse_args()
 
@@ -276,15 +441,44 @@ def main() -> int:
     profile_directory = args.profile_directory or resolve_profile(args.manager_email)
 
     first_short = args.pair[0].split(":", 2)[0]
-    launch_chrome(profile_directory, f"https://studio.youtube.com/video/{first_short}/edit")
+    first_url = f"https://studio.youtube.com/video/{first_short}/edit"
+    launch_chrome(profile_directory, first_url, relaunch=args.relaunch_chrome)
     time.sleep(8.0)
-    wait_for("""(() => document.body ? 'BODY' : '')()""", timeout_s=15.0)
+    try:
+        wait_for("""(() => document.body ? 'BODY' : '')()""", timeout_s=15.0)
+    except Exception as exc:
+        print(
+            f"Initial Chrome readiness check failed ({exc}); opening a fresh Studio window and retrying",
+            file=sys.stderr,
+            flush=True,
+        )
+        launch_chrome(profile_directory, first_url, relaunch=False)
+        time.sleep(8.0)
+        wait_for("""(() => document.body ? 'BODY' : '')()""", timeout_s=20.0)
 
+    errors = []
     for raw_pair in args.pair:
         short_id, related_id, related_title = raw_pair.split(":", 2)
-        set_related_video(short_id, related_id, related_title)
+        try:
+            set_related_video(
+                short_id,
+                related_id,
+                related_title,
+                profile_directory=profile_directory,
+            )
+        except Exception as exc:
+            try:
+                close_related_video_picker()
+            except Exception:
+                pass
+            print(
+                f"{short_id}: ERROR related video not set -> {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+            errors.append(short_id)
 
-    return 0
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":
