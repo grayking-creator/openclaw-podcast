@@ -354,10 +354,20 @@ def generate_en_audio(ep_num, force=False):
     log(f"\n── EN audio ────────────────────────────────────────────────────────────")
 
     if out_path.exists() and not force:
-        size_mb = out_path.stat().st_size // 1024 // 1024
-        log(f"⏭  EN audio already exists ({size_mb}MB) — skipping (use --force-audio to regenerate)")
-        post_build_log(f"⏭ EP{ep_str} [4/6] EN audio already exists ({size_mb}MB) — skipped")
-        return out_path
+        # Only reuse audio that is NEWER than the transcript it must voice.
+        # EP083 (2026-07-08): a parallel agent session TTS'd a rejected draft
+        # minutes before the QC-passed transcript landed; this skip branch
+        # trusted the stale mp3 and the Telegram review carried audio that did
+        # not match the published transcript.
+        transcript = PODCAST_DIR / "episodes" / f"episode_{ep_str}_transcript.md"
+        if transcript.exists() and out_path.stat().st_mtime < transcript.stat().st_mtime:
+            log(f"♻️  EN audio exists but is OLDER than {transcript.name} — regenerating from the current transcript")
+            post_build_log(f"♻️ EP{ep_str} [4/6] existing EN audio predates the transcript — regenerating")
+        else:
+            size_mb = out_path.stat().st_size // 1024 // 1024
+            log(f"⏭  EN audio already exists ({size_mb}MB) — skipping (use --force-audio to regenerate)")
+            post_build_log(f"⏭ EP{ep_str} [4/6] EN audio already exists ({size_mb}MB) — skipped")
+            return out_path
 
     log(f"Generating EN audio from {nova.name}...")
     log(f"(This takes 10-20 minutes)")

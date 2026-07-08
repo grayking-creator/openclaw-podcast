@@ -78,7 +78,17 @@ ROUTE_FAIL_MARKERS = (
 # Raised 3→5 on 2026-06-15: EP071 converged 20→5→4→1 QC errors across routes but
 # ran out of the 3-repair budget one round short of clean. Strong routes (MiniMax
 # M3, gpt-5.5) revise reliably, so a few more rounds let the morning self-finish.
-DEFAULT_ATTEMPTS = max(1, int(os.environ.get("TRANSCRIPT_GEN_ATTEMPTS", "5")))
+# Raised 5→8 on 2026-07-08 (EP083): with the per-lineage cap below, 8 repairs
+# guarantees at least 3-4 distinct routes get a fresh-draft shot before the
+# budget exhausts, instead of one weak route draining all repairs.
+DEFAULT_ATTEMPTS = max(1, int(os.environ.get("TRANSCRIPT_GEN_ATTEMPTS", "8")))
+
+# A draft lineage (one model draft + its revision chain) gets at most this many
+# failed QC repairs before we abandon it and draft fresh from the next route.
+# EP083 (2026-07-08): revisions pinned to the best viable route (nemotron after
+# minimax/gemini demoted) burned the entire repair budget on one degrading
+# lineage; gpt-5.5, the freecall lanes, and exo were never tried.
+MAX_LINEAGE_REPAIRS = max(1, int(os.environ.get("TRANSCRIPT_LINEAGE_REPAIRS", "2")))
 
 
 def read_text(path: Path, limit: int | None = None) -> str:
@@ -104,6 +114,55 @@ def recent_transcript_excerpt(ep_num: int) -> str:
             excerpts.append(f"--- EP{prior:03d} format excerpt ---\n{read_text(path, 4000)}")
             break
     return "\n\n".join(excerpts)
+
+
+# Show-notes sections that only serve the researcher/release tooling; the
+# transcript model needs Story Slate + Show Notes (spoken material) + Chapters.
+# Everything else is dead weight that pushed fresh-draft prompts past the
+# MiniMax M3 / Gemini request ceilings once show notes grew past ~70KB
+# (EP082-083, 2026-07-07/08: both routes returned "No text output" on every
+# fresh draft while a tiny probe prompt succeeded — the outage was prompt size).
+_PROMPT_DROP_SECTIONS = (
+    "Model Discovery Check",
+    "Local LLM Spotlight",
+    "GitHub Project Radar",
+    "Extra Research Candidates",
+    "Primary Links",
+    "Release Coverage Check",
+    "Harness Version Reference",
+)
+# Hard byte budget for the show-notes block of any prompt. 64KB keeps the full
+# assembled prompt comfortably under the ~76KB that last worked on the
+# voice-match tier (EP081) while bounding future show-notes growth.
+_PROMPT_SHOW_NOTES_BUDGET = 64_000
+
+
+def condense_show_notes_for_prompt(show_notes: str) -> str:
+    out: list[str] = []
+    skip = False
+    slate_titles_only = False
+    for line in show_notes.splitlines():
+        if line.startswith("## "):
+            name = line[3:].strip()
+            skip = any(name.startswith(s) for s in _PROMPT_DROP_SECTIONS)
+            # The Story Slate's per-story body (summary + depth/actionability
+            # angles + hook) duplicates the '## Show Notes' spoken-material
+            # block story-for-story. Keep only the numbered title lines so the
+            # model still sees the exact slate enumeration; the spoken
+            # material below is the authoritative story content.
+            slate_titles_only = name.startswith("Story Slate")
+        if skip:
+            continue
+        if slate_titles_only and line.strip() and not line.startswith("#") \
+                and not re.match(r"^\d+\.\s", line):
+            continue
+        out.append(line)
+    condensed = "\n".join(out)
+    if len(condensed) > _PROMPT_SHOW_NOTES_BUDGET:
+        condensed = condensed[:_PROMPT_SHOW_NOTES_BUDGET] + (
+            "\n\n[Show notes truncated to fit the transcript model's request ceiling.]"
+        )
+    return condensed
 
 
 def build_prompt(
@@ -541,7 +600,10 @@ def main() -> int:
         print(f"Transcript already exists: {transcript_path}")
         return 0
 
-    show_notes = read_text(show_notes_path)
+    # Condense once here so every consumer (fresh drafts, revisions, the
+    # truncation-splice continuation prompt) stays under the provider request
+    # ceilings — the on-disk show notes file is untouched.
+    show_notes = condense_show_notes_for_prompt(read_text(show_notes_path))
     examples = recent_transcript_excerpt(ep_num)
     transcript_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -587,6 +649,22 @@ def main() -> int:
     qc_repairs = 0
     route_tries = 0
     mi = 0
+    # Per-lineage repair tracking: a draft that keeps failing QC after
+    # MAX_LINEAGE_REPAIRS revision passes is abandoned, and the next loop
+    # iteration drafts fresh from the next route in the rotation (mi already
+    # points past the route that produced the abandoned draft).
+    lineage_repairs = 0
+    base_transcript = current_transcript  # revision base for --feedback mode
+
+    def abandon_lineage_if_exhausted() -> None:
+        nonlocal repair_feedback, current_transcript, lineage_repairs
+        if lineage_repairs < MAX_LINEAGE_REPAIRS:
+            return
+        print(f"[EP{ep_str}] draft lineage exhausted after {lineage_repairs} failed QC "
+              f"repair(s) — abandoning it and drafting fresh from the next route.", flush=True)
+        repair_feedback = ""
+        current_transcript = base_transcript
+        lineage_repairs = 0
 
     while qc_repairs < max_qc_repairs and route_tries < max_route_tries:
         vm = viable()
@@ -656,7 +734,9 @@ def main() -> int:
             # Non-route generation problem — treat as a repairable shape failure.
             repair_feedback = f"Generation/shape failure: {exc}"
             qc_repairs += 1
+            lineage_repairs += 1
             print(f"[EP{ep_str}] {label} failed before QC: {exc}", flush=True)
+            abandon_lineage_if_exhausted()
             continue
 
         # Truncated draft (model hit its output ceiling mid-episode, so the
@@ -684,7 +764,9 @@ def main() -> int:
             repair_feedback = f"Generation/shape failure: {exc}"
             current_transcript = text
             qc_repairs += 1
+            lineage_repairs += 1
             print(f"[EP{ep_str}] {label} failed basic shape check: {exc}", flush=True)
+            abandon_lineage_if_exhausted()
             continue
 
         with tempfile.NamedTemporaryFile(
@@ -714,14 +796,22 @@ def main() -> int:
         fail_lines = [ln for ln in qc_text.splitlines() if "❌" in ln or "→" in ln]
         repair_feedback = "\n".join(fail_lines).strip() or qc_text.strip()
         current_transcript = text
-        if not listener_feedback:
-            listener_feedback = "Fix only the QC failures listed below; keep the rest of the draft intact."
+        # QC repairs are NOT reviewer-audio revisions. Keep them in the
+        # automated-QC repair channel only. EP083 (2026-07-08) regressed here:
+        # after the first QC failure we synthesized listener_feedback, which
+        # activated the reviewer-audio revision prompt and encouraged the model
+        # to reason about contradictory instructions instead of returning only
+        # transcript markdown. The rejected artifact began with "We need to..."
+        # analysis and never recovered. repair_feedback + current_transcript are
+        # sufficient for targeted QC repair.
         qc_repairs += 1
+        lineage_repairs += 1
         rejected_path = transcript_path.parent / f".episode_{ep_str}_transcript.rejected.latest.tmp"
         tmp_path.replace(rejected_path)
         last_tmp_path = rejected_path
         print(f"[EP{ep_str}] {label} failed check_episode.py; will revise to fix "
               f"{len(fail_lines)} issue(s) and retry.", flush=True)
+        abandon_lineage_if_exhausted()
 
     raise SystemExit(
         f"Generated transcript still failing after {qc_repairs} QC repair(s) / {route_tries} route tries "

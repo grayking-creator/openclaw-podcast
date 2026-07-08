@@ -699,6 +699,13 @@ def rewrite_colliding_title(story: dict, source: dict | None,
         return title
     provider = _provider_or_surface_from_source(story, source)
     model_short = _model_short_from_source(story, source)
+    if model_short == "model":
+        # No grounded model id and no short title head — any templated rewrite
+        # would be contentless (EP083, 2026-07-08: 'listing adds model' and
+        # 'github listing adds model' shipped into the slate and burned all 3
+        # final-QC repair rounds). Return "" so the caller drops the story and
+        # backfills from the pool instead.
+        return ""
     for rx, tmpl in _TITLE_TEMPLATE_REWRITES:
         if rx.search(title):
             # Preserve any product prefix (e.g. "Nex AGI:") but drop the

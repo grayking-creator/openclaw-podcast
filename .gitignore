@@ -75,3 +75,8 @@ scripts/release_ep*.json.bak-*
 # Runtime caches (rebuilt every research run)
 scripts/last_seen_models.json
 scripts/.telegram_send_records/
+
+# Pipeline debris — rejected QC drafts, scratch, and trash (never commit)
+episodes/.episode_*_transcript.*.tmp
+*.rejected.*
+trash/
