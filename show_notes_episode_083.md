@@ -10,7 +10,7 @@
 
 ## Story Slate
 
-1. **Agent Stack Release Readout: Hermes Agent v2026.7.7.2, v2026.7.7; OpenAI Codex rust-v0.143.0; Claude Code CLI 2.1.197**
+1. **Agent Stack Release Readout: Hermes Agent v2026.7.7.2; OpenAI Codex rust-v0.143.0; Claude Code CLI 2.1.197**
 OpenAI shipped Codex rust-v0.143.0 on July 8, flipping several defaults and adding first-class integrations. Remote plugins now load by default from the npm marketplace catalog with visible remote and local versions. System proxy routing for macOS and Windows covers PAC and WPAD, and `codex remote-control pair` generates manual pairing codes from a running daemon. Amazon Bedrock GPT-5.6 Sol, Terra, and Luna models get first-class `max` reasoning effort. MCP tool search is on by default, and ChatGPT-hosted MCP servers can opt into session authentication. App-server clients gain environment inspection, descendant thread listing, and history fork through a specific turn.
 Technical depth angle: Codex now treats the npm marketplace plugin catalog as a default code path, surfaces remote vs local version per plugin, and resolves macOS/Windows system proxies (including PAC scripts and WPAD) for both auth and Responses API traffic. The new `codex remote-control pair` subcommand mints a pairing code from an already-running daemon. MCP tool search activates by default; hosted MCP servers can flip to session-scoped auth. App-server gains three read/traversal APIs: environment inspection, descendant thread listing, and history fork to a specific turn.
 Actionability angle: What this means for builders is that a fresh Codex install now picks up remote plugins and routes through the host's system proxy stack without per-team config, which removes the most common corporate-network friction. Why this matters: teams already provisioned on Amazon Bedrock can route `max` reasoning effort to GPT-5.6 Luna, Terra, and Sol through the same harness, and the app-server's new fork-by-turn API opens up replay and scheduling tooling that was previously only possible inside the CLI. The implications land across OpenClaw, Codex, Claude Code, Hermes, and Antigravity stacks alike.
@@ -146,7 +146,7 @@ Episode 083 — July 08, 2026
 
 Agent Stack Release Readout highlights the Hermes Agent update, OpenAI Codex rust, and Claude Code CLI 2.1.197. The Hermes Agent updates to the v2026.7.7 baseline, bringing refinements to its tool‑calling pipeline and observability hooks. OpenAI’s Codex rust flips several defaults, making remote plugins load by default from the npm marketplace catalog and exposing remote‑first diagnostics. Claude Code CLI 2.1.197 adds tighter sandbox controls, improved telemetry, and a new flag for deterministic reason‑step logging. Together these releases sharpen the Agent Stack’s reliability features for production agents while keeping the upgrade path smooth for existing workflows. Developers can test the new features immediately via the Agent Stack CLI, which now defaults to the v2026.7.7 baseline and offers a one‑flag upgrade path that preserves existing configurations while unlocking the enhanced remote‑plugin workflow and stricter Claude Code safeguards.
 
-[02:00] Agent Stack Release Readout: Hermes Agent v2026.7.7.2, v2026.7.7; OpenAI Codex rust-v0.143.0; Claude Code CLI 2.1.197
+[02:00] Agent Stack Release Readout: Hermes Agent v2026.7.7.2; OpenAI Codex rust-v0.143.0; Claude Code CLI 2.1.197
 
 OpenAI shipped Codex rust-v0.143.0 on July 8, a release that flips several defaults and adds first-class integrations the agent harness has been missing. The headline shift is remote plugins enabling by default — every Codex install now loads plugins from the npm marketplace catalog, surfaces richer catalog rows, and shows the remote and local version side by side so you can see when a local install is shadowed by a remote build. That changes plugin discovery from an opt-in to baseline behavior and pulls the curated plugin directory into the core install path.
 
@@ -275,8 +275,8 @@ From today's stories: What this means for builders is that a fresh Codex install
 
 ## Chapters
 
-- 00:00 — Intro: Agent Stack Release Readout: Hermes Agent v2026.7.7.2, v2026.7.7; OpenAI Codex rust-v0.143.0; Claude Code CLI 2.1.197 / AionLabs Releases Aion-3.0-Mini Roleplay Model on OpenRouter / Local High Fidelity TTS with Kokoro Delivers High Quality Speech on Low Power CPUs
-- 02:00 — Agent Stack Release Readout: Hermes Agent v2026.7.7.2, v2026.7.7; OpenAI Codex rust-v0.143.0; Claude Code CLI 2.1.197
+- 00:00 — Intro: Agent Stack Release Readout: Hermes Agent v2026.7.7.2; OpenAI Codex rust-v0.143.0; Claude Code CLI 2.1.197 / AionLabs Releases Aion-3.0-Mini Roleplay Model on OpenRouter / Local High Fidelity TTS with Kokoro Delivers High Quality Speech on Low Power CPUs
+- 02:00 — Agent Stack Release Readout: Hermes Agent v2026.7.7.2; OpenAI Codex rust-v0.143.0; Claude Code CLI 2.1.197
 - 03:35 — AionLabs Releases Aion-3.0-Mini Roleplay Model on OpenRouter
 - 05:23 — Local High Fidelity TTS with Kokoro Delivers High Quality Speech on Low Power CPUs
 - 07:17 — Ablation study pins chain-of-thought coherence on a few workspace attention heads

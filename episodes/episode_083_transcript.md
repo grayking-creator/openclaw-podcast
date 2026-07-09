@@ -4,7 +4,7 @@
 
 [ALLOY]: I'm ALLOY, and this is AgentStack Daily...
 
-[NOVA]: Hermes Agent 7.7 and 7.7 shipped alongside OpenAI Codex rust .143 and Claude Code .197. Hermes tightened tool-calling flow and added observability hooks, Codex flipped remote plugins on by default and introduced system proxy routing, and the terminal-based AI coding agent Claude Code added stricter sandbox controls, improved telemetry, and deterministic reason-step logging.
+[NOVA]: Hermes Agent 7.7 shipped alongside OpenAI Codex rust .143 and Claude Code .197. Hermes tightened tool-calling flow and added observability hooks, Codex flipped remote plugins on by default and introduced system proxy routing, and the terminal-based AI coding agent Claude Code added stricter sandbox controls, improved telemetry, and deterministic reason-step logging.
 
 [ALLOY]: Today: Hermes, Codex, and Claude Code lead the agent-harness queue; AionLabs puts Aion-3-Mini roleplay on OpenRouter; Kokoro pushes high-fidelity speech onto low-power CPUs; Anthropic’s workspace-head research sharpens interpretability; Rowboat gets Hacker News traction as a local-first Claude Desktop rival; and the security lane gets a GitHub AI agent prompt-injection leak.
 
@@ -14,9 +14,9 @@
 
 [PAUSE]
 
-## [02:00] Agent Stack Release Readout: Hermes Agent 7.7, 7.7; OpenAI Codex rust .143; Claude Code .197
+## [02:00] Agent Stack Release Readout: Hermes Agent 7.7; OpenAI Codex rust .143; Claude Code .197
 
-[NOVA]: Hermes Agent 7.7 and 7.7 set the baseline for the Agent Stack release readout, with refinements to the tool-calling pipeline and observability hooks that make long-running agent sessions easier to inspect. The useful change is not a flashy new agent personality; it is the plumbing around tool invocation. Calls can be traced with clearer timing and outcome metadata, so a failing tool route becomes visible as an execution problem rather than an opaque model answer. That helps when a chain crosses provider APIs, shell actions, browser automation, or custom services.
+[NOVA]: Hermes Agent 7.7 sets the baseline for the Agent Stack release readout, with refinements to the tool-calling pipeline and observability hooks that make long-running agent sessions easier to inspect. The useful change is not a flashy new agent personality; it is the plumbing around tool invocation. Calls can be traced with clearer timing and outcome metadata, so a failing tool route becomes visible as an execution problem rather than an opaque model answer. That helps when a chain crosses provider APIs, shell actions, browser automation, or custom services.
 
 [ALLOY]: OpenAI’s terminal-based coding agent Codex rust .143 ships the largest surface change. Remote plugins now load by default from the marketplace catalog, with richer rows and side-by-side local and remote versions. Discovery becomes baseline behavior, not an opt-in path. Codex also adds system proxy routing on macOS and Windows, including PAC and WPAD discovery, so authentication and Responses API traffic can follow corporate network policy without a special bypass. Manual remote-control pairing from a running daemon adds a cleaner path for shared hosts and constrained environments.
 
@@ -195,8 +195,6 @@
 ## [29:25] Model Discovery Check
 
 [ALLOY]: Aion-3-Mini is the selected model to watch. It is available through OpenRouter’s chat interface, inherits DeepSeek-family multilingual behavior, and brings a 131K-token context window to roleplay and storytelling workflows. The selected angle is not raw benchmark dominance; it is specialization. The model is shaped for character voice, continuity, and long interactive sessions. If you are building NPC dialogue, tabletop assistants, interactive fiction, or persistent character chat, Aion-3-Mini gives you a hosted endpoint where narrative structure is part of the design rather than an afterthought.
-
-[NOVA]: The discovery check also flags the absence of a general-purpose flagship model drop on the same scale as a new frontier assistant; the not-selected items stay in the background because the stronger signal here is a domain-specific roleplay model paired with agent-harness releases and long-context research.
 
 [PAUSE]
 
