@@ -80,3 +80,4 @@ scripts/.telegram_send_records/
 episodes/.episode_*_transcript.*.tmp
 *.rejected.*
 trash/
+scripts/.sol_repair_state.json

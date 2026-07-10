@@ -33,7 +33,7 @@ post_discord_build_log() {
     append_build_log "show_notes_research_guard: WARN missing Build Log helper: $POST_BUILD_LOG"
     return 1
   fi
-  python3 "$POST_BUILD_LOG" "$message" >> "$BUILD_LOG" 2>&1 || {
+  python3 "$POST_BUILD_LOG" --error "$message" >> "$BUILD_LOG" 2>&1 || {
     append_build_log "show_notes_research_guard: WARN Discord Build Log post failed"
     return 1
   }
@@ -46,6 +46,14 @@ fail_guard() {
   append_build_log "show_notes_research_guard: FAIL $summary"
   message=$(printf '[FAIL] AgentStack Daily research guard: %s\nLog: %s\nBuild log: %s' "$summary" "$RUN_LOG" "$BUILD_LOG")
   post_discord_build_log "$message" || true
+  # Kick the Sol repair watcher immediately (event-driven) so the failure is
+  # being worked before the next 10-minute cron poll — terminal morning
+  # failures must not wait on anything if the 9am episode is at risk.
+  if [ -x "${SCRIPTS_DIR}/sol_build_repair_watcher.py" ]; then
+    nohup /opt/homebrew/bin/python3.12 "${SCRIPTS_DIR}/sol_build_repair_watcher.py" --once \
+      >> /tmp/sol_repair_watcher.log 2>&1 &
+    append_build_log "show_notes_research_guard: Sol repair watcher kicked (pid $!)"
+  fi
   exit "$code"
 }
 
