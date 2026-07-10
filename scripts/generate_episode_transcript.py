@@ -10,6 +10,10 @@ Environment variables:
   TRANSCRIPT_MODELS  Comma-separated provider fallback list. Models must
                      support ~8k-10k output tokens for 6,000+ word transcripts.
   TRANSCRIPT_GEN_ATTEMPTS  Max regenerate+QC attempts (default: 3).
+  TRANSCRIPT_RESCUE_MODEL     Strong repair model used only after the normal
+                              route ladder exhausts its QC budget (default:
+                              openai/gpt-5.6-sol). Set empty to disable.
+  TRANSCRIPT_RESCUE_ATTEMPTS  Max rescue repair attempts (default: 3).
 """
 
 from __future__ import annotations
@@ -89,6 +93,24 @@ DEFAULT_ATTEMPTS = max(1, int(os.environ.get("TRANSCRIPT_GEN_ATTEMPTS", "8")))
 # minimax/gemini demoted) burned the entire repair budget on one degrading
 # lineage; gpt-5.5, the freecall lanes, and exo were never tried.
 MAX_LINEAGE_REPAIRS = max(1, int(os.environ.get("TRANSCRIPT_LINEAGE_REPAIRS", "2")))
+
+# Rescue stage (added 2026-07-10, EP084 incident): when the whole route ladder
+# exhausts the QC budget, hand the BEST rejected draft plus its exact QC
+# failures to one strong repair model instead of failing the morning. EP084
+# burned 8 repairs across two runs while drafts oscillated 3→10→5→15 errors —
+# the only live revision route (nemotron) truncated every draft and regressed
+# it, and gpt-5.5 was never reached. The rescue model does targeted repair on
+# an existing draft, so the "GPT drone register" concern for fresh drafts does
+# not apply here; the voice of the draft it repairs is preserved.
+RESCUE_MODEL = os.environ.get("TRANSCRIPT_RESCUE_MODEL", "openai/gpt-5.6-sol").strip()
+RESCUE_ATTEMPTS = max(0, int(os.environ.get("TRANSCRIPT_RESCUE_ATTEMPTS", "3")))
+
+# A route whose drafts keep getting cut off by its output ceiling (missing the
+# closing phrase) is a bad *revision* target even when it is transport-healthy:
+# every revision it produces loses the tail and regresses QC. After this many
+# truncated drafts, prefer other viable routes for revisions (EP084: nemotron
+# truncated 8/8 drafts and monopolized the revision channel).
+TRUNCATION_DEMOTE_AT = 2
 
 
 def read_text(path: Path, limit: int | None = None) -> str:
@@ -186,16 +208,16 @@ def build_prompt(
             "\n\n[Show notes truncated for this revision pass — the current "
             "transcript below already contains every story.]"
         )
-    revision_block = ""
-    if listener_feedback.strip():
-        current_block = ""
-        if current_transcript.strip():
-            current_block = f"""
+    current_block = ""
+    if current_transcript.strip():
+        current_block = f"""
 Current transcript to revise (change what the feedback asks for; keep what was already good):
 --- CURRENT TRANSCRIPT START ---
 {current_transcript.strip()}
 --- CURRENT TRANSCRIPT END ---
 """
+    revision_block = ""
+    if listener_feedback.strip():
         revision_block = f"""
 
 REVISION TASK (highest priority) — a transcript was already produced and the reviewer listened to the generated audio and left the feedback below. Return a corrected FULL transcript that concretely addresses every point of this feedback while keeping every hard format requirement above. Make the changes the feedback asks for; do not merely reword. Do not narrate the feedback, the revision, or the review process anywhere in the transcript.
@@ -203,15 +225,22 @@ REVISION TASK (highest priority) — a transcript was already produced and the r
 {listener_feedback.strip()}
 --- END REVIEWER AUDIO FEEDBACK ---
 {current_block}"""
+        current_block = ""  # embedded above; don't repeat it in the repair block
     repair_block = ""
     if repair_feedback.strip():
+        # The failed draft MUST ride along with the QC failures. Regression
+        # found 2026-07-10 (EP084): repair prompts truncated the show notes to
+        # 24KB "because the current transcript below already contains every
+        # story" but never actually embedded the transcript — so every "repair"
+        # was a fresh draft from a third of the show notes, and QC oscillated
+        # 3→10→5→15 errors instead of converging.
         repair_block = f"""
 
 CRITICAL — the previous draft was REJECTED by automated QC (check_episode.py). Return a corrected FULL transcript that fixes every issue below and does not reintroduce any of them. Common fix: never read full patch version numbers aloud (e.g. write "Claude Code latest" or "Claude Code two point one", never "2.1.159"); keep version tags out of the opening; remove any meta/build-process or internal-path language.
 --- QC FAILURES TO FIX ---
 {repair_feedback.strip()}
 --- END QC FAILURES ---
-"""
+{current_block}"""
     return f"""
 Write the complete AgentStack Daily transcript for EP{ep_str} from the approved show notes.
 
@@ -259,7 +288,7 @@ REQUIRED FULL-SURFACE COVERAGE (locked 2026-06-18, EP072 round 3 — Toby: "you'
 
   a. **GitHub Project Radar segment** — at minimum 3 repos from the show notes' GitHub Project Radar. One short segment per repo, each ≤320 words, naming the repo, what it does, the headline mechanism, and a concrete integration angle. Total radar block ≤720 words.
 
-  b. **Model Discovery Check segment** — every model marked "Selected" in the show notes' Model Discovery Check gets its own short spoken beat (≤200 words each). Any "Not Selected" entries get one collective beat in a single sentence.
+  b. **Model Discovery Check segment** — every model marked "Selected" in the show notes' Model Discovery Check gets its own short spoken beat (≤200 words each). NEVER mention "Not Selected" entries, absent releases, lack of frontier models, lack of model drops, or how the model-discovery section was made. If there is no strong selected model, omit the segment from audio.
 
   c. **Local LLM Spotlight segment** — one short segment (≤200 words) on the spotlighted model with the practical "Try now" angle from the show notes.
 
@@ -473,7 +502,32 @@ Requirements for the remainder:
     return text.rstrip() + "\n\n" + remainder.strip() + "\n"
 
 
+def strip_reasoning_prelude(text: str) -> tuple[str, bool]:
+    """Cut analysis/planning prose a reasoning model emitted before the actual
+    transcript. EP084 (2026-07-10): a route returned untagged chain-of-thought
+    ("We are given the show notes and must write...") ahead of — or instead
+    of — the transcript; quoted [NOVA] lines inside the analysis defeated the
+    substring shape check. Only trim to a top-level '# ' title line, which is
+    how every real transcript begins; quoted speaker lines are not a safe
+    anchor."""
+    lines = text.splitlines()
+    first_content = next((ln.lstrip() for ln in lines if ln.strip()), "")
+    if first_content.startswith(("#", "[NOVA]", "[ALLOY]")):
+        return text, False
+    for i, ln in enumerate(lines):
+        if ln.startswith("# "):
+            return "\n".join(lines[i:]).strip() + "\n", True
+    return text, False
+
+
 def basic_shape_check(text: str, ep_num: int) -> None:
+    first_content = next((ln.lstrip() for ln in text.splitlines() if ln.strip()), "")
+    if not first_content.startswith(("#", "[NOVA]", "[ALLOY]")):
+        raise RuntimeError(
+            "Draft opens with analysis/meta prose instead of the transcript — "
+            "return ONLY the transcript markdown, starting with the "
+            "'# AgentStack Daily EP…' title line, with no reasoning or notes"
+        )
     if "[NOVA]:" not in text or "[ALLOY]:" not in text:
         raise RuntimeError("Generated transcript is missing NOVA/ALLOY speaker turns")
     if "[PAUSE]" not in text:
@@ -510,6 +564,9 @@ def apply_deterministic_qc_repairs(text: str) -> tuple[str, list[str]]:
     the draft already passed the hard content checks.
     """
     fixes: list[str] = []
+    text, trimmed = strip_reasoning_prelude(text)
+    if trimmed:
+        fixes.append("stripped analysis/meta prelude before the title")
     original = text
 
     text = _prefix_first_mention(
@@ -532,16 +589,23 @@ def apply_deterministic_qc_repairs(text: str) -> tuple[str, list[str]]:
 
     # check_episode.py rejects full three-part versions spoken aloud (EP082:
     # the slate headline itself carried 'Claude Code CLI 2.1.195', so every
-    # model draft failed this gate twice per run). Shorten deterministically:
-    # generic semver 'a.b.c' → 'a.b' (skipping longer dotted chains like
-    # IPs), then year calver '2026.x.y[.z]' → 'x.y[.z]' to match the allowed
-    # shorten_release_tag() form. An already-short calver point tag like
-    # '5.29.2' also collapses to '5.29' — a minor fidelity loss that still
-    # reads naturally on air.
+    # model draft failed this gate twice per run). Shorten deterministically.
+    # IMPORTANT: handle year calver before generic semver. EP083 had the show
+    # notes title "v2026.7.7.2, v2026.7.7"; generic-first shortening turned
+    # both into the identical spoken phrase "7.7", producing "Hermes Agent
+    # 7.7 and 7.7" in audio. That repetition is invalid even though each tag
+    # is individually shortened.
+    text = re.sub(r"\bv?20\d{2}\.(\d+\.\d+)(?:\.\d+)?\b", r"\1", text)
     text = re.sub(r"(?<![.\d])(\d{1,3}\.\d{1,3})\.\d{1,4}(?![.\d])", r"\1", text)
-    text = re.sub(r"\bv?20\d{2}\.(\d+\.\d+(?:\.\d+)?)\b", r"\1", text)
+    text = re.sub(
+        r"\b(Hermes(?: Agent)?\s+)(\d{1,2}\.\d{1,2})(?:\s*(?:,|and|;)\s*\2\b)+",
+        r"\1\2",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"Hermes Agent (\d{1,2}\.\d{1,2}),\s*\1", r"Hermes Agent \1", text)
     if text != original:
-        fixes.append("shortened full version numbers for speech")
+        fixes.append("shortened/deduped release version numbers for speech")
         original = text
 
     last_500_words = " ".join(text.split()[-500:])
@@ -561,6 +625,31 @@ def apply_deterministic_qc_repairs(text: str) -> tuple[str, list[str]]:
         fixes.append("added recognizable outro sign-off")
 
     return text, fixes
+
+
+def run_qc(text: str, transcript_path: Path, ep_str: str) -> tuple[Path, int, list[str]]:
+    """Write a draft to a tmp file next to the target and run check_episode.py
+    on it. Returns (tmp_path, returncode, failed-check lines)."""
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=str(transcript_path.parent), delete=False,
+        prefix=f".episode_{ep_str}_transcript.", suffix=".tmp",
+    ) as tmp:
+        tmp.write(text)
+        tmp_path = Path(tmp.name)
+
+    qc = subprocess.run(
+        [sys.executable, str(SCRIPTS_DIR / "check_episode.py"), str(tmp_path)],
+        cwd=str(PODCAST_DIR), capture_output=True, text=True,
+    )
+    if qc.stdout:
+        print(qc.stdout, flush=True)
+    if qc.stderr:
+        print(qc.stderr, file=sys.stderr, flush=True)
+    qc_text = (qc.stdout or "") + ("\n" + qc.stderr if qc.stderr else "")
+    fail_lines = [ln for ln in qc_text.splitlines() if "❌" in ln or "→" in ln]
+    if qc.returncode != 0 and not fail_lines:
+        fail_lines = [qc_text.strip() or "check_episode.py failed with no output"]
+    return tmp_path, qc.returncode, fail_lines
 
 
 def main() -> int:
@@ -649,17 +738,36 @@ def main() -> int:
     qc_repairs = 0
     route_tries = 0
     mi = 0
+    # Routes that already produced one fresh draft. Fresh drafts try every
+    # never-tried viable route in spec order BEFORE any route repeats — the old
+    # `mi % len(vm)` round-robin indexed into a list that shrank as routes were
+    # demoted, silently skipping tiers (EP083 and EP084: gpt-5.5 never got a
+    # single shot in either incident).
+    fresh_tried: set[str] = set()
+    # Drafts per route that came back truncated (missing the closing phrase).
+    truncations: dict[str, int] = {}
+    # Best rejected draft across ALL lineages — what the rescue stage repairs.
+    best_text = ""
+    best_feedback = ""
+    best_fail_count: int | None = None
     # Per-lineage repair tracking: a draft that keeps failing QC after
     # MAX_LINEAGE_REPAIRS revision passes is abandoned, and the next loop
     # iteration drafts fresh from the next route in the rotation (mi already
     # points past the route that produced the abandoned draft).
     lineage_repairs = 0
+    # Failed-check count of this lineage's previous QC run. A lineage whose
+    # error count is strictly shrinking gets its repair counter reset instead
+    # of being abandoned — EP084 (2026-07-10) cut off gpt-5.5 twice while it
+    # was converging (12→6 errors) and the episode had to be saved by the
+    # rescue stage. The global qc_repairs budget still bounds the loop.
+    lineage_prev_fails: int | None = None
     base_transcript = current_transcript  # revision base for --feedback mode
 
     def abandon_lineage_if_exhausted() -> None:
-        nonlocal repair_feedback, current_transcript, lineage_repairs
+        nonlocal repair_feedback, current_transcript, lineage_repairs, lineage_prev_fails
         if lineage_repairs < MAX_LINEAGE_REPAIRS:
             return
+        lineage_prev_fails = None
         print(f"[EP{ep_str}] draft lineage exhausted after {lineage_repairs} failed QC "
               f"repair(s) — abandoning it and drafting fresh from the next route.", flush=True)
         repair_feedback = ""
@@ -678,12 +786,22 @@ def main() -> int:
         # Rotation only picks the route for fresh drafts; dead-route demotion
         # still advances vm[0] when the best route hard-fails.
         if repair_feedback:
-            model = vm[0]
+            # ...but a route whose drafts keep truncating loses the tail on
+            # every revision and regresses QC (EP084: nemotron truncated 8/8
+            # and monopolized revisions) — prefer non-truncating routes.
+            revision_pref = [m for m in vm
+                             if truncations.get(m, 0) < TRUNCATION_DEMOTE_AT] or vm
+            model = revision_pref[0]
             advanced_mi = False
         else:
-            model = vm[mi % len(vm)]
-            mi += 1
-            advanced_mi = True
+            untried = [m for m in vm if m not in fresh_tried]
+            if untried:
+                model = untried[0]
+                advanced_mi = False
+            else:
+                model = vm[mi % len(vm)]
+                mi += 1
+                advanced_mi = True
         route_tries += 1
         prompt = build_prompt(
             ep_num, show_notes, examples,
@@ -739,6 +857,9 @@ def main() -> int:
             abandon_lineage_if_exhausted()
             continue
 
+        if not repair_feedback:
+            fresh_tried.add(model)
+
         # Truncated draft (model hit its output ceiling mid-episode, so the
         # closing phrase is missing from the tail) — splice on a continuation that
         # finishes the remaining stories and the outro, fixing the length and
@@ -747,8 +868,10 @@ def main() -> int:
         # second outro.
         try:
             if looks_truncated(text):
+                truncations[model] = truncations.get(model, 0) + 1
                 print(f"[EP{ep_str}] {label}: draft is {len(text.split())} words and missing the "
-                      f"closing phrase — splicing a continuation.", flush=True)
+                      f"closing phrase — splicing a continuation "
+                      f"(truncation {truncations[model]} for this route).", flush=True)
                 text = complete_truncated_draft(text, ep_num, show_notes, model, args.timeout)
         except RuntimeError as exc:
             print(f"[EP{ep_str}] {label}: continuation splice failed ({str(exc)[:120]}); "
@@ -769,33 +892,26 @@ def main() -> int:
             abandon_lineage_if_exhausted()
             continue
 
-        with tempfile.NamedTemporaryFile(
-            "w", encoding="utf-8", dir=str(transcript_path.parent), delete=False,
-            prefix=f".episode_{ep_str}_transcript.", suffix=".tmp",
-        ) as tmp:
-            tmp.write(text)
-            tmp_path = Path(tmp.name)
+        tmp_path, qc_returncode, fail_lines = run_qc(text, transcript_path, ep_str)
 
-        qc = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "check_episode.py"), str(tmp_path)],
-            cwd=str(PODCAST_DIR), capture_output=True, text=True,
-        )
-        if qc.stdout:
-            print(qc.stdout, flush=True)
-        if qc.stderr:
-            print(qc.stderr, file=sys.stderr, flush=True)
-
-        if qc.returncode == 0:
+        if qc_returncode == 0:
             tmp_path.replace(transcript_path)
             print(f"[EP{ep_str}] Transcript written: {transcript_path} ({label})", flush=True)
             return 0
 
         # QC rejected the draft — hand the model its OWN failed draft to revise
         # (targeted edits keep what already passed) and consume one QC repair.
-        qc_text = (qc.stdout or "") + ("\n" + qc.stderr if qc.stderr else "")
-        fail_lines = [ln for ln in qc_text.splitlines() if "❌" in ln or "→" in ln]
-        repair_feedback = "\n".join(fail_lines).strip() or qc_text.strip()
+        repair_feedback = "\n".join(fail_lines).strip()
         current_transcript = text
+        # Keep the best draft across all lineages for the rescue stage: the
+        # last draft is often a regression (EP084 oscillated 3→10→5→15 errors),
+        # so "fewest failed checks" is the draft worth repairing.
+        if best_fail_count is None or len(fail_lines) < best_fail_count:
+            best_fail_count = len(fail_lines)
+            best_text = text
+            best_feedback = repair_feedback
+            (transcript_path.parent / f".episode_{ep_str}_transcript.rejected.best.tmp"
+             ).write_text(text, encoding="utf-8")
         # QC repairs are NOT reviewer-audio revisions. Keep them in the
         # automated-QC repair channel only. EP083 (2026-07-08) regressed here:
         # after the first QC failure we synthesized listener_feedback, which
@@ -805,7 +921,14 @@ def main() -> int:
         # analysis and never recovered. repair_feedback + current_transcript are
         # sufficient for targeted QC repair.
         qc_repairs += 1
-        lineage_repairs += 1
+        improving = lineage_prev_fails is not None and len(fail_lines) < lineage_prev_fails
+        lineage_prev_fails = len(fail_lines)
+        if improving:
+            lineage_repairs = 0
+            print(f"[EP{ep_str}] lineage error count is shrinking — keeping this "
+                  f"lineage alive (repair counter reset).", flush=True)
+        else:
+            lineage_repairs += 1
         rejected_path = transcript_path.parent / f".episode_{ep_str}_transcript.rejected.latest.tmp"
         tmp_path.replace(rejected_path)
         last_tmp_path = rejected_path
@@ -813,9 +936,75 @@ def main() -> int:
               f"{len(fail_lines)} issue(s) and retry.", flush=True)
         abandon_lineage_if_exhausted()
 
+    # ── Rescue stage ──────────────────────────────────────────────────────
+    # The route ladder exhausted its budget. Before failing the morning, give
+    # the strongest available repair model the best rejected draft and its
+    # exact QC failures. Targeted repair on an existing draft preserves that
+    # draft's voice, so the fresh-draft register ranking above does not apply.
+    if RESCUE_MODEL and RESCUE_ATTEMPTS > 0:
+        rescue_text = best_text
+        rescue_feedback = best_feedback
+        print(f"[EP{ep_str}] route ladder exhausted ({qc_repairs} QC repairs / "
+              f"{route_tries} route tries; dead: {sorted(dead) or 'none'}) — "
+              f"entering rescue stage via {RESCUE_MODEL} (≤{RESCUE_ATTEMPTS} attempts; "
+              f"best prior draft: "
+              f"{'none' if best_fail_count is None else f'{best_fail_count} failed check(s)'}).",
+              flush=True)
+        for attempt in range(1, RESCUE_ATTEMPTS + 1):
+            label = f"rescue attempt {attempt}/{RESCUE_ATTEMPTS} via {RESCUE_MODEL}"
+            prompt = build_prompt(
+                ep_num, show_notes, examples,
+                repair_feedback=rescue_feedback,
+                listener_feedback=listener_feedback,
+                current_transcript=rescue_text or base_transcript,
+            )
+            print(f"[EP{ep_str}] Generating transcript... {label}", flush=True)
+            try:
+                text = run_model(prompt, RESCUE_MODEL, args.timeout)
+            except RuntimeError as exc:
+                print(f"[EP{ep_str}] {label} route failure: {str(exc)[:200]} — "
+                      f"backing off 15s before the next attempt", flush=True)
+                time.sleep(15)
+                continue
+            try:
+                if looks_truncated(text):
+                    print(f"[EP{ep_str}] {label}: draft missing the closing phrase — "
+                          f"splicing a continuation.", flush=True)
+                    text = complete_truncated_draft(text, ep_num, show_notes,
+                                                    RESCUE_MODEL, args.timeout)
+            except RuntimeError as exc:
+                print(f"[EP{ep_str}] {label}: continuation splice failed "
+                      f"({str(exc)[:120]}); continuing with the partial", flush=True)
+            text, deterministic_fixes = apply_deterministic_qc_repairs(text)
+            if deterministic_fixes:
+                print(f"[EP{ep_str}] {label}: applied deterministic QC repair(s): "
+                      f"{', '.join(deterministic_fixes)}.", flush=True)
+            try:
+                basic_shape_check(text, ep_num)
+            except RuntimeError as exc:
+                rescue_feedback = f"Generation/shape failure: {exc}"
+                rescue_text = text
+                print(f"[EP{ep_str}] {label} failed basic shape check: {exc}", flush=True)
+                continue
+            tmp_path, qc_returncode, fail_lines = run_qc(text, transcript_path, ep_str)
+            if qc_returncode == 0:
+                tmp_path.replace(transcript_path)
+                print(f"[EP{ep_str}] Transcript written: {transcript_path} ({label})", flush=True)
+                return 0
+            rescue_feedback = "\n".join(fail_lines).strip()
+            rescue_text = text
+            rejected_path = transcript_path.parent / f".episode_{ep_str}_transcript.rejected.latest.tmp"
+            tmp_path.replace(rejected_path)
+            last_tmp_path = rejected_path
+            print(f"[EP{ep_str}] {label} failed check_episode.py with "
+                  f"{len(fail_lines)} issue(s); feeding failures back.", flush=True)
+
     raise SystemExit(
         f"Generated transcript still failing after {qc_repairs} QC repair(s) / {route_tries} route tries "
-        f"(dead routes: {sorted(dead) or 'none'})."
+        f"(dead routes: {sorted(dead) or 'none'})"
+        + (f" and {RESCUE_ATTEMPTS} rescue attempt(s) via {RESCUE_MODEL}"
+           if RESCUE_MODEL and RESCUE_ATTEMPTS > 0 else "")
+        + "."
         + (f" Kept last draft at {last_tmp_path}" if last_tmp_path else "")
     )
 
