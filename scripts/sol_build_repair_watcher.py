@@ -185,6 +185,14 @@ HARD LIMITS — violating these is worse than leaving the error unfixed:
 
 
 def dispatch_repair(message: dict, dry_run: bool) -> bool:
+    # Defense in depth: this is the ONLY function in the watcher that spends
+    # model tokens. Re-verify the deterministic gate here so no future caller
+    # can reach the LLM with a non-error message.
+    actionable, why = is_actionable(message.get("content", ""))
+    if not actionable:
+        log(f"REFUSED dispatch for {message.get('id', '?')}: {why} "
+            f"(deterministic gate; no model call made)")
+        return False
     msg_id = message["id"]
     excerpt = " ".join(message.get("content", "").split())[:180]
     if dry_run:
@@ -309,6 +317,49 @@ def poll(bootstrap: bool, dry_run: bool) -> int:
     return 0
 
 
+def selftest() -> int:
+    """Prove the deterministic no-error → no-LLM gate with canned messages.
+
+    Runs entirely offline: no Discord fetch, no state mutation, no agent call.
+    Exits nonzero if any non-error message would reach the model or any real
+    failure would be missed."""
+    cases = [
+        # (content, should_dispatch, label)
+        ("✅ Sent via Discord. EP084 build complete", False, "success line"),
+        ("🏗 EP084 build started\n✅ Show notes QC passed", False, "progress line"),
+        ("📺 **EP084 YouTube status** (5/5 channels done)", False, "status line"),
+        ("⚠️ **EP084 YouTube upload issues**\nWarnings only", False, "warning-only post"),
+        ("[RETRY] AgentStack Daily morning run exited 1 — auto-retrying (2/2)", False, "retry post"),
+        ("[HOLD] AgentStack Daily research stopped with exit 2.", False, "hold post"),
+        ("🛑 EP084 morning HOLD: existing review audio is unapproved", False, "unapproved-audio hold"),
+        ("🔧 Sol repair BLOCKED: YouTube OAuth expired — Toby must re-auth", False, "own blocked post"),
+        ("🔧 Sol repair skipped (msg 123): same error already attempted 2x", False, "own budget post"),
+        ("", False, "empty message"),
+        ("❌ EP084 morning pipeline FAILED at stage: transcript", True, "stage failure"),
+        ("[FAIL] AgentStack Daily research guard: script exited 1 after 2 run(s)", True, "guard failure"),
+        ("❌ YouTube EP84 upload failed (exit 1). Check /tmp/youtube_upload_cron.log", True, "upload failure"),
+        ("🚨 DGX website deploy unreachable from release phase", True, "DGX failure"),
+    ]
+    failures = 0
+    for content, expected, label in cases:
+        got, why = is_actionable(content)
+        ok = got == expected
+        failures += 0 if ok else 1
+        verdict = "PASS" if ok else "FAIL"
+        decision = "DISPATCH" if got else f"skip ({why})"
+        print(f"  {verdict}: {label!r} -> {decision}")
+    # The dispatch function itself must refuse a non-error even if called.
+    refused = dispatch_repair({"id": "selftest", "content": "✅ all good"}, dry_run=True)
+    if refused:
+        print("  FAIL: dispatch_repair accepted a non-error message")
+        failures += 1
+    else:
+        print("  PASS: dispatch_repair refuses non-error messages directly")
+    print(f"selftest: {len(cases) + 1 - failures}/{len(cases) + 1} checks passed "
+          f"(zero network calls, zero model calls)")
+    return 1 if failures else 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -316,9 +367,14 @@ def main() -> int:
     mode.add_argument("--once", action="store_true", help="single poll (event-driven kick)")
     mode.add_argument("--bootstrap", action="store_true",
                       help="mark current channel history as seen; dispatch nothing")
+    mode.add_argument("--selftest", action="store_true",
+                      help="offline check that only real failures can reach the model")
     parser.add_argument("--dry-run", action="store_true",
                         help="log what would be dispatched without running the agent")
     args = parser.parse_args()
+
+    if args.selftest:
+        return selftest()
 
     if not acquire_lock():
         return 0
