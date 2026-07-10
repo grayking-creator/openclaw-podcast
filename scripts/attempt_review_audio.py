@@ -22,6 +22,7 @@ PODCAST_DIR = SCRIPTS_DIR.parent
 WORKSPACE_DIR = PODCAST_DIR.parent
 BUILD_LOG_HELPER = WORKSPACE_DIR / "scripts/utils/post_build_log.py"
 BUILD_LOG_CHANNEL = "1485243812442804327"
+BUILD_LOG_ERROR_CHANNEL = "1524923755019636948"
 
 
 def run(cmd: list[str], *, cwd: Path = PODCAST_DIR, log_path: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -57,15 +58,25 @@ def load_token() -> str:
 
 def post_build_log(message: str) -> None:
     if BUILD_LOG_HELPER.exists():
-        subprocess.run([sys.executable, str(BUILD_LOG_HELPER), message], check=False)
-        return
+        helper = subprocess.run(
+            [sys.executable, str(BUILD_LOG_HELPER), message],
+            check=False,
+        )
+        if helper.returncode == 0:
+            return
+        print(
+            f"[build-log helper failed with exit {helper.returncode}; using direct fallback]",
+            flush=True,
+        )
     token = load_token()
     if not token:
         print(f"[build-log unavailable] {message}", flush=True)
         return
+    is_error = any(marker in message for marker in ("❌", "⚠", "🛑", "🚨", "🔴", "[FAIL]", "[HOLD]"))
+    channel = BUILD_LOG_ERROR_CHANNEL if is_error else BUILD_LOG_CHANNEL
     payload = json.dumps({"content": message}).encode("utf-8")
     req = urllib.request.Request(
-        f"https://discord.com/api/v10/channels/{BUILD_LOG_CHANNEL}/messages",
+        f"https://discord.com/api/v10/channels/{channel}/messages",
         data=payload,
         method="POST",
         headers={

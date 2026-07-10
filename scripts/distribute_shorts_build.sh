@@ -30,7 +30,7 @@ CURRENT_EP="unknown"
 notify_build_log() {
   local message="$1"
   if [ -f "$POST_BUILD_LOG" ]; then
-    /usr/bin/python3 "$POST_BUILD_LOG" "$message" >> "$LOG" 2>&1 || \
+    /usr/bin/python3 "$POST_BUILD_LOG" --error "$message" >> "$LOG" 2>&1 || \
       echo "[$(date)] WARN: Discord Build Log post failed" >> "$LOG"
   else
     echo "[$(date)] WARN: missing Build Log helper: $POST_BUILD_LOG" >> "$LOG"

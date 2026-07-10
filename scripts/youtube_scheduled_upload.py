@@ -22,15 +22,15 @@ try:
 except Exception:  # pragma: no cover - defensive for older local runtimes
     ZoneInfo = None
 
-def _load_readonly_api_key():
+def _load_env_key(name: str) -> str:
     env_file = os.path.expanduser("~/.openclaw/.env")
     if os.path.exists(env_file):
         for line in open(env_file):
-            if "YOUTUBE_READONLY_API_KEY" in line:
+            if line.startswith(f"{name}="):
                 return line.split("=", 1)[1].strip().strip('"').strip("'")
-    return os.environ.get("YOUTUBE_READONLY_API_KEY", "")
+    return os.environ.get(name, "")
 
-READONLY_API_KEY = _load_readonly_api_key()
+READONLY_API_KEY = _load_env_key("YOUTUBE_READONLY_API_KEY")
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
@@ -41,6 +41,69 @@ IMAGES_DIR = PODCAST_DIR / "images"
 SHARED_DIR = Path.home() / "clawd/shared"
 FFPROBE = "/opt/homebrew/bin/ffprobe"
 MAX_AUDIO_SHORTFALL_SECONDS = 2.0
+BUILD_LOG_CHANNEL = os.environ.get("BUILD_LOG_CHANNEL", "1485243812442804327")
+BUILD_LOG_ERROR_CHANNEL = os.environ.get("BUILD_LOG_ERROR_CHANNEL", "1524923755019636948")
+
+
+def _post_discord_log(message: str, channel: str) -> bool:
+    bot_token = _load_env_key("DISCORD_BOT_TOKEN")
+    if not bot_token:
+        print("Discord build-log token unavailable; notification skipped", file=sys.stderr)
+        return False
+    result = subprocess.run(
+        [
+            "curl", "-sS", "-f", "-X", "POST",
+            "-H", f"Authorization: Bot {bot_token}",
+            "-H", "Content-Type: application/json",
+            "-d", json.dumps({"content": message[:1900]}),
+            f"https://discord.com/api/v10/channels/{channel}/messages",
+        ],
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace") if isinstance(result.stderr, bytes) else (result.stderr or "")
+        detail = stderr.strip().replace("\n", " ")[:500]
+        suffix = f": {detail}" if detail else ""
+        print(
+            f"Discord build-log delivery failed (curl exit {result.returncode}){suffix}",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def _append_unique_issue(collection, seen, label, detail):
+    item = (str(label), str(detail))
+    if item in seen:
+        return
+    seen.add(item)
+    collection.append(item)
+
+
+def _post_youtube_issues(ep_str, failures, warnings, deferred):
+    deferred = list(dict.fromkeys(deferred))
+    if not failures and not warnings and not deferred:
+        return
+
+    lines = []
+    if failures:
+        lines.append("Failures:")
+        lines.extend(f"  {label}: {detail}" for label, detail in failures)
+    if warnings:
+        lines.append("Warnings:")
+        lines.extend(f"  {label}: {detail}" for label, detail in warnings)
+    if deferred:
+        lines.append(
+            "Degraded: YouTube quota deferred "
+            + ", ".join(lang.upper() for lang in deferred)
+        )
+
+    marker = "❌" if failures else "⚠️"
+    _post_discord_log(
+        f"{marker} **EP{ep_str} YouTube upload issues**\n" + "\n".join(lines),
+        BUILD_LOG_ERROR_CHANNEL,
+    )
 
 
 def resolve_video_root() -> Path:
@@ -944,6 +1007,7 @@ def upload_to_youtube(
     expected_channel,
     episode_number=None,
     thumbnail_path=None,
+    thumbnail_warnings=None,
 ):
     """Upload video to YouTube, return video ID."""
     with open(token_path) as f:
@@ -992,7 +1056,10 @@ def upload_to_youtube(
             set_custom_thumbnail(yt, video_id, thumbnail_path)
             print(f"    🎨 Thumbnail applied: {Path(thumbnail_path).name}")
         except Exception as exc:
-            print(f"    ⚠️  Thumbnail upload failed: {exc}")
+            warning = f"Thumbnail upload failed: {exc}"
+            print(f"    ⚠️  {warning}")
+            if thumbnail_warnings is not None:
+                thumbnail_warnings.append(warning)
 
     return video_id
 
@@ -1021,6 +1088,9 @@ def main():
     results = {}
     deferred = []
     failures = []
+    warnings = []
+    failure_keys = set()
+    warning_keys = set()
     current_quota_day = quota_day()
 
     # Load per-channel state to skip already-uploaded channels
@@ -1032,12 +1102,22 @@ def main():
     ep_state = channel_state.get(ep_str, {})
     use_video_pipeline = video_mode == "flux"
     if use_video_pipeline:
-        if not episode_has_video_pipeline(ep_num):
-            raise RuntimeError(
-                f"EP{ep_str} requested flux video mode, but the publish-video pipeline is not available for this episode"
+        try:
+            if not episode_has_video_pipeline(ep_num):
+                raise RuntimeError(
+                    f"EP{ep_str} requested flux video mode, but the publish-video pipeline is not available for this episode"
+                )
+            print("Preparing localized publish videos from crossfire-series master...")
+            build_publish_videos(ep_num)
+        except Exception as exc:
+            _append_unique_issue(
+                failures,
+                failure_keys,
+                "FLUX",
+                f"publish-video prebuild failed: {type(exc).__name__}: {exc}",
             )
-        print("Preparing localized publish videos from crossfire-series master...")
-        build_publish_videos(ep_num)
+            _post_youtube_issues(ep_str, failures, warnings, deferred)
+            return 1
 
     for lang, config in CHANNEL_CONFIG.items():
         # Skip if this channel already confirmed uploaded for this episode
@@ -1075,6 +1155,7 @@ def main():
         audio = get_audio_path(ep_num, lang)
         if not audio:
             print(f"  ❌ No audio found for {lang}")
+            _append_unique_issue(failures, failure_keys, lang.upper(), "No audio found")
             continue
         print(f"  Audio: {audio.name}")
         
@@ -1094,12 +1175,19 @@ def main():
             upload_video = publish_video
         else:
             if use_video_pipeline:
-                raise RuntimeError(
-                    f"Expected localized publish video for {lang.upper()} but none was created: {publish_video}"
+                detail = f"Expected localized Flux publish video was not created: {publish_video}"
+                print(f"  ❌ {detail}")
+                _append_unique_issue(
+                    failures,
+                    failure_keys,
+                    lang.upper(),
+                    detail,
                 )
+                continue
             cover = get_cover_path(ep_num, lang)
             if not cover:
                 print(f"  ❌ No cover art found")
+                _append_unique_issue(failures, failure_keys, lang.upper(), "No cover art found")
                 continue
             print(f"  Cover: {cover.name}")
 
@@ -1109,6 +1197,12 @@ def main():
                 render_mp4(cover, audio, mp4_path)
             except Exception as e:
                 print(f"  ❌ MP4 render failed: {e}")
+                _append_unique_issue(
+                    failures,
+                    failure_keys,
+                    lang.upper(),
+                    f"MP4 render failed: {e}",
+                )
                 continue
             upload_video = mp4_path
 
@@ -1116,11 +1210,23 @@ def main():
             validate_upload_video(upload_video, audio, f"{lang.upper()} upload source")
         except Exception as e:
             print(f"  ❌ Upload source failed validation: {e}")
+            _append_unique_issue(
+                failures,
+                failure_keys,
+                lang.upper(),
+                f"Upload source failed validation: {e}",
+            )
+            try:
+                if mp4_path and mp4_path.exists():
+                    mp4_path.unlink()
+            except Exception:
+                pass
             continue
         
         # Upload
         print(f"  Uploading...")
         tags = build_youtube_tags(ep_num, lang)
+        thumbnail_upload_warnings = []
         try:
             vid_id = upload_to_youtube(
                 config["token"],
@@ -1131,7 +1237,10 @@ def main():
                 config["expected_channel"],
                 episode_number=ep_num,
                 thumbnail_path=thumbnail_path,
+                thumbnail_warnings=thumbnail_upload_warnings,
             )
+            for warning in thumbnail_upload_warnings:
+                _append_unique_issue(warnings, warning_keys, lang.upper(), warning)
             url = f"https://www.youtube.com/watch?v={vid_id}"
             print(f"  ✅ {url}")
             results[lang] = url
@@ -1162,11 +1271,11 @@ def main():
                 channel_state[ep_str] = ep_state
                 persist_channel_state(channel_state_file, channel_state)
                 break
-            failures.append((lang, str(e)))
+            _append_unique_issue(failures, failure_keys, lang.upper(), str(e))
         finally:
             # Clean up rendered MP4 — no reason to keep it after upload
             try:
-                if mp4_path.exists():
+                if mp4_path and mp4_path.exists():
                     mp4_path.unlink()
                     print(f"  🧹 Cleaned up {mp4_path.name}")
             except Exception:
@@ -1185,23 +1294,15 @@ def main():
         for lang, error in failures:
             print(f"  Failed: {lang.upper()}: {error}")
     
-    # Discord notification
-    if results or deferred:
+    # Discord notifications: routine status and failures have separate channels.
+    if results:
         done_count = len([lang for lang in CHANNEL_CONFIG if ep_state.get(lang) == "done"])
         msg = f"📺 **EP{ep_str} YouTube status** ({done_count}/5 channels done):\n"
         for lang, url in results.items():
             msg += f"  {lang.upper()}: {url}\n"
-        if deferred:
-            msg += f"  Deferred by quota: {', '.join(lang.upper() for lang in deferred)}\n"
-        
-        bot_token = os.environ.get("DISCORD_BOT_TOKEN", "")
-        subprocess.run([
-            "curl", "-s", "-X", "POST",
-            "-H", f"Authorization: Bot {bot_token}",
-            "-H", "Content-Type: application/json",
-            "-d", json.dumps({"content": msg}),
-            "https://discord.com/api/v10/channels/1485243812442804327/messages"
-        ], capture_output=True)
+        _post_discord_log(msg, BUILD_LOG_CHANNEL)
+
+    _post_youtube_issues(ep_str, failures, warnings, deferred)
 
     if len([lang for lang in CHANNEL_CONFIG if ep_state.get(lang) == "done"]) == 5:
         mark_episode_uploaded(ep_num)

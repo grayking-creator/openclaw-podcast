@@ -205,6 +205,7 @@ def _send_telegram(message: str) -> None:
         subprocess.run(
             [sys.executable,
              "/Users/tobyglennpeters/.openclaw/workspace/scripts/utils/post_build_log.py",
+             "--error",
              chunk],
             timeout=15,
             check=False,

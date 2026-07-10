@@ -112,7 +112,15 @@ def retranslate_if_needed(ep_num: int, state: dict) -> list[str]:
     for lang in LANGS:
         meta = translations.get(lang, {}).get("meta", {})
         title = meta.get("title", "")
-        needs = title_body_is_english(title, en_title) or title_missing_native_script(title, lang)
+        # Parallel translation workers can race while saving release state;
+        # EP083 retained only HI metadata even though all four feed artifacts
+        # existed. Missing state metadata must be rebuilt, not treated as an
+        # already-correct title.
+        needs = (
+            not title
+            or title_body_is_english(title, en_title)
+            or title_missing_native_script(title, lang)
+        )
         if not needs:
             log(f"  ✅ [{lang}] title looks translated: {title!r}")
             continue

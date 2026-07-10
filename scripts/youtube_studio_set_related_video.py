@@ -108,6 +108,53 @@ def chrome_reload() -> None:
     run_applescript(script)
 
 
+def close_studio_window(short_video_id: str) -> None:
+    needle = f"studio.youtube.com/video/{short_video_id}/edit"
+    script = (
+        'tell application "Google Chrome"\n'
+        "if (count of windows) is 0 then return \"NO_WINDOWS\"\n"
+        "set closedCount to 0\n"
+        "repeat with windowIndex from (count of windows) to 1 by -1\n"
+        "  set w to window windowIndex\n"
+        "  repeat with tabIndex from (count of tabs of w) to 1 by -1\n"
+        "    try\n"
+        "      set tabUrl to URL of tab tabIndex of w\n"
+        f"      if tabUrl contains {json.dumps(needle)} then\n"
+        "        if (count of tabs of w) is 1 then\n"
+        "          close w\n"
+        "          set closedCount to closedCount + 1\n"
+        "          exit repeat\n"
+        "        else\n"
+        "          close tab tabIndex of w\n"
+        "          set closedCount to closedCount + 1\n"
+        "        end if\n"
+        "      end if\n"
+        "    end try\n"
+        "  end repeat\n"
+        "end repeat\n"
+        "return closedCount as text\n"
+        "end tell"
+    )
+    try:
+        result = run_applescript(script, timeout=8.0, retries=1)
+    except RuntimeError as exc:
+        print(
+            f"{short_video_id}: WARN could not close Studio window: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
+        return
+    if result.isdigit() and int(result) > 0:
+        noun = "window/tab" if result == "1" else "windows/tabs"
+        print(f"{short_video_id}: closed {result} Studio {noun}", flush=True)
+    elif not result.startswith("NO_WINDOWS"):
+        print(
+            f"{short_video_id}: WARN Studio window left open ({result})",
+            file=sys.stderr,
+            flush=True,
+        )
+
+
 def _profile_emails(directory: str, info: dict) -> set[str]:
     emails = {str(info.get("user_name") or "").lower()}
     prefs_path = LOCAL_STATE.parent / directory / "Preferences"
@@ -153,8 +200,26 @@ def resolve_profile(manager_email: str) -> str:
 
 def launch_chrome(profile_directory: str, url: str, *, relaunch: bool = False) -> None:
     if relaunch:
+        try:
+            run(
+                ["osascript", "-e", 'tell application "Google Chrome" to quit'],
+                check=False,
+                timeout=8.0,
+            )
+        except Exception:
+            pass
+        deadline = time.time() + 12.0
+        while time.time() < deadline:
+            probe = run(
+                ["pgrep", "-f", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
+                check=False,
+                timeout=2.0,
+            )
+            if probe.returncode != 0:
+                break
+            time.sleep(0.5)
         run(["pkill", "-f", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"], check=False)
-        time.sleep(1.0)
+        time.sleep(2.0)
     run(
         [
             "open",
@@ -393,12 +458,15 @@ def set_related_video(
     related_title: str,
     *,
     profile_directory: str = "",
+    open_fresh_window: bool = False,
+    close_window_on_success: bool = True,
 ) -> None:
     print(f"{short_video_id}: opening Studio edit page", flush=True)
-    chrome_navigate(
-        f"https://studio.youtube.com/video/{short_video_id}/edit",
-        profile_directory=profile_directory,
-    )
+    url = f"https://studio.youtube.com/video/{short_video_id}/edit"
+    if open_fresh_window and profile_directory:
+        launch_chrome(profile_directory, url, relaunch=False)
+    else:
+        chrome_navigate(url, profile_directory=profile_directory)
     time.sleep(8.0)
     ensure_page_ready(short_video_id)
     current = related_video_label(related_title)
@@ -409,6 +477,8 @@ def set_related_video(
             save_changes()
         verify_related_title(related_title)
         print(f"{short_video_id}: already set -> {related_title}", flush=True)
+        if close_window_on_success:
+            close_studio_window(short_video_id)
         return
     print(f"{short_video_id}: opening related-video picker", flush=True)
     open_related_video_picker()
@@ -421,6 +491,8 @@ def set_related_video(
         f"{short_video_id}: set related video -> {related_video_id} ({related_title})",
         flush=True,
     )
+    if close_window_on_success:
+        close_studio_window(short_video_id)
 
 
 def main() -> int:
@@ -431,6 +503,11 @@ def main() -> int:
         "--relaunch-chrome",
         action="store_true",
         help="Close existing Chrome processes before opening the Studio automation window.",
+    )
+    parser.add_argument(
+        "--keep-window-open",
+        action="store_true",
+        help="Leave Studio edit windows open after successful related-video verification.",
     )
     parser.add_argument("--pair", action="append", default=[], help="short_id:related_id:related_title")
     args = parser.parse_args()
@@ -457,6 +534,7 @@ def main() -> int:
         wait_for("""(() => document.body ? 'BODY' : '')()""", timeout_s=20.0)
 
     errors = []
+    needs_fresh_window = False
     for raw_pair in args.pair:
         short_id, related_id, related_title = raw_pair.split(":", 2)
         try:
@@ -465,7 +543,11 @@ def main() -> int:
                 related_id,
                 related_title,
                 profile_directory=profile_directory,
+                open_fresh_window=needs_fresh_window,
+                close_window_on_success=not args.keep_window_open,
             )
+            if not args.keep_window_open:
+                needs_fresh_window = True
         except Exception as exc:
             try:
                 close_related_video_picker()

@@ -27,6 +27,7 @@ SHORT_SLOTS = ["10:00:00", "18:00:00"]
 TARGET_SHORTS = 2
 WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo"
 BUILD_LOG_CHANNEL_ID = "1485243812442804327"
+BUILD_LOG_ERROR_CHANNEL_ID = "1524923755019636948"
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
@@ -102,15 +103,28 @@ def _load_env_key(name: str) -> str:
 
 
 def discord_build_log(msg: str) -> None:
-    """Post a one-liner to #build-log on Discord. Fire-and-forget — never raises."""
+    """Post a severity-routed one-liner to Discord. Never raises."""
+    try:
+        import sys
+        helper_dir = Path.home() / ".openclaw/workspace/scripts/utils"
+        if str(helper_dir) not in sys.path:
+            sys.path.insert(0, str(helper_dir))
+        from post_build_log import post_build_log as routed_post_build_log
+
+        routed_post_build_log(msg)
+        return
+    except Exception:
+        pass
     try:
         import urllib.request
         token = _load_env_key("DISCORD_BOT_TOKEN")
         if not token:
             return
+        is_error = any(marker in msg for marker in ("❌", "⚠", "🛑", "🚨", "🔴", "[FAIL]", "[HOLD]"))
+        channel = BUILD_LOG_ERROR_CHANNEL_ID if is_error else BUILD_LOG_CHANNEL_ID
         payload = json.dumps({"content": msg}).encode()
         req = urllib.request.Request(
-            f"https://discord.com/api/v10/channels/{BUILD_LOG_CHANNEL_ID}/messages",
+            f"https://discord.com/api/v10/channels/{channel}/messages",
             data=payload,
             headers={
                 "Authorization": f"Bot {token}",

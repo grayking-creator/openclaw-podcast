@@ -68,7 +68,7 @@ else
 fi
 
 DISCORD_TOKEN=$(grep DISCORD_BOT_TOKEN ~/.openclaw/.env 2>/dev/null | cut -d= -f2 | tr -d '"')
-DISCORD_BUILD_LOG="1485243812442804327"
+DISCORD_BUILD_LOG="1524923755019636948"
 
 if [ "$NEXT_EP" != "NONE" ] && [ -n "$NEXT_EP" ]; then
     if [ $LONG_EXIT_CODE -eq 0 ]; then

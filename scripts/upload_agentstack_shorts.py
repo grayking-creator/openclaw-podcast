@@ -46,6 +46,7 @@ STATE_PATH = STAGING_ROOT / "upload_state.json"
 YOUTUBE_CHANNEL_STATE_PATH = SCRIPTS_DIR / "youtube_channel_state.json"
 RELATED_VIDEO_SCRIPT = SCRIPTS_DIR / "youtube_studio_set_related_video.py"
 BUILD_LOG_CHANNEL_ID = "1485243812442804327"
+BUILD_LOG_ERROR_CHANNEL_ID = "1524923755019636948"
 
 # AgentStack/OpenClaw Daily shorts auto-upload covers EN plus translated
 # channels. The day-of-publish catch-up can ship two EN clips; following days
@@ -64,6 +65,13 @@ SET_RELATED_VIDEOS = os.environ.get("AGENTSTACK_SHORTS_SET_RELATED", "1").strip(
     "false",
     "no",
 }
+RELAUNCH_CHROME_FOR_STUDIO = os.environ.get(
+    "YOUTUBE_STUDIO_RELAUNCH_CHROME", ""
+).strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -81,13 +89,25 @@ def _load_env_key(name: str) -> str:
 
 def discord_build_log(msg: str) -> bool:
     try:
+        helper_dir = Path.home() / ".openclaw/workspace/scripts/utils"
+        if str(helper_dir) not in sys.path:
+            sys.path.insert(0, str(helper_dir))
+        from post_build_log import post_build_log as routed_post_build_log
+
+        routed_post_build_log(msg)
+        return True
+    except Exception:
+        pass
+    try:
         token = _load_env_key("DISCORD_BOT_TOKEN")
         if not token:
             print("WARN: DISCORD_BOT_TOKEN missing; Build Log post skipped", file=sys.stderr)
             return False
+        is_error = any(marker in msg for marker in ("❌", "⚠", "🛑", "🚨", "🔴", "[FAIL]", "[HOLD]"))
+        channel = BUILD_LOG_ERROR_CHANNEL_ID if is_error else BUILD_LOG_CHANNEL_ID
         payload = json.dumps({"content": msg}).encode()
         req = urllib.request.Request(
-            f"https://discord.com/api/v10/channels/{BUILD_LOG_CHANNEL_ID}/messages",
+            f"https://discord.com/api/v10/channels/{channel}/messages",
             data=payload,
             headers={
                 "Authorization": f"Bot {token}",
@@ -463,6 +483,8 @@ def process_related_video_tasks(state: dict, keys: list[str]) -> list[str]:
         return errors
 
     cmd = [sys.executable, str(RELATED_VIDEO_SCRIPT)]
+    if RELAUNCH_CHROME_FOR_STUDIO:
+        cmd.append("--relaunch-chrome")
     for _, task in pending:
         cmd.extend([
             "--pair",
@@ -922,8 +944,14 @@ def run_cron(state: dict, catch_up_now: bool = False) -> int:
         for related_error in related_errors:
             msg = f"❌ [AgentStack Shorts] {related_error}"
             print(msg)
-            discord_build_log(msg)
             errors.append(msg)
+        if related_errors:
+            detail = "\n".join(f"- {err}" for err in related_errors)
+            if len(detail) > 1700:
+                detail = detail[:1700].rstrip() + "\n- ... truncated; see upload_cron.log"
+            discord_build_log(
+                f"❌ [AgentStack Shorts] {len(related_errors)} related-video failure(s)\n{detail}"
+            )
 
     return 1 if errors else 0
 

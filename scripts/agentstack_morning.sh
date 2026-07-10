@@ -34,7 +34,8 @@ set -u
 
 BUILD_LOG="${SHOW_NOTES_BUILD_LOG:-/tmp/show_notes_build.log}"
 RUN_LOG="${SHOW_NOTES_RESEARCH_LOG:-/tmp/show_notes_research.log}"
-ALERTS_CHANNEL=1485243812442804327
+BUILD_LOG_CHANNEL=1485243812442804327
+BUILD_LOG_ERROR_CHANNEL=1524923755019636948
 SCRIPT_DIR=/Users/tobyglennpeters/.openclaw/workspace/openclaw-podcast/scripts
 PODCAST_DIR=/Users/tobyglennpeters/.openclaw/workspace/openclaw-podcast
 DONE_FILE="${SCRIPT_DIR}/youtube_uploaded.txt"
@@ -48,14 +49,19 @@ ts() { date '+%Y-%m-%d %H:%M:%S'; }
 blog() { printf '[%s] %s\n' "$(ts)" "$*" >> "$BUILD_LOG"; }
 
 alert() {
-  "$OPENCLAW_BIN" message send --channel discord --target "channel:$ALERTS_CHANNEL" \
+  "$OPENCLAW_BIN" message send --channel discord --target "channel:$BUILD_LOG_CHANNEL" \
     --message "$1" >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN Discord alert failed"
+}
+
+alert_error() {
+  "$OPENCLAW_BIN" message send --channel discord --target "channel:$BUILD_LOG_ERROR_CHANNEL" \
+    --message "$1" >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN Discord error alert failed"
 }
 
 fail_stage() {
   local stage=$1 detail=$2
   blog "FAIL EP${NEXT_EP_PAD:-???} stage '${stage}': ${detail}"
-  alert "❌ EP${NEXT_EP_PAD:-???} morning pipeline FAILED at stage: ${stage}
+  alert_error "❌ EP${NEXT_EP_PAD:-???} morning pipeline FAILED at stage: ${stage}
 ${detail}
 Run log: ${RUN_LOG}
 Build log: ${BUILD_LOG}"
@@ -158,14 +164,14 @@ if [ -f "$DRAFT_PATH" ]; then
           exit 0
         fi
         blog "agentstack_morning: EP${NEXT_EP_PAD} orchestrator resume FAILED to launch; HOLDING"
-        alert "❌ EP${NEXT_EP_PAD} morning: orchestrator resume FAILED to launch. Release stuck at run_status=${RUN_STATUS}, step $(echo "$COMPLETED_STEPS" | tr ',' ' '). Manual recovery: python3 scripts/recover_failed_translation_lane.py ${NEXT_EP_PAD} or python3 scripts/launch_approved_release.py ${NEXT_EP_PAD} --pub-date '<original>'. Not regenerating."
+        alert_error "❌ EP${NEXT_EP_PAD} morning: orchestrator resume FAILED to launch. Release stuck at run_status=${RUN_STATUS}, step $(echo "$COMPLETED_STEPS" | tr ',' ' '). Manual recovery: python3 scripts/recover_failed_translation_lane.py ${NEXT_EP_PAD} or python3 scripts/launch_approved_release.py ${NEXT_EP_PAD} --pub-date '<original>'. Not regenerating."
         exit 2
       fi
       REVIEW_AUDIO_SHA=$(python3 -c "import json; print((json.load(open('${STATE_FILE}')).get('review_audio') or {}).get('sha256',''))" 2>/dev/null || echo "")
       AUDIO_APPROVED=$(python3 -c "import json; print('yes' if (json.load(open('${STATE_FILE}')).get('audio_approval') or {}).get('approved') is True else 'no')" 2>/dev/null || echo "no")
       if [ -n "$REVIEW_AUDIO_SHA" ] && [ "$AUDIO_APPROVED" != "yes" ]; then
         blog "agentstack_morning: EP${NEXT_EP_PAD} has unapproved review audio — HOLDING instead of reposting stale review"
-        alert "🛑 EP${NEXT_EP_PAD} morning HOLD: existing review audio is unapproved, so the pipeline will not reuse or repost the same show notes/audio. Run scripts/regen_episode.sh ${_NEXT_EP} with the rejection guidance to rebuild from fresh research."
+        alert_error "🛑 EP${NEXT_EP_PAD} morning HOLD: existing review audio is unapproved, so the pipeline will not reuse or repost the same show notes/audio. Run scripts/regen_episode.sh ${_NEXT_EP} with the rejection guidance to rebuild from fresh research."
         exit 2
       fi
     fi
@@ -230,7 +236,7 @@ fi
 # ── Stage 6: transcript generation (model + check_episode.py QC loop) ────────
 blog "agentstack_morning: EP${NEXT_EP_PAD} stage 6 — generate transcript"
 if ! python3 "${SCRIPT_DIR}/generate_episode_transcript.py" "$_NEXT_EP" >> "$RUN_LOG" 2>&1; then
-  fail_stage "transcript" "generate_episode_transcript.py failed after its internal QC-repair attempts"
+  fail_stage "transcript" "generate_episode_transcript.py failed after its internal QC-repair attempts AND the gpt-5.6-sol rescue stage"
 fi
 if [ ! -s "$TRANSCRIPT_PATH" ]; then
   fail_stage "transcript" "no transcript artifact at episodes/episode_${NEXT_EP_PAD}_transcript.md"

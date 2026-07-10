@@ -49,11 +49,22 @@ MEDIA_EN_CDN_REPO = "clawdassistant85-netizen/openclaw-podcast-media-en"
 MEDIA_EN_START_EPISODE = 57
 DISCORD_GUILD_ID = "1475905694145318944"
 BUILD_LOG_CHANNEL = "1485243812442804327"
+BUILD_LOG_ERROR_CHANNEL = "1524923755019636948"
 GITHUB_PAGES_SITE_LIMIT_BYTES = 1024 * 1024 * 1024
 PAGES_BUILD_POLL_SECONDS = 30
 PAGES_BUILD_TIMEOUT_SECONDS = 1800
 URL_VERIFY_RETRY_WAIT_SECONDS = 30
 URL_VERIFY_MAX_ATTEMPTS = 10
+
+# Top-level SystemExit reporting uses an explicit notification bit instead of
+# guessing from the exception text. Error posts made immediately before a
+# deliberate SystemExit set this bit; otherwise the top-level guard posts once.
+_SYSTEM_EXIT_FAILURE_NOTIFIED = False
+_ACTIVE_EPISODE = None
+
+
+def _is_terminal_failure_message(message):
+    return any(marker in str(message) for marker in ("❌", "🛑", "🚨", "🔴", "[FAIL]", "[HOLD]"))
 
 
 def en_media_target(ep_num):
@@ -100,12 +111,29 @@ def log(msg):
 
 
 def post_build_log(msg, token=None):
-    """Post a progress or failure message to the build-log Discord channel."""
+    """Post a routed progress/failure message to the Discord build logs."""
+    global _SYSTEM_EXIT_FAILURE_NOTIFIED
+    if _is_terminal_failure_message(msg):
+        _SYSTEM_EXIT_FAILURE_NOTIFIED = True
+    try:
+        helper_dir = Path.home() / ".openclaw/workspace/scripts/utils"
+        if str(helper_dir) not in sys.path:
+            sys.path.insert(0, str(helper_dir))
+        from post_build_log import post_build_log as routed_post_build_log
+
+        routed_post_build_log(msg)
+        return
+    except (Exception, SystemExit):
+        # Keep the pipeline's original best-effort direct route available if
+        # the shared helper cannot be imported on a worker.
+        pass
     try:
         _token = token or load_env_key("DISCORD_BOT_TOKEN")
+        is_error = any(marker in msg for marker in ("❌", "⚠", "🛑", "🚨", "🔴", "[FAIL]", "[HOLD]"))
+        channel = BUILD_LOG_ERROR_CHANNEL if is_error else BUILD_LOG_CHANNEL
         data = json.dumps({"content": msg}).encode()
         req = urllib.request.Request(
-            f"https://discord.com/api/v10/channels/{BUILD_LOG_CHANNEL}/messages",
+            f"https://discord.com/api/v10/channels/{channel}/messages",
             data=data,
             method="POST",
             headers={
@@ -852,6 +880,10 @@ def _build_review_summary(ep_num: int) -> str:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    global _ACTIVE_EPISODE, _SYSTEM_EXIT_FAILURE_NOTIFIED
+    _ACTIVE_EPISODE = None
+    _SYSTEM_EXIT_FAILURE_NOTIFIED = False
+
     parser = argparse.ArgumentParser(description="Build episode and post for review")
     parser.add_argument("episode", type=int, help="Episode number (e.g. 29)")
     parser.add_argument("--force-audio", action="store_true",
@@ -870,29 +902,24 @@ def main():
 
     ep_num = args.episode
     ep_str = f"{ep_num:03d}"
+    _ACTIVE_EPISODE = ep_num
 
     log(f"\n{'='*60}")
     log(f"AgentStack Daily — EP{ep_str} Build")
     log(f"{'='*60}\n")
 
-    try:
-        run_show_notes_qc(ep_num)
-        story_count = verify_story_slate(ep_num)
-        run_qc(ep_num)
-        post_build_log(
-            f"🏗 EP{ep_str} build started\n"
-            f"✅ Show notes QC passed | ✅ Slate verified ({story_count} stories) | ✅ Transcript QC passed"
-        )
-        render_nova(ep_num)
-        audio_path = generate_en_audio(ep_num, force=args.force_audio)
-        ensure_bespoke_art_module(ep_num, force=args.force_art)
-        generate_en_cover(ep_num, force=args.force_cover)
-        cdn_commit = sync_to_cdn(ep_num)
-    except SystemExit as e:
-        # Only post to build-log if we haven't already (step functions post their own failures)
-        if str(e.code) and not str(e.code).startswith("❌"):
-            post_build_log(f"❌ EP{ep_str} build failed — {e.code}\nLog: check the terminal running build_episode.py")
-        raise
+    run_show_notes_qc(ep_num)
+    story_count = verify_story_slate(ep_num)
+    run_qc(ep_num)
+    post_build_log(
+        f"🏗 EP{ep_str} build started\n"
+        f"✅ Show notes QC passed | ✅ Slate verified ({story_count} stories) | ✅ Transcript QC passed"
+    )
+    render_nova(ep_num)
+    audio_path = generate_en_audio(ep_num, force=args.force_audio)
+    ensure_bespoke_art_module(ep_num, force=args.force_art)
+    generate_en_cover(ep_num, force=args.force_cover)
+    cdn_commit = sync_to_cdn(ep_num)
 
     duration = get_audio_duration(audio_path)
     media_target = en_media_target(ep_num)
@@ -967,5 +994,21 @@ def main():
     log(f"   python3 scripts/launch_approved_release.py {ep_num} --audio-approved-by-telegram --pub-date \"...\"")
 
 
+def _post_unnotified_system_exit(exc):
+    """Report a failing SystemExit once unless its failure was already posted."""
+    if exc.code in (None, 0) or _SYSTEM_EXIT_FAILURE_NOTIFIED:
+        return
+    ep_label = f"EP{_ACTIVE_EPISODE:03d}" if _ACTIVE_EPISODE is not None else "episode unknown"
+    detail = str(exc.code).strip() or "exited without an error detail"
+    post_build_log(
+        f"❌ {ep_label} build failed — {detail}\n"
+        "Log: check the terminal running build_episode.py"
+    )
+
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit as exc:
+        _post_unnotified_system_exit(exc)
+        raise
