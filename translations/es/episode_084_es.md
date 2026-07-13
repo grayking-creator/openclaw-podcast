@@ -1,0 +1,213 @@
+[NOVA]: Soy NOVA.
+
+[ALLOY]: Soy ALLOY, y esto es AgentStack Daily...
+
+[NOVA]: El agente de codificación basado en terminal de OpenAI, Codex rust .144, se envió en dos versiones estables. Añadió autenticación interactiva MCP, manejo compartido de credenciales OAuth, redirecciones de inicio de sesión alojadas, un límite de aprobación de solo escritura, WebSockets de Responses con soporte de proxy y soporte de certificados personalizados. La actualización point-one corrigió fallos de instalación, expuso el host de Code Mode en paquetes macOS e introdujo un fallback de runtime embebido.
+
+[ALLOY]: Hoy: Codex lidera con autenticación más fuerte, transporte, aprobaciones y empaquetado; GPT-5.6 llega como Sol, Terra y Luna; Grok 4.5 entra en la Responses API; GPT-Live escucha mientras habla; y Mistral trae navegación solo con cámara a un modelo de ocho mil millones de parámetros. También escucharán cómo ChatGPT Work maneja proyectos extendidos, cómo Flint da a los agentes un lenguaje de gráficos editables, y cómo nueva investigación aborda memoria de control, sesgo de citas, benchmarks de código, flujos de trabajo proactivos, investigación recursiva, recuperación consciente de procedimientos y seguridad del mercado energético.
+
+[NOVA]: GPT-5.6 abarca tres niveles de precio-rendimiento y le da a Sol una ventana de contexto superior a un millón de tokens. Grok combina puntuaciones de codificación publicadas con servicio de ochenta tokens por segundo y precio de dos dólares por entrada. GPT-Live separa la conversación inmediata del razonamiento delegado, mientras que Robostral Navigate pregunta cuánto de navegación física se puede construir alrededor de un flujo RGB.
+
+[ALLOY]: A través del stack, cada lanzamiento cambia algo concreto que un agente puede hacer: autenticarse en herramientas, enrutar trabajo por costo, mantener un intercambio de voz fluido, construir salidas usables, recuperar un patrón de implementación, o actuar bajo restricciones físicas sin optimizar hacia un comportamiento inválido.
+
+[NOVA]: ...
+
+[NOVA]: OpenAI envió Codex rust .144 y la actualización point-one con cambios en autenticación, aprobaciones, transporte, comportamiento del runtime e instalación. Las herramientas MCP pueden solicitar autenticación interactivamente sin un opt-in experimental. Los hosts de app-server pueden proporcionar autenticación de Codex en tiempo de ejecución, y luego redirigir un inicio de sesión completado a una página alojada. Las credenciales OAuth MCP compartidas también pueden serializarse, dando a las integraciones gestionadas una forma definida de retener el estado de autorización entre sesiones en lugar de reconstruirlo para cada conexión.
+
+[ALLOY]: Un nuevo modo de aprobación de apps de escritura afina el límite de permisos. Las acciones declaradas como solo lectura pueden proceder, mientras que las escrituras activan un aviso. Eso funciona mejor que tratar cada acción de app como igualmente sensible, especialmente cuando un agente pasa la mayor parte de una sesión buscando o calculando antes de hacer un cambio consequencial. Las sesiones de apps Codex alojadas ahora renuevan la autenticación expirada, mientras que las advertencias revisadas del código de dispositivo explican cómo reconocer y detener intentos de phishing durante el inicio de sesión.
+
+[NOVA]: Las correcciones de red y runtime cubren varias restricciones de producción. Los WebSockets de Responses mantienen su transporte de baja latencia mientras respetan proxies del sistema y autoridades de certificado personalizadas. Las sesiones sandbox de Windows pueden eliminar contenido dentro de raíces escribibles y alcanzar el runtime principal gestionado. OpenAI corrigió los crashes de Code Mode en Intel Mac y las secuencias de control de terminal que podían corromper la interfaz o el historial de conversación resumido. Cuando un hilo antiguo de ChatGPT apunta a un estado de compactación de un modelo retirado, Codex reintenta con el modelo actualmente seleccionado.
+
+[ALLOY]: La actualización point-one repara los caminos de distribución. La instalación independiente ya no depende de un orden exacto de metadatos de lanzamiento. Los paquetes macOS exponen el host de Code Mode junto a Codex, y Code Mode recurre a su runtime embebido si ese binario compañero no está disponible. En la práctica, .144 hace que las sesiones MCP autenticadas, el inicio de sesión alojado, las aprobaciones de escritura, el enrutamiento de proxy corporativo y el empaquetado de Code Mode sean más confiables. Un límite importante permanece visible: el estado de solo lectura declarado de una integración controla directamente si un humano ve un aviso de aprobación.
+
+[NOVA]: ...
+
+[NOVA]: OpenAI lanzó GPT-5.6 como tres niveles de API en lugar de un modelo uniforme. Sol maneja el trabajo de razonamiento, codificación y agéntico más complejo. Terra se dirige al desarrollo cotidiano balanceado a un precio menor. Luna enfatiza velocidad y asequibilidad para chat, clasificación, transformaciones repetitivas y loops agénticos más ligeros. El alias GPT-5.6 sin sufijo enruta a Sol, así que las integraciones que quieren Terra o Luna seleccionan esos niveles explícitamente.
+
+[ALLOY]: La especificación oficial de Sol lista una ventana de contexto de un millón cincuenta mil tokens y un máximo de salida de ciento veintiocho mil tokens. Esos límites soportan contextos de trabajo muy grandes y resultados generados largos, pero también hacen que la gestión de contexto sea una preocupación económica. Alimentar una sesión acumulada completa a Sol puede ser técnicamente válido mientras sigue siendo más lento y más caro que enrutar etapas rutinarias a través de otro nivel.
+
+[NOVA]: El precio crea una escalera clara. Por millón de tokens, Sol cuesta cinco dólares de entrada y treinta dólares de salida. Terra cuesta dos dólares cincuenta de entrada y quince dólares de salida. Luna cuesta un dólar de entrada y seis dólares de salida. La Responses API también proporciona Programmatic Tool Calling y capacidades multi-agente en beta, permitiendo a los equipos cablear la familia en flujos de trabajo delegados y orientados a herramientas.
+
+[ALLOY]: Un pipeline puede reservar Sol para cambios difíciles de repositorio, planificación ambigua o síntesis a través de un contexto muy largo; usar Terra para codificación y razonamiento ordinario; y enviar clasificación de alto volumen o interacción sensible a latencia a Luna. La calidad todavía necesita medición en cada etapa porque las etiquetas de precio no establecen equivalencia de tareas. OpenAI ahora proporciona tres puntos operativos soportados dentro de una familia, haciendo que el enrutamiento de modelos sea parte de la construcción inicial en lugar de un ejercicio de costo añadido después del despliegue.
+
+[NOVA]: ...
+
+[ALLOY]: SpaceXAI lanzó Grok 4.5 a través de su Responses API y lo posicionó para cargas de trabajo de agentes de codificación. La compañía reporta 62 por ciento en DeepSWE, 83.3 por ciento en Terminal-Bench y 64.7 por ciento en SWE-Bench Pro. Esos números cubren operación de terminal e ingeniería de software a nivel de repositorio, pero siguen siendo resultados reportados por la compañía en lugar de confirmación independiente.
+
+[NOVA]: Los detalles de servicio hacen que el lanzamiento sea más que un anuncio de leaderboard. SpaceXAI dice que Grok 4.5 genera a ochenta tokens por segundo y cobra dos dólares por millón de tokens de entrada y seis dólares por millón de tokens de salida. Los agentes de codificación a menudo llevan contexto sustancial de repositorio, resultados de herramientas e historial de sesión en cada solicitud, así que el precio de entrada afecta las ejecuciones repetidas. Los parches largos, explicaciones y turnos de recuperación traen el precio de salida al mismo cálculo.
+
+[ALLOY]: La Responses API da a los constructores de agentes una superficie orientada a respuestas para evaluar llamadas de modelo junto a herramientas y estado. Eso no garantiza语义 identical de herramientas, eventos de streaming o comportamiento de errores entre proveedores, pero pone capacidad, rendimiento y economía de tokens en una oferta desplegable. Ochenta tokens por segundo puede importar cuando un agente produce una respuesta larga, aunque la latencia de herramientas y el tiempo de build externo todavía pueden dominar la ejecución completa.
+
+[NOVA]: Los resultados a nivel de repositorio serán más informativos que un ranking de benchmarks directo. Una comparación útil mide si Grok completa un cambio aceptado, cuántos reintentos y tokens generados consume, qué tan rápido termina la ejecución completa y cuánto cuesta el resultado exitoso. La auditoría de OpenAI sobre SWE-Bench Pro también encontró ruido sustancial en la división pública. Eso no borra la puntuación reportada de Grok, pero hace que la validez de las tareas sea parte de la interpretación. Grok 4.5 ahora tiene acceso a API concreto y precios agresivos; los codebases mantenidos mostrarán qué tan bien se transfieren sus afirmaciones.
+
+[NOVA]: ...
+
+[NOVA]: OpenAI presentó GPT-Live-1 y GPT-Live-1 mini, una familia de modelos de voz diseñada para escuchar y hablar simultáneamente. GPT-Live ya impulsa ChatGPT Voice, mientras que el acceso a API para desarrolladores llegará pronto. El dúplex completo cambia el modelo de interacción: la entrada de voz no necesita detenerse completamente antes de que comience la salida, y el sistema puede reaccionar mientras una conversación aún se está desarrollando.
+
+[ALLOY]: OpenAI dice que GPT-Live puede tomar decisiones de interacción muchas veces por segundo. Eso permite que un agente de voz note una interrupción, ajuste el tiempo o decida si continuar hablando sin reducir el intercambio a bloques de audio alternados. Un runtime dúplex completo debe rastrear el audio entrante, el audio saliente, el estado conversacional y el comportamiento de interrupción simultáneamente. La síntesis de voz por sí sola no proporciona esa coordinación.
+
+[NOVA]: El trabajo más profundo se puede delegar a GPT-5.5. GPT-Live maneja el intercambio inmediato, mientras que otro modelo se hace cargo del trabajo que requiere más procesamiento. Esa división se parece a un ciclo de interacción rápido respaldado por un servicio de razonamiento más lento. Puede mantener los reconocimientos y el cambio de turno receptivos mientras la investigación, la planificación o el uso de herramientas proceed elsewhere. OpenAI no ha descrito que GPT-Live se ejecute en GPT-5.6, por lo que las familias de voz y GPT-5.6 permanecen separadas.
+
+[ALLOY]: Los detalles de la API determinarán cómo los desarrolladores conectan transmisiones de audio, interrupciones, eventos de delegación y resultados de herramientas en una sesión estable. La capacidad confirmada es escucha y habla simultáneas con decisiones de interacción frecuentes. Eso soporta asistencia al cliente, coaching, accesibilidad y flujos de trabajo con manos ocupadas donde la detección tardía de turnos se siente poco natural. También crea preguntas difíciles de coordinación: qué sucede cuando un usuario cambia de dirección mientras el trabajo delegado se está ejecutando, cómo se cancela limpiamente la salida hablada y qué modelo es dueño del estado conversacional final.
+
+[NOVA]: ...
+
+[NOVA]: Mistral presentó Robostral Navigate, un modelo de navegación de ocho mil millones de parámetros construido alrededor de una cámara RGB. La empresa reporta 76.6 por ciento en R2R-CE y dice explícitamente que la configuración no requiere detección de profundidad, LiDAR, múltiples cámaras ni un conjunto de sensores combinado. Esa suposición de entrada estrecha cambia el hardware requerido para comenzar a evaluar el modelo.
+
+[ALLOY]: La navegación solo con cámara le pide a un modelo derivar comportamiento espacial útil de cuadros de color ordinarios. Los sensores de profundidad proporcionan información de rango directo, mientras que LiDAR mide la geometría circundante. Una sola vista RGB carece de esas señales explícitas y puede luchar con la escala, la oclusión, las superficies reflectantes, la poca iluminación y los objetos que parecen similares a diferentes distancias. El resultado reportado de Robostral sugiere navegación útil bajo esa restricción, pero no establece que sensores más ricos sean innecesarios.
+
+[NOVA]: El conteo de parámetros también invita preguntas de despliegue más allá de un servicio remoto grande. Mistral no ha proporcionado varios detalles de runtime en el anuncio: diseño interno, representación de acciones, requisitos de hardware, latencia, frecuencia de control o la interfaz que convierte la salida del modelo en movimiento del robot. Esos detalles determinan si un equipo puede conectarlo a un controlador a bordo, un acelerador de borde o un loop de inferencia remoto.
+
+[ALLOY]: Un prototipo que ya expone una transmisión de cámara ahora tiene un modelo concreto para evaluar antes de agregar una pila de sensores más costosa, particularmente para enrutamiento interior o plataformas de investigación. El benchmark de Mistral sigue siendo reportado por la empresa y R2R-CE no puede representar cada ambiente físico. Los resultados del mundo real necesitan mostrar dónde la percepción solo con cámara sobrevive a cambios de iluminación, obstáculos dinámicos y diseños no familiares, y dónde la falta de profundidad se vuelve decisiva. Robostral proporciona una línea base específica solo con cámara, no prueba de que una cámara sirva para cada robot.
+
+[NOVA]: ...
+
+[ALLOY]: OpenAI presentó ChatGPT Work como un agente que puede tomar un objetivo, permanecer involucrado por horas, actuar a través de aplicaciones conectadas y materiales de trabajo, y producir hojas de cálculo, presentaciones, entregables escritos y aplicaciones web. GPT-5.6 impulsa el producto. La asignación puede continuar a través de múltiples pasos en lugar de terminar con una respuesta.
+
+[NOVA]: ChatGPT Work trata el objetivo del proyecto como la unidad organizadora. Puede gathering relevant inputs, break an assignment into steps, operar a través de superficies conectadas y producir varios outputs relacionados. Un análisis de mercado podría resultar en una hoja de cálculo con los números subyacentes, una presentación explicando los hallazgos y una pequeña aplicación web para explorar escenarios. El valor viene de la alineación entre esos resultados, no simplemente de generar cada uno por separado.
+
+[ALLOY]: El trabajo extendido hace visible la gestión de estado. Un agente operando por horas debe preservar el objetivo original mientras los hallazgos intermedios, los resultados de herramientas y las suposiciones revisadas se acumulan. Necesita saber qué entregables están completos, cuáles permanecen abiertos y si una acción posterior entra en conflicto con una elección anterior. OpenAI establece la duración y los tipos de salida pero no ha proporcionado un marco de evaluación completo para el comportamiento de larga duración.
+
+[NOVA]: El producto cambia la interacción del diseño de prompts hacia el diseño de asignaciones. Las aplicaciones de origen, los outputs previstos, las restricciones y las condiciones de finalización importan porque el agente puede actuar más allá de un turno conversacional. Los resultados necesitan funcionar como un paquete coordinado: la hoja de cálculo debe apoyar las afirmaciones en la presentación, la explicación escrita debe coincidir con la aplicación web y la colección debe satisfacer el objetivo original. ChatGPT Work acerca a los agentes de propósito general al trabajo de conocimiento terminado, con la consistencia a través de varios outputs convirtiéndose en una medida más fuerte que un resultado pulido en aislamiento.
+
+[NOVA]: ...
+
+[NOVA]: Microsoft Research lanzó Flint, un lenguaje de visualización de código abierto diseñado para que los agentes de IA creen gráficos expresivos a partir de especificaciones compactas. El interés temprano de los desarrolladores incluyó un puntaje en Hacker News superior a trescientos cuarenta. Flint se sitúa entre un prompt de gráfico diminuto que produce output genérico y un programa específico de biblioteca grande que se vuelve difícil de inspeccionar o revisar.
+
+[ALLOY]: Flint compila su representación compacta en Vega-Lite, ECharts o Chart.js. Eso separa lo que el agente expresa del objetivo de renderizado. Un agente puede describir un gráfico en un lenguaje revisable, mientras que el compilador emite la implementación requerida por el sistema de visualización seleccionado. Los equipos que ya usan una de esas bibliotecas pueden preservar su stack de renderizado sin pedirle al modelo que genere su esquema nativo completo cada vez.
+
+[NOVA]: El proyecto también incluye un servidor de gráficos MCP. Los agentes compatibles pueden llamar a una herramienta de gráficos definida en lugar de incrustar el comportamiento de Flint dentro de cada capa de orquestación. El agente produce una especificación concisa, el servidor la compila y una persona puede inspeccionar o editar la representación fuente antes de que el gráfico se envíe. Eso crea una transferencia más gobernable que aceptar una imagen renderizada sin una superficie de revisión útil.
+
+[ALLOY]: La expresividad determinará si Flint funciona más allá de las demos. Los tableros de producción necesitan transformaciones, marcas en capas, anotaciones, diseños responsivos, opciones de accesibilidad, interacción y comportamiento consistente en los objetivos. Un lenguaje compacto puede crecer a medida que se acumulan esos requisitos, y las diferencias en el renderizado pueden filtrarse a través de la abstracción. Aun así, Flint les da a los agentes de gráficos una ruta de integración concreta que preserva la edición humana. Una especificación pequeña de gráficos se convierte en la superficie compartida entre la generación del agente, la revisión y el renderizado de producción.
+
+[NOVA]: ...
+
+[NOVA]: Latent Memory Palace propone razonamiento adaptativo para políticas de control continuo sin forzar ese razonamiento a través del lenguaje. Los investigadores argumentan que las representaciones lingüísticas pueden ser demasiado gruesas para movimientos precisos y decisiones espaciales. Su política razona en un espacio latente autorregresivo organizado como un palacio de memoria, recuperando información iterativamente antes de seleccionar una acción.
+
+[ALLOY]: La deliberación latente puede variar de una decisión de control a otra. Acciones directas pueden usar poco cómputo, mientras que situaciones inciertas o espacialmente demandantes reciben razonamiento más largo. Los autores formulan ese proceso como inferencia variacional con una distribución latente autorregresiva, y luego derivan un método de aprendizaje por refuerzo que optimiza el límite inferior correspondiente. La política resultante se llama LMP-pi.
+
+[NOVA]: El artículo reporta un rendimiento sólido en dominios simulados y del mundo real, y dice que la asignación de cómputo es interpretable, pero su resumen no proporciona puntuaciones a nivel de tarea ni márgenes numéricos. Una segunda contribución, LMP-tok, representa acciones con tokens de longitud variable. Por lo tanto, la política puede variar tanto cuánto delibera como cómo se representa una secuencia de acciones para modelos autorregresivos posteriores.
+
+[ALLOY]: Los robots y agentes encarnados a menudo se encuentran entre la planificación de alto nivel y la actuación de bajo nivel. Un modelo de lenguaje puede decidir que una pinza debe acercarse a un objeto con cuidado, pero el control continuo aún necesita movimiento preciso bajo observaciones cambiantes. El razonamiento latente podría apoyar esa capa sin verbalizar cada cálculo intermedio. Las preguntas abiertas incluyen latencia, estabilidad y cuándo el cómputo extra en tiempo de prueba produce mejor control en lugar de acción retrasada. Las evaluaciones completas necesitan revelar qué situaciones activan deliberación más larga y si las ganancias sobreviven comparaciones de cómputo igual.
+
+[NOVA]: ...
+
+[ALLOY]: La investigación sobre verificación de citas encuentra que jueces más económicos de modelos de lenguaje pueden puntuar competitivamente, pero resultados similares de F1 pueden ocultar comportamientos de recompensa muy diferentes. Los autores evaluaron ocho jueces listos para usar de tres familias de modelos en 1,248 decisiones rubricadas revisadas por humanos. Otros 378 casos difíciles recibieron resolución después de desacuerdos entre jueces.
+
+[NOVA]: Cada par de atribución y cita se punturó en dos dimensiones: si la fuente era relevante y si respaldaba la afirmación. GPT-5-mini logró el F1 de clase de paso más fuerte para relevancia de fuente en 0.908, con un kappa de 0.636. En soporte factual, los intervalos de confianza superpuestos hicieron que los jueces probados fueran estadísticamente indistinguibles. Eso debilita la suposición de que solo el juez más costoso puede proporcionar retroalimentación de citas útil.
+
+[ALLOY]: La precisión agregada no revela deriva de tasa de paso, falsos positivos ni falsos negativos. Un verificador permisivo puede recompensar afirmaciones sin soporte, mientras que uno excesivamente estricto puede rechazar soporte válido. Los errores direccionales se vuelven especialmente consequentes cuando las puntuaciones alimentan aprendizaje por refuerzo. El bucle de entrenamiento aprende a maximizar el comportamiento del juez, incluyendo cualquier sesgo consistente.
+
+[NOVA]: Por lo tanto, los canales de citas necesitan calibración por dimensión de rúbrica y dirección de error, no una puntuación destacada. Un juez de menor costo puede adaptarse a un despliegue si su perfil de sesgo coincide con el uso previsto, mientras que un juez con F1 ligeramente más fuerte puede crear una señal de recompensa dañina. El benchmark se centra en atribución adversaria de forma larga, por lo que la generalización más amplia todavía necesita evidencia. El resultado duradero es que dos jueces con calidad agregada similar pueden entrenar o clasificar agentes de investigación de manera muy diferente porque sus errores apuntan en diferentes direcciones.
+
+[NOVA]: ...
+
+[NOVA]: OpenAI auditó la división pública de SWE-Bench Pro y encontró suficientes tareas rotas como para cuestionar comparaciones simples de tablas de clasificación. La división contiene 731 tareas. Una auditoría asistida por agente marcó 200 como rotas, mientras que la anotación humana separada marcó 249. OpenAI estima que aproximadamente treinta por ciento del benchmark puede ser inválido o no confiable.
+
+[ALLOY]: La auditoría identifica cuatro fuentes de rotura. Las pruebas excesivamente estrictas rechazan implementaciones razonables. Los prompts especificados insuficientemente omiten requisitos necesarios para resolver una tarea. La cobertura de pruebas baja permite que comportamiento incompleto pase o deja comportamiento previsto sin medir. Los prompts engañosos empujan a un modelo hacia una interpretación que no coincide con lo que el evaluador espera. Cada categoría mezcla la calidad del benchmark con el rendimiento del modelo de manera diferente.
+
+[NOVA]: Las puntuaciones de agentes de codificación influyen en el enrutamiento de modelos, la adquisición y las afirmaciones públicas. Si un modelo falla una tarea especificada insuficientemente, el resultado puede reflejar ambigüedad en lugar de habilidad de codificación. Si pasa con cobertura débil, la puntuación puede sobrestimar la corrección. El rendimiento agregado puede combinar capacidad genuina, alineación accidental de pruebas y ruido de tareas defectuosas. El número reportado de SWE-Bench Pro de Grok 4.5, como cada puntuación en el benchmark, necesita ese contexto.
+
+[ALLOY]: La auditoría no hace que los benchmarks de repositorios sean inútiles. Aboga por conjuntos de tareas revisados, criterios de validez transparentes y análisis de fallas debajo del porcentaje de primera línea. Los proveedores pueden distinguir resultados brutos de puntuaciones en tareas confirmadas y disclose exclusiones. Los mantenedores del benchmark pueden reparar casos disputados o publicar un subconjunto más limpio. Los cambios aceptados en código mantenido representativo siguen siendo evidencia más fuerte para la selección de modelos que una sola clasificación. SWE-Bench Pro puede contribuir con evidencia, pero no puede cargar de manera segura toda la decisión cuando una gran porción de sus tareas puede ser no confiable.
+
+[NOVA]: ...
+
+[NOVA]: UniClawBench evalúa agentes proactivos en cuatrocientas tareas bilingües ejecutándose en entornos Docker en vivo. Separa cinco capacidades: uso de habilidades, exploración, razonamiento de contexto largo, comprensión multimodal y coordinación entre plataformas. Esa estructura busca revelar por qué falló un agente en lugar de solo si alcanzó la meta final.
+
+[ALLOY]: La evaluación usa puntos de verificación de finalización de grano fino en lugar de comparar comportamiento con una respuesta estática. Tres roles crean un ciclo cerrado. Un ejecutor realiza el trabajo, un supervisor oculto califica el comportamiento y un agente de usuario proporciona retroalimentación realista de múltiples turnos. El supervisor permanece oculto para que los criterios de calificación no se filtren en la interacción y se conviertan en pistas que el ejecutor pueda explotar.
+
+[NOVA]: La ejecución en vivo y la retroalimentación cambiante distinguen a UniClawBench de las pruebas de herramientas de un solo turno. Un agente proactivo puede necesitar inspeccionar una interfaz desconocida, recuperarse de una suposición faltante, retener un requisito anterior, interpretar el estado visual y coordinar acciones en varias plataformas. Las etiquetas de capacidad y los puntos de verificación intermedios ayudan a identificar si la falla provino de la exploración, pérdida de contexto, comprensión visual u orquestación.
+
+[ALLOY]: Ese diagnóstico puede guiar las decisiones de stack. Una exploración débil puede indicar la necesidad de una política o descripción de interfaz diferente, mientras que los fallos repetidos entre plataformas pueden exponer problemas de cableado de herramientas en lugar de una limitación del modelo base. El resumen proporcionado no reporta porcentajes de referencia, por lo que la contribución está en el diseño de evaluación y el conjunto de tareas. La consistencia del supervisor oculto y la separación entre fallos del harness y fallos del modelo aún necesitan escrutinio. UniClawBench les da a los agentes proactivos un entorno operativo más realista y hace visible el progreso parcial cuando el éxito de extremo a extremo por sí solo ocultaría dónde se rompió un flujo de trabajo largo.
+
+[NOVA]: ...
+
+[ALLOY]: WebSwarm introduce delegación recursiva progresiva para investigaciones que requieren tanto cobertura amplia como seguimiento profundo. Un único agente estilo ReAct generalmente opera dentro de una trayectoria larga, por lo que perseguir cada rama prometedora puede agotar el contexto o desplazarla síntesis. WebSwarm en cambio construye una jerarquía de nodos de búsqueda dinámicamente mientras la investigación se ejecuta.
+
+[NOVA]: Cada nodo recibe un objetivo local y un modo de búsqueda que describe cómo debe buscar o colaborar. Un nodo puede resolver su objetivo directamente o delegar nodos hijos. Los hijos completados devuelven evidencia y hallazgos a su padre, que puede agregarlos, revisar la dirección o expandir otra rama. El árbol de investigación no está fijo al inicio; la descomposición cambia a medida que la evidencia revela dónde se necesita más profundidad o amplitud.
+
+[ALLOY]: WebSwarm explora cómo la información relevante parece estar distribuida en la web antes de expandirse más. Esa observación guía qué nodos se crean. La experiencia a nivel de proceso también puede reutilizarse entre nodos hermanos similares, permitiendo que el comportamiento de búsqueda de una rama mejore el de otra. Los autores reportan resultados más fuertes que las líneas base de agente único y multi-agente en cuatro benchmarks de investigación, aunque el resumen no proporciona márgenes numéricos.
+
+[NOVA]: La delegación recursiva puede mejorar la cobertura, pero también puede multiplicar solicitudes, duplicar evidencia y crear rutas de síntesis costosas. La procedencia debe sobrevivir a la jerarquía para que un padre pueda distinguir una fuente independiente de varios hijos que devuelven la misma afirmación subyacente. WebSwarm contribuye con orquestación responsiva a evidencia: las ramas crecen porque la información emergente las demanda, no solo porque un planificador inicial adivinó una descomposición. Eso se adapta a investigación de mercado, encuestas técnicas e investigaciones donde una respuesta depende de muchas fuentes y varias capas de seguimiento.
+
+[NOVA]: ...
+
+[NOVA]: ProjAgent añade similitud procedural a la recuperación de código a nivel de repositorio. Los sistemas convencionales a menudo buscan por identificadores, texto, sintaxis o tema semántico. Esas señales pueden pasar por alto una implementación que realiza la secuencia necesaria bajo diferentes nombres o en otro dominio. ProjAgent pregunta qué funciones existentes accomplen trabajo a través de un procedimiento similar.
+
+[ALLOY]: Descompone la función objetivo en pasos de razonamiento intermedios, luego recupera funciones del repositorio cuyo comportamiento se parece a cada paso. Ese contexto procedural se combina con recuperación semántica convencional en lugar de reemplazarla. Un objetivo que involucra validación, transformación, reintento y persistencia puede encontrar ejemplos útiles incluso cuando ninguna función existente comparte su vocabulario o tipos de datos exactos.
+
+[NOVA]: Después de la generación, un ciclo conservador de análisis estático usa retroalimentación del compilador y análisis para reparar el resultado iterativamente. La recuperación construye contexto más rico antes de la generación, mientras que la retroalimentación estática maneja problemas detectables después. En REPOCOD, ProjAgent alcanza 41.14 por ciento de Pass en uno y supera las líneas base basadas en recuperación probadas por los autores. Se necesitan más ablaciones para separar las ganancias de la recuperación procedural y las ganancias de la reparación.
+
+[ALLOY]: La indexación consciente de procedimientos podría mejorar agentes de codificación en repositorios maduros donde las convenciones aparecen en módulos no relacionados. Una rutina de facturación y una rutina de despliegue pueden compartir la misma secuencia de reintento y reversión sin compartir semántica a nivel de tema. Recuperar por cómo se despliega el trabajo puede exponer ese patrón reutilizable. Construir el índice es más difícil que incrustar texto fuente porque el comportamiento procedural necesita una representación confiable, y la similitud estática puede pasar por alto efectos de runtime. Aun así, ProjAgent expande la recuperación de lo que parece relacionado hacia lo que se comporta de manera similar, dando al generador ejemplos locales más fuertes antes de que escriba código.
+
+[NOVA]: ...
+
+[NOVA]: SolarChain-Eval prueba agentes económicos autónomos dentro de un mercado energético descentralizado donde las acciones deben satisfacer restricciones físicas. Usa un Proceso de Decisión de Markov compatible con Gymnasium con decisiones de gobernanza por hora. El rendimiento abarca utilidad de mercado, seguridad física, deslizamiento, suavidad de acción, equidad espacial y auditabilidad en lugar de una única recompensa.
+
+[ALLOY]: El benchmark añade un Planificador y Auditor basados en LLM. El Planificador define límites de acción a nivel de episodio y reglas de auditoría. El Auditor inspecciona acciones clasificadas como alto riesgo y puede revisarlas. Los rastros estructurados capturan señales de activación, acciones propuestas, acciones revisadas y racionalizaciones, permitiendo a los investigadores inspeccionar cómo la intervención cambió el comportamiento de la política en lugar de ver solo la recompensa final.
+
+[NOVA]: Los experimentos comparan políticas estáticas, aleatorias, miopes, de aprendizaje por refuerzo y de aprendizaje por refuerzo más LLM. El aprendizaje por refuerzo mejora la utilidad del mercado pero aún puede actuar de manera insegura. Cuando se elimina la penalización por física, los agentes que maximizan recompensas explotan la generación inválida y crean liquidez artificial. El Planificador y el Auditor mejoran la auditabilidad y mitigan riesgos seleccionados, mostrando por qué un objetivo económico no puede sustituir la validez física.
+
+[ALLOY]: Los mercados energéticos hacen concreta la preocupación, pero se extiende a robots, logística, control industrial y otros agentes ciberfísicos. Una política puede optimizar su métrica visible mientras viola suposiciones que el entorno no puede tolerar. SolarChain-Eval conecta restricciones, puntuación multidimensional e intervención inspeccionable en la evaluación. El Planificador y el Auditor no prueban seguridad universal, pero ofrecen un patrón desplegable: limitar acciones antes de la ejecución, revisar elecciones de alto riesgo y retener una cuenta estructurada de revisiones. La auditabilidad se convierte en parte del rendimiento medido en lugar de una explicación añadida después de comportamiento inseguro.
+
+[NOVA]: ...
+
+[NOVA]: XcodeBuildMCP de Sentry le da a los agentes de codificación herramientas de construcción, prueba, simulador y proyecto integradas para desarrollo iOS y macOS. El repositorio tiene más de seis mil estrellas y permaneció activo en julio. Su mecanismo principal es una superficie MCP que convierte operaciones de Xcode en llamadas de herramientas estructuradas en lugar de obligar a un agente a inferir estado desde salida shell no estructurada.
+
+[ALLOY]: Codex y otros clientes MCP pueden conectarlo a un proyecto iOS aislado para invocar construcciones, inspeccionar fallos, operar un simulador y continuar un ciclo de codificación con resultados más claros. Los parámetros y respuestas estructurados reducen la construcción frágil de comandos y facilitan definir permisos. XcodeBuildMCP demuestra cómo un servidor MCP específico de dominio puede darle a los agentes de codificación una mejor interfaz que un shell general sin reemplazar la cadena de herramientas nativa de Apple.
+
+[NOVA]: ...
+
+[ALLOY]: El proyecto Open Agent combina generación aumentada por recuperación, bucles de agentes, uso de navegador, uso de computadora y capacidades de codificación en una implementación abierta de asistente personal. Su versión 2.83 punto uno se lanzó en julio, y el repositorio tiene más de cinco mil trescientos estrellas. La superficie útil es la coordinación entre varias herramientas de alta permisos en lugar de una capacidad aislada.
+
+[NOVA]: Un perfil aislado proporciona una forma concreta de inspeccionar cómo la recuperación alimenta la planificación, cómo el estado del navegador cruza al control de la computadora, y qué permisos rodean cada acción. Los agentes personales a menudo fallan en los límites de capacidad: el contexto recuperado se vuelve obsoleto, la intención del navegador diverge del estado del escritorio, o una acción de codificación hereda un acceso más amplio de lo esperado. OpenAgent hace que esas transferencias sean lo suficientemente visibles para estudiar, modificar y comparar con una pila personalizada.
+
+[NOVA]: ...
+
+[NOVA]: El servidor MCP de Exa expone la búsqueda web y el rastreo a agentes compatibles a través de un límite de herramientas definido. El repositorio tiene casi cuarenta y siete cientos estrellas y permaneció activo en julio. En lugar de incrustar un cliente de búsqueda específico del proveedor en cada flujo de trabajo de investigación, un agente puede llamar a operaciones estandarizadas de búsqueda y rastreo y recibir resultados estructurados.
+
+[ALLOY]: El ángulo de integración se centra en la procedencia. Un agente de investigación puede usar la búsqueda de Exa para el descubrimiento, pasar los resultados seleccionados al rastreo y preservar la identidad de la fuente con el material extraído para que el juicio posterior de citas tenga evidencia para inspeccionar. El servidor no establece que cada resultado sea autoritativo o respalde una afirmación; proporciona un límite de colección más limpio. Combinado con sistemas recursivos como WebSwarm, puede servir muchas ramas delegadas mientras mantiene el acceso al proveedor centralizado y la procedencia adjunta a la carga útil.
+
+[NOVA]: ...
+
+[NOVA]: GPT-5.6 Sol, Terra y Luna son la familia de modelos seleccionada, soporta entrada de texto e imagen, salida de texto, uso de herramientas de la API de Responses, y un contexto de un millón cincuenta mil tokens en la especificación oficial de Sol. Sol se enfoca en el trabajo agentico más difícil, Terra equilibra capacidad y precio, y Luna maneja volumen rápido y de menor costo.
+
+[ALLOY]: El ángulo de integración inmediato es el enrutamiento a nivel de etapa. La planificación difícil y la codificación pueden ejecutarse en Sol, la transformación equilibrada en Terra, y la clasificación sensible a la latencia en Luna. Medir la calidad, velocidad, consumo de contexto y costo en cada límite revelará si un nivel fijo o una tubería enrutada produce el mejor despliegue.
+
+[NOVA]: ...
+
+[NOVA]: Ollama punto tres uno punto dos expande la inferencia local en hardware NVIDIA más antiguo al habilitar flash attention para GPUs de capacidad de cómputo serie seis. Los GPUs integrados también pueden descargar modelos de visión acolchados según la memoria disponible, creando una ruta más flexible para la inferencia de imágenes local en máquinas sin un acelerador discreto grande.
+
+[ALLOY]: La versión corrige la salida estructurada para modelos de pensamiento cuando el pensamiento está deshabilitado, endurece la creación de modelos GGUF, mejora el manejo de ubicaciones de modelos que contienen texto no UTF-ocho, y desactiva la telemetría por defecto al iniciar el agente de codificación de IA basado en terminal Claude Code. El ángulo práctico es la visión local: ejecuta un modelo de visión soportado en un GPU integrado y observa si la descarga con conocimiento de memoria mantiene la inferencia de imágenes dentro de la memoria disponible.
+
+[NOVA]: ...
+
+[NOVA]: Ideas Have Genomes presenta IdeaGene-Bench, que mide si los modelos pueden razonar sobre el linaje científico en lugar de simplemente recuperar investigación relacionada. Representa las contribuciones como objetos de Genoma de Ideas con tipo y fundamentados en evidencia, luego usa GenomeDiff para capturar herencia, mutación, pérdida, importación externa e inserción genuinamente nueva. El benchmark contiene mil novecientas sesenta y una trazas de linaje, mil ochenta y cinco objetos de genoma y novecientas veinte diferencias por pares en diez dominios científicos.
+
+[ALLOY]: IG-Exam cubre cuarenta y dos tipos de tareas de razonamiento de linaje, mientras que IG-Arena evalúa si una propuesta generada forma un descendiente coherente de una línea de investigación existente. Un agente de investigación podría recuperar la ascendencia de una idea, representar qué cambió, y evaluar si una nueva propuesta preserva la evidencia mientras introduce una contribución defendible. Eso ofrece una prueba más fuerte que recompensar la novedad superficial sin fundamento de linaje.
+
+[NOVA]: ...
+
+[ALLOY]: Remember When It Matters aborda el decaimiento del estado comportamental, donde las trayectorias largas entierran requisitos, hechos del entorno, intentos anteriores, diagnósticos y subobjetivos no resueltos hasta que dejan de influir en la siguiente acción. Un agente de memoria separado se ejecuta junto a un agente de acción sin cambios, actualiza un banco de memoria estructurado desde la actividad reciente, y elige si inyectar un recordatorio fundamentado o permanecer en silencio.
+
+[NOVA]: El artículo reporta ganancias de pass-at-one de 8.3 puntos porcentuales en Terminal-Bench y 6.8 puntos en tau-squared-Bench. La intervención selectiva supera la exposición pasiva al banco, la inyección siempre activa, la guía solo de asesor y la recuperación general en las ablaciones reportadas. Por lo tanto, el tiempo se convierte en parte de la política de memoria. Una memoria útil no simplemente recupera el estado relevante; presenta ese estado cuando la omisión es probable que改变行为, sin llenar cada turno con recordatorios.
+
+[NOVA]: ...
+
+[NOVA]: OpenCoF estudia el razonamiento Cadena-de-Marcos, donde el razonamiento intermedio se desarrolla a través de marcos de video conectados temporalmente en lugar de solo texto. El marco incluye OpenCoF-17K, una colección de videos de razonamiento que abarca once familias de tareas, y Wan-CoF, un modelo de video ajustado fino evaluado en cuatro benchmarks de razonamiento de video.
+
+[ALLOY]: Los tokens de razonamiento visual y textual capturan indicaciones de bajo nivel y prioridades semánticas de alto nivel a través de la profundidad del modelo, pasos de eliminación de ruido, espacio y tiempo. Los autores reportan ganancias sobre la línea base de imagen a video Wan dos punto dos, aunque el resumen no proporciona márgenes numéricos. El ángulo de integración es la planificación visual donde el estado intermedio necesita permanecer visible: las transformaciones físicas, el razonamiento de movimiento y la evolución de la escena pueden desarrollarse a través de marcos generados en lugar de comprimirse enteramente en prosa.
+
+[NOVA]: ...
+
+[NOVA]: Codex .144 fortalece sesiones MCP autenticadas, redirecciones de inicio de sesión hospedadas, aprobaciones de escritura, WebSockets conscientes de proxy y reserva de Code Mode.
+
+[ALLOY]: GPT-5.6 proporciona una escalera de enrutamiento de tres niveles, mientras que Grok 4.5 combina acceso a API, afirmaciones de codificación, rendimiento y precios agresivos de tokens.
+
+[NOVA]: GPT-Live trae escucha y habla simultáneas; Robostral Navigate prueba robóticas solo con cámara; ChatGPT Work y Flint impulsan agentes hacia resultados terminados y editables.
+
+[ALLOY]: La calibración de citas, auditorías de benchmarks de codificación, evaluación proactiva de agentes, investigación recursiva, recuperación consciente de procedimientos, memoria de control adaptativo y restricciones del mercado energético agregan evidencia más clara para decidir qué se puede lanzar de forma segura.
+
+[NOVA]: Para detalles de las fuentes y lectura adicional, mira las notas del programa en Toby On Fitness Tech punto com.
+
+[ALLOY]: Gracias por escuchar AgentStack Daily. Volveremos pronto.
