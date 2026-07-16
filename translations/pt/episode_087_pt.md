@@ -1,0 +1,181 @@
+[NOVA]: Eu sou NOVA.
+
+[ALLOY]: Eu sou ALLOY, e este é o AgentStack Daily...
+
+[NOVA]: O GPT-5.6 Sol da OpenAI pode inspecionar um grande projeto de software, operar suas ferramentas, verificar o resultado em um navegador e avançar em direção a um produto final em vez de parar com sugestões. O ChatGPT agora coloca conversa, trabalho com conhecimento e programação em um único espaço de trabalho desktop. Pequenas empresas já estão usando IA para recuperar vendas perdidas, processar faturas, projetar peças de reposição, preparar orçamentos e resolver problemas de produção.
+
+[ALLOY]: Hoje: Sol assume trabalhos de agente mais longos, ChatGPT Work produz documentos e apresentações, modelos multimodais compactados cabem em memória do tamanho de um celular, e dispositivos Pixel executam assistentes privados offline. Você vai ouvir como um desktop AMD de 128 gigabytes expande IA local, como o Gemini 3.5 Flash opera telas e constrói software, e por que Nova York e Austrália estão conectando o crescimento da IA aos custos de eletricidade, água e comunidade.
+
+[NOVA]: O teste de robótica de Claude também traça uma linha útil entre planejamento baseado em linguagem e controle físico em frações de segundo. Enquanto isso, um programa nacional de cibersegurança aplica IA de fronteira à coordenação de vulnerabilidades, e o Google reconstrói um gol perdido de Pelé sem apresentar imagens geradas como filmagem recuperada.
+
+[NOVA]: ...
+
+[NOVA]: O GPT-5.6 Sol é o novo modelo da OpenAI para programação complexa, uso de computador, pesquisa e segurança. Sua interface pode aceitar mais de um milhão de tokens de contexto e produzir saídas anormalmente longas, dando-lhe espaço para repositórios de software extensos, grandes coleções de documentos, imagens e atividade de ferramentas estendidas. O Sol pode pesquisar arquivos e a web, executar código, usar uma linha de comando hospedada, aplicar patches de software, gerar imagens, operar um computador e conectar-se com serviços externos através do MCP, um padrão que permite modelos chamarem ferramentas e recuperarem dados.
+
+[ALLOY]: A mudança maior vem da combinação dessas habilidades. O Sol pode escrever JavaScript que chama várias ferramentas, filtra os resultados e retorna evidências úteis. Em vez de preencher uma conversa com cada resultado intermediário de pesquisa, ele pode processar esse material dentro de um curto programa com limites claros. O raciocínio pode persistir entre turnos, enquanto um modo multiagente em beta divide trabalho independente entre agentes paralelos. Um desenvolvedor pode atribuir uma mudança em todo o repositório, deixar um agente rastrear dependências enquanto outro atualiza código relacionado, e fazer o Sol inspecionar a interface final em um navegador.
+
+[NOVA]: No benchmark de uso de computador OSWorld 2.0, a OpenAI relata que o Sol melhorou de 47,5 por cento com o GPT-5.5 para 62,6 por cento. Também relata ganhos em navegação e design assistido por computador. O parceiro de lançamento Lovable diz que suas execuções exigiram menos passos e chamadas de ferramentas e travou com menos frequência. A Qodo diz que revisões de pull-request usaram cerca de um terço dos tokens e levaram aproximadamente metade do tempo. Essas são alegações da empresa e parceiros, mas apontam para menos tempo gasto supervisionando trabalho parcial.
+
+[ALLOY]: O Sol pode suportar garantia de qualidade de navegador, análise de segurança, pesquisa de grandes documentos e mudanças de software que terminam com um artefato revisável. A OpenAI posiciona o Terra como a opção equilibrada para o dia a dia e o Luna para trabalho mais rápido e de alto volume, enquanto o Sol e seu modo pro cobrem trabalhos mais exigentes. Seu valor dependerá se os ganhos de conclusão sobrevivem a permissões reais, interfaces mutáveis, dados incompletos e aprovações humanas.
+
+[NOVA]: ...
+
+[ALLOY]: A OpenAI redesenhou o aplicativo desktop do ChatGPT em torno de três tipos conectados de trabalho. O Chat permanece como a superfície conversacional. O Work cria pesquisa e artefatos de conhecimento finalizados. O Codex permanece como o ambiente dedicado à construção de software. Projetos e configurações existentes do Codex são mantidos, as pessoas podem manter o Codex como sua visualização padrão, e os projetos permanecem acessíveis pelo celular. A OpenAI consolidou o espaço de trabalho sem fingir que uma conversa rápida, uma apresentação financeira e um reparo de software são atividades idênticas.
+
+[NOVA]: O Work muda a saída esperada. Uma pessoa pode atribuir um documento, planilha, apresentação ou site em vez de pedir conselhos e montar manualmente o resultado em outro lugar. Uma equipe de finanças pode fornecer números brutos e receber um modelo, gráficos, um memorando e uma apresentação apoiados por fontes. Uma equipe de produto pode combinar pesquisa, arquivos internos, revisões e um pacote de lançamento. O item final permanece como algo que uma pessoa pode inspecionar e editar, mas o agente lida com mais da coleta e produção ao redor dele.
+
+[ALLOY]: As contas de clientes da OpenAI mostram onde essa abordagem está chegando. A Zapier diz que um sistema de revisão de leads encontrou sete dígitos de pipeline de vendas perdidas. A RingCentral diz que aproximadamente 50 gerentes de produto usam um fluxo de trabalho automatizado de verificação de lançamento. A Virgin Atlantic relata que a pesquisa competitiva caiu de semanas para horas. A NVIDIA diz que automatizou a preparação de conferências que antes consumia cerca de 40 por cento de seu tempo pré-evento. Esses resultados vêm da OpenAI e de seus clientes, então são exemplos em vez de garantias.
+
+[NOVA]: Os usos mais fortes começam com entradas reconhecíveis e terminam com um item concreto: um pacote de pesquisa, modelo financeiro, revisão de lançamento, apresentação ou aplicação reparada. Manter o Chat, o Work e o Codex distintos também preserva uma pista humana importante. As pessoas podem ver se estão explorando uma ideia, commissionando um artefato ou alterando software. A próxima medida de sucesso será a reutilização: se as equipes podem revisar e repetir esses entregáveis como processos confiáveis da empresa em vez de receber um resultado polido mas isolado.
+
+[NOVA]: ...
+
+[NOVA]: Donos de pequenas empresas deram ao Congresso descrições incomumente concretas de IA em operações ordinárias. Uma farmácia de Chicago com 151 anos está construindo um agente de contas a pagar destinado a devolver mais de 20 horas de funcionários cada semana. Seu dono também disse que o emprego cresceu cerca de 20 por cento desde que a empresa adotou IA. A Henry's House of Coffee usou o ChatGPT para ajudar a projetar e programar um borrifador controlado por sensores que resolveu um problema físico de ensacamento de café, movendo IA de texto de escritório para equipamento de produção.
+
+[ALLOY]: Em Detroit, empreiteiros combinam plantas com anotações faladas e completam orçamentos de seus trucks antes de sair da garagem do cliente. Um carpinteiro de Oklahoma disse que peças indisponíveis para máquinas envelhecidas agora podem ser projetadas e impressas em horas em vez de levar semanas para adquirir. A IA também ajudou a identificar uma rota de licença de cozinha residencial para um restaurante tailandês, aparentemente cortando custos de inicialização em mais de 90 por cento. Cada uso começa com um obstáculo estreito que já custa tempo ou dinheiro para a empresa.
+
+[NOVA]: Os resultados de vendas foram igualmente específicos. A GT Coffee informou que sua taxa de conversão subiu de 1,5 para 2,3 por cento, enquanto o pedido médio aumentou de 38 dólares para 47 dólares. Esses números vieram de testemunho juramentado, não de auditorias governamentais independentes, mas são úteis porque as empresas descreveram um resultado antes e depois. O trabalho abrangia faturas, vendas online, licenças, orçamentos, embalagens e componentes de reposição em vez de uma promessa vaga de transformação em toda a empresa.
+
+[ALLOY]: Pequenas empresas frequentemente não têm um departamento de tecnologia dedicado, mas podem se mover rapidamente quando um dono sabe onde o trabalho está quebrando. Produtos que se ajustam a ferramentas existentes e rotinas físicas podem alcançar essas empresas sem exigir uma mudança operacional completa. Produtos duráveis economizarão horas visíveis, aumentarão receita mensurável ou produzirão um objeto funcionante. Evidências em mais empresas mostrarão se os ganhos relatados persistem, mas essas contas já tornam o mercado de pequenas empresas da IA tangível.
+
+[NOVA]: ...
+
+[ALLOY]: PrismML comprimiu o modelo multimodal Qwen 3.6 27B existente em pacotes Bonsai 27B de aproximadamente 3.9 gigabytes. Multimodal significa que o modelo pode trabalhar com imagens além de texto. As versões menores armazenam seus valores aprendidos usando apenas alguns estados possíveis, reduzindo dramaticamente o uso de memória. A PrismML demonstra o resultado em hardware de classe iPhone, colocando um modelo antes associado a computadores muito maiores ao alcance de celulares e laptops populares.
+
+[NOVA]: O lançamento inclui arquivos para softwares locais amplamente utilizados e builds projetados para Apple silicon. Esses formatos conectam o trabalho de compressão com programas que as pessoas já usam para executar modelos em seus próprios dispositivos. Um aplicativo poderia examinar uma foto de equipamento, interpretar uma captura de tela ou responder perguntas sobre um documento privado sem fazer upload do material. Um assistente de viagem poderia ler uma placa onde o serviço é instável. Um ambiente de trabalho poderia manter registros sensíveis em seu próprio laptop enquanto combina informações visuais e escritas.
+
+[ALLOY]: Colocar o modelo na memória não resolve a experiência. A compressão pesada pode reduzir a qualidade das respostas, e o calor, bateria e velocidade de memória de um celular podem limitar o uso sustentado. Os números de desempenho da PrismML permanecem sendo relatados pelo fornecedor. Um pacote compacto pode abrir com sucesso enquanto ainda responde muito lentamente ou perde detalhes em uma imagem complicada. A comparação significativa não é apenas se ele roda, mas se permanece útil para imagens cotidianas, capturas de tela e documentos.
+
+[NOVA]: Mesmo com essas ressalvas, o Bonsai expande o alcance de aplicações privadas que podem caber em um bolso. Desenvolvedores podem criar assistência visual que permanece no dispositivo e continua operando sem conectividade confiável. Se o uso independente confirmar qualidade aceitável, ferramentas de inspeção, recursos de acessibilidade, assistentes de documentos privados e aplicações de viagem podem ganhar capacidades antes atreladas a serviços de nuvem sem fazer cada quadro de câmera ou registro sair do hardware do usuário.
+
+[NOVA]: ...
+
+[NOVA]: O Google introduziu o Gemma 4 E2B com um kit de software Tensor em beta que executa o modelo nativamente no chip de aprendizado de máquina dedicado em celulares suportados da família Pixel 10. O Google está tratando o celular como uma plataforma de aplicação offline, não apenas uma tela que envia solicitações a um modelo remoto. Imagens, gravações e instruções escritas podem permanecer no dispositivo enquanto um aplicativo os interpreta.
+
+[ALLOY]: O Google demonstrou aplicações de código aberto para planejamento de viagens, automação residencial, transcrição, reconhecimento de plantas, ajuda em compras e diagnóstico de equipamentos. Um trabalhador de campo poderia apontar um Pixel para uma máquina e receber assistência onde a rede é fraca. Um viajante poderia interpretar uma placa sem serviço de roaming. Alguém gravando uma reunião privada poderia produzir texto sem fazer upload do áudio. O processamento local pode reduzir o tempo de resposta, preservar a funcionalidade longe de uma conexão e dar às pessoas mais controle sobre entradas sensíveis.
+
+[NOVA]: A empresa também está reduzindo a quantidade de engenharia especializada necessária para acessar seu hardware móvel. Desenvolvedores podem solicitar acesso beta e adaptar os aplicativos de exemplo em vez de começar com integração de dispositivo de baixo nível. O Google controla o modelo, o caminho do software e o silício do Pixel, permitindo que essas peças sejam projetadas juntas. Essa abordagem pode tornar a IA no dispositivo mais acessível do que combinar hardware, modelos e software local não relacionados.
+
+[ALLOY]: A lista atual de suporte é limitada ao Pixel 10, 10 Pro, 10 Pro XL e 10 Pro Fold. O Google mostrou execução nativa e demonstrações práticas, mas não o impacto sustentado na bateria, calor ou ampla disponibilidade pública. Esses detalhes determinarão se assistentes offline lidam com ações ocasionais ou permanecem ativos ao longo de um dia de trabalho. Ainda assim, assistência de câmera, notas privadas, controles domésticos e diagnósticos de campo agora podem ser projetados em torno de operação local primeiro, com serviços de nuvem servindo como suporte opcional em vez de um requisito permanente.
+
+[NOVA]: ...
+
+[ALLOY]: A Anthropic testou o Claude em trabalho de movimento em quatro patas e manipulação de robô e descobriu que o controle motor direto e em frações de segundo falhou principalmente. Um modelo de linguagem não pode substituir confiavelmente os loops de software rápidos e sistemas de segurança que mantêm uma máquina física equilibrada e responsiva.
+
+[NOVA]: Os resultados melhoraram quando o Claude trabalhou em um nível mais alto. Ele podia interpretar um objetivo, escrever pequenas ferramentas, inspecionar feedback visual simples e supervisionar um controlador já treinado para mover o robô. Em um armazém, um trabalhador poderia descrever o que precisa ser relocado; o Claude poderia planejar a rota e a sequência de ações, enquanto software certificado de navegação e movimento controla cada roda ou articulação.
+
+[ALLOY]: Essa divisão apoia a robótica útil de linguagem natural sem pedir a um modelo geral para lidar com temporização física ou segurança. Modelos de linguagem podem planejar, explicar e recuperar-se de problemas ordinários. Controladores comprovados permanecem responsáveis pelo movimento.
+
+[NOVA]: ...
+
+[NOVA]: O desktop Ryzen AI Halo da AMD chegou ao Micro Center com configurações oferecendo até 128 gigabytes de memória unificada. A memória unificada dá ao processador e aos gráficos integrados acesso a um grande pool, evitando o limite baixo de memória dedicada que impede muitos cartões gráficos populares de carregar modelos de IA maiores. Um desenvolvedor agora pode comprar essa capacidade como um desktop de varejo em vez de construir um sistema especializado ou alugar imediatamente servidores gráficos remotos.
+
+[ALLOY]: A AMD diz que o computador pode suportar modelos com até 200 bilhões de parâmetros, os valores aprendidos que moldam o comportamento de um modelo. Essa declaração descreve capacidade, não responsividade. Compressão, tamanho do prompt, suporte de software e velocidade da memória ainda determinam quão rapidamente um modelo responde. Um modelo gigante pode caber, mas ainda ser inconveniente para uso interativo. Mesmo assim, 128 gigabytes move a experimentação com sistemas locais maiores para uma categoria de desktop mais acessível.
+
+[NOVA]: A máquina poderia hospedar um assistente privado, um serviço que responde perguntas de documentos da empresa, um agente de codificação ou uma ferramenta que combina texto com imagens e áudio. Uma pequena equipe pode manter arquivos sensíveis em seu próprio hardware e decidir se a qualidade local é suficiente antes de pagar pela implantação na nuvem. Escolas, clínicas, estúdios e grupos de engenharia com limites estritos de dados ganham outra opção entre um laptop leve e um servidor caro.
+
+[ALLOY]: Isso complementa o trabalho em tamanho de celular do Bonsai e do Google. Celulares cobrem tarefas portáteis como transcrição, ajuda visual e diagnóstico de campo. O Halo fornece um ambiente ao lado da mesa para modelos maiores e trabalhos mais longos. A disponibilidade no varejo também amplia quem pode explorar IA local: desenvolvedores independentes e pequenas organizações podem comprar uma máquina suportada em vez de montar vários componentes. O hardware chegou; software local e velocidade cotidiana decidirão se se torna uma estação de trabalho prática ou apenas uma demonstração impressionante de quanto pode caber na memória.
+
+[NOVA]: ...
+
+[ALLOY]: O GitHub expandiu o suporte "traga sua própria chave" para o Copilot nos editores JetBrains. Desenvolvedores podem manter a interface familiar do Copilot enquanto enviam requisições de IA para um serviço personalizado compatível, incluindo um modelo servido localmente ou um sistema privado de empresa. A experiência do editor e o modelo que faz o trabalho não precisam mais vir do mesmo provedor.
+
+[NOVA]: Essa separação oferece às organizações um caminho mais curto de um modelo interno para o trabalho diário de software. Uma equipe pode expor o Bonsai, outro modelo aberto, ou seu próprio modelo adaptado através do formato suportado e disponibilizá-lo dentro de ferramentas baseadas no IntelliJ. Desenvolvedores não precisam sair do seu editor normal, e a organização não precisa construir uma extensão completa do editor apenas para oferecer um serviço diferente de IA.
+
+[ALLOY]: O controle de dados é um motivo principal para usar o recurso. Uma empresa pode querer que código-fonte e prompts sejam processados em seus próprios computadores ou através de um provedor aprovado. Um serviço privado cria essa opção, embora não torne automaticamente todo o fluxo de trabalho privado. Os limites reais ainda dependem de onde o serviço roda, o que ele registra, como o tráfego é roteado e como o Copilot está configurado.
+
+[NOVA]: A mudança também facilita a compreensão de comparações entre modelos porque a interface do desenvolvedor pode permanecer constante. A qualidade da codificação e o tempo de resposta se tornam os fatores decisivos em vez das diferenças entre plugins de editor. Se modelos locais provarem ser bons o suficiente para explicações rotineiras, conclusões e mudanças de código, as equipes podem ganhar mais escolha sobre custo e manipulação de dados. Se ficarem atrás em reparos complexos, sistemas privados ainda podem merecer um lugar em trabalho regulado onde controle importa mais do que desempenho de ponta.
+
+[NOVA]: ...
+
+[NOVA]: Nova York pausou temporariamente certos permisos ambientais para novos data centers de hiperescala enquanto o estado mede seus efeitos na eletricidade, água, qualidade do ar, contas de serviços públicos e comunidades próximas. A governadora Kathy Hochul anunciou a ação através de uma ordem executiva em quatorze de julho. Pode durar até um ano e se aplica a projetos qualificáveis que exigem que reguladores tomem uma decisão ambiental discricionária.
+
+[ALLOY]: Instalações existentes não estão sendo fechadas, e nem todo novo data center está automaticamente bloqueado. Projetos fora do caminho de permissão afetado podem continuar. A ordem atrasa uma classe definida de desenvolvimentos muito grandes, dando ao estado tempo para perguntar quem fornece a energia deles, quanta água eles consomem e se as famílias poderiam absorver parte do custo da infraestrutura através de taxas mais altas.
+
+[NOVA]: Essas perguntas afetam serviços que as pessoas usam todos os dias. Uma empresa pode garantir chips e financiamento, mas ainda assim esperar por eletricidade, refrigeração, upgrades de rede e aprovação pública. Se uma instalação planejada abrir atrasada, capacidade de nuvem pode aparecer em outra região ou custar mais do que o esperado. Comunidades enfrentam um tradeoff real: data centers podem trazer trabalho de construção e receita de impostos, mas também podem competir por energia e água limitadas enquanto requerem projetos de transmissão caros.
+
+[ALLOY]: O estudo de Nova York vai influenciar o que segue a pausa. Permissões futuras podem exigir planos de energia mais claros, proteções comunitárias ou contribuições diretas para infraestrutura. Para cidades que recebem propostas, a decisão determina quem se beneficia e quem paga. Para empresas de IA e seus clientes, pode moldar cronogramas de construção, capacidade regional e preços. A expansão da indústria agora é visível em subestações, sistemas de refrigeração, uso da terra e contas domésticas, não apenas em chips e anúncios de modelos.
+
+[NOVA]: ...
+
+[ALLOY]: A Casa Branca anunciou GOLD EAGLE, uma câmara de compensação governo-indústria destinada a coordinar como vulnerabilidades de software são recebidas, verificadas, priorizadas e enviadas para reparo. Quando uma nova falha aparece, diferentes grupos podem escanear os mesmos sistemas enquanto descobertas urgentes competem por atenção. O GOLD EAGLE visa usar IA de ponta para reduzir escaneamentos duplicados e entregar informações de ameaças e reparos priorizadas para governo, finanças e operadores de infraestrutura crítica.
+
+[NOVA]: O trabalho anunciado inclui receber e priorizar vulnerabilidades identificadas, coordinar escaneamentos de verificação e transformar os resultados em informações que defensores podem agir. O anúncio não identifica um modelo ou fornecedor, e não coloca correção automática no comando de sistemas nacionais. Organizações humanas permanecem responsáveis por confirmar descobertas e executar reparos.
+
+[ALLOY]: Coordenação nacional mais rápida vai expor transferências lentas dentro de organizações participantes. Um banco, hospital ou utilidade precisa saber qual software opera, quem é dono de cada decisão de patch e quais sistemas não podem ser interrompidos casualmente. Melhor priorização importa apenas quando a informação alcança as pessoas certas. Produtos que mantêm inventários de software, conectam relatórios duplicados, explicam evidências de severidade e roteiam trabalho para um dono responsável podem apoiar essa cadeia.
+
+[NOVA]: O GOLD EAGLE move o trabalho de segurança de IA além de um assistente de analista isolado. Ele tenta organizar informação entre instituições com diferentes ferramentas, incentivos e responsabilidades. Detalhes importantes ainda incluem como participantes compartilham relatórios sensíveis, como decisões podem ser contestadas e como a câmara de compensação separa evidências fortes de saída confiante de modelo. Com supervisão sólida, IA poderia reduzir esforço duplicado enquanto deixa decisões de reparo e divulgação consequenciais com pessoas.
+
+[NOVA]: ...
+
+[NOVA]: A Anthropic dividiu o acesso ao seu modelo base mais forte entre Fable 5 e Mythos 5, enquanto posiciona o Sonnet 5 como a opção geral de menor custo. Fable carrega salvaguardas amplas para uso mainstream. Mythos é restrito a parceiros de cibersegurança e ciência verificados. Sonnet é destinado para fluxos de trabalho comuns de navegador, terminal, depuração e negócios com o que a Anthropic descreve como performance de agente próxima à sua oferta mais cara.
+
+[ALLOY]: Clientes agora escolhem mais do que capacidade e preço. Eles também devem considerar a sensibilidade do trabalho, se qualificam para acesso e como sistemas protetores podem afetar a conclusão. Um assistente de software rotineiro pode caber no Sonnet. Um fluxo de trabalho geral exigente pode usar o Fable. Atividade científica ou de cibersegurança sensível pode requerer Mythos e elegibilidade adicional. Inteligência base similar pode, portanto, chegar com diferentes regras e termos comerciais.
+
+[NOVA]: A Anthropic diz que a Stripe usou Fable em uma migração envolvendo uma base de código Ruby de 50 milhões de linhas e completou em um dia o que de outra forma teria levado uma equipe mais de dois meses. Essa é uma conta de cliente publicada pela empresa, não uma medição independente, mas mostra a escala de tarefa que a Anthropic quer abordar: mudanças de longa execução em enormes estados de software, não apenas sugestões curtas de código.
+
+[ALLOY]: Requisitos governamentais já afetaram a disponibilidade. O governo dos EUA aplicou controles de exportação em junho, e a Anthropic suspendeu o acesso porque não podia verificar nacionalidade em tempo real. O serviço retornou após esses controles serem suspensos. Separadamente, a Anthropic diz que fortaleceu seus classificadores de segurança e expandiu testes governamentais após o incidente. Organizações julgarão um modelo crescentemente por acesso confiável além de inteligência. Clientes precisam de expectativas claras sobre elegibilidade, interrupções e a rota para resolver erros quando trabalho legítimo é bloqueado.
+
+[NOVA]: ...
+
+[ALLOY]: O Google lançou o Gemini 3.5 Flash com uso nativo de computador em ambientes de navegador, mobile e desktop. O modelo pode inspecionar uma tela, usar controles visíveis, alterar software e retornar um resultado final. O Google demonstrou ele gerando vários designs de interfaces de pagamento, construindo um jogo a partir de um artigo de pesquisa, organizando grandes coleções de arquivos com agentes paralelos e automatizando testes contínuos de software.
+
+[NOVA]: A operação de tela alcança aplicações que não possuem uma conexão direta para agentes. Uma pessoa pode atualmente copiar informações entre um site, programa de desktop e formulário interno porque esses sistemas nunca foram projetados para cooperar. O Gemini pode potencialmente observar cada interface e levar o trabalho entre elas. Sua capacidade de criar ou alterar software também significa que o trabalho pode terminar com um artefato funcional em vez de um relatório descrevendo o que outra pessoa deveria construir.
+
+[ALLOY]: As comparações publicadas pelo Google não identificam um modelo como o melhor em tudo. O Gemini 3.5 Flash teve melhor desempenho que o GPT-5.5 em uma avaliação centrada em ferramentas conectadas, mas ficou atrás dele em trabalho de terminal. Diferentes trabalhos favorecem diferentes habilidades. Um operador de tela rápido pode ser adequado para software de escritório e processos de navegador, enquanto outro modelo pode ter melhor desempenho em um ambiente de engenharia de linha de comando. O Gemini 3.5 Pro é descrito como chegando em breve; o Flash é o produto disponível.
+
+[NOVA]: O acesso à tela também abre uma rota direta para erros e manipulação. Um agente pode clicar no controle errado, interpretar mal um layout alterado ou seguir instruções hostis colocadas dentro de uma página web. Aprovação visível para ações consequentes e mudanças reversíveis podem manter as falhas gerenciáveis. Usos imediatos incluem organizar arquivos, verificar um site, preparar variantes de interface e completar uma mudança de software conhecida. Processos longos e bagunçados revelarão se as demonstrações se traduzem em trabalho diário confiável.
+
+[NOVA]: ...
+
+[NOVA]: A Austrália criou um Escritório de IA e propôs padrões nacionais vinculando a expansão de grandes centros de dados a obrigações de eletricidade, rede elétrica, água e criadores. Sob a proposta, grandes operadores financiariam novos suprimentos de energia, pagariam seus custos de conexão, reduziriam demanda quando solicitado e reduziriam o uso de água. O governo também diz que criadores australianos devem manter o controle sobre se seu trabalho é usado para treinar sistemas de IA.
+
+[ALLOY]: Esses padrões são propostas, não lei atual. A consideração do Gabinete Nacional está planejada para agosto, com legislação alvo para início de 2027. Mesmo antes das regras finais serem conhecidas, o governo está deixando claro seu acordo preferido: empresas que consomem recursos físicos enormes não devem automaticamente passar cada custo de expansão para o público, e trabalho criativo não deve se tornar material de treinamento sem controle significativo do criador.
+
+[NOVA]: Os requisitos de energia podem mudar onde e como os centros de dados operam. Um local com terra e chips disponíveis ainda pode ser pouco atraente se缺乏 geração ou uma conexão de rede acessível. A capacidade de reduzir consumo durante períodos de estresse pode se tornar parte do design das instalações. A eficiência hídrica será especialmente importante onde o resfriamento compete com casas, agricultura ou ecossistemas. Registros de dados de treinamento e licenciamento também podem se tornar recursos de produto mais importantes se os criadores obtiverem escolhas aplicáveis.
+
+[ALLOY]: A Austrália e Nova York estão usando ferramentas diferentes, mas ambas estão respondendo à pegada física da IA. Nova York pausou uma rota de permissão enquanto estuda impactos. A Austrália está descrevendo custos e deveres que os operadores podem carregar. A discussão de agosto deve esclarecer quais instalações se qualificam, como o controle do criador funcionaria e como os compromissos de energia e água seriam medidos. Essas decisões podem influenciar preços de nuvem, cronogramas de construção, emprego local e os termos sob os quais material cultural entra no treinamento de modelos.
+
+[NOVA]: ...
+
+[ALLOY]: O Google e o Google DeepMind recriaram um gol celebrate do Pelé de 1959 que não tinha filmagem sobrevivente conhecida. O vídeo resultante é uma reconstrução, não filmagem de arquivo descoberta. A equipe combinou documentos históricos, plantas de estádios, memórias de testemunhas, expertise, filmmaking prático e sistemas generativos incluindo Veo, Gemini Omni e Nano Banana Pro.
+
+[NOVA]: O projeto foi muito além de pedir a um modelo de vídeo para inventar um gol. Os pesquisadores tiveram que determinar quais registros sustentavam, como o estádio estava disposto, onde uma câmera poderia ter ficado plausivelmente e como as testemunhas lembravam da sequência. Cineastas então juntaram essas peças em uma conta visual contínua. A IA forneceu parte da criação de imagens, enquanto o julgamento humano reconciliava evidências incompletas e às vezes incertas.
+
+[ALLOY]: Museus, arquivos, educadores e equipes de documentários podem usar uma abordagem semelhante quando um evento nunca foi filmado ou sua gravação desapareceu. Uma reconstrução pode ajudar uma audiência a entender relações espaciais e movimento que texto sozinho luta para transmitir. Ela se torna mais confiável quando os espectadores podem distinguir detalhes tirados de documentos, detalhes recordados por testemunhas e momentos inferidos pela equipe de produção.
+
+[NOVA]: Vídeo gerado convincente pode facilmente escapar de seu contexto original e ser confundido com filmagem autêntica. Rotulagem clara, portanto, importa tanto quanto qualidade visual. Reconstruções históricas futuras poderiam preservar proveniência conectando cenas importantes a suas evidências de suporte e marcando incerteza onde as contas diferem. Usado com cuidado, vídeo generativo pode tornar história perdida visível sem afirmar que uma câmera a capturou. Usado descuidadamente, a mesma tecnologia pode substituir um registro incompleto com imagens que parecem mais certas do que a evidência permite.
+
+[NOVA]: ...
+
+[NOVA]: O Codebase Memory MCP tem 31.812 estrelas no GitHub e ganhou atenção após seu lançamento zero ponto nove e uma atualização de quatorze de julho. Ele indexa código em 158 idiomas como um mapa persistente de símbolos e relacionamentos, então responde consultas de código em menos de um milissegundo de acordo com seus mantenedores. Ele é enviado como um programa estático sem dependências. OpenClaw, Codex ou o agente de codificação baseado em terminal AI Claude Code podem recuperar os relacionamentos entre funções e módulos em vez de carregar repetidamente arquivos inteiros, deixando mais contexto disponível para entender e mudar o código.
+
+[ALLOY]: O FastMCP tem 26.223 estrelas, com a versão 3.4 lançada em nove de julho e atividade do repositório continuando em quatorze de julho. É um kit de ferramentas Python para transformar funções existentes e fontes de dados em ferramentas de agente com pouco scaffolding extra. Em termos comuns, ele permite que um agente chame um banco de dados, serviço interno ou automação através de ações nomeadas com entradas e saídas definidas. Equipes podem conectar essas ferramentas a OpenClaw, Codex ou Claude Code sem pedir ao modelo para improvisar uma nova conexão toda vez.
+
+[NOVA]: O MCP para Iniciantes da Microsoft tem 16.758 estrelas e foi atualizado em treze de julho. É um currículo prático em vez de um lançamento de software, com exemplos em .NET, Java, TypeScript, JavaScript, Rust e Python. O material explica como ferramentas, recursos e prompts podem ser expostos a agentes de maneiras modulares e seguras. Seu valor de integração vem de padrões compartilhados: equipes trabalhando em várias linguagens podem padronizar como serviços internos aparecem para agentes em vez de permitir que cada grupo invente uma interface incompatível.
+
+[NOVA]: ...
+
+[ALLOY]: O progresso dos modelos hoje pousou em conclusão de agentes, operação no dispositivo, compressão e camadas de acesso em vez de um novo nome de propósito geral. A competição está mudando para onde a inteligência roda, quais ferramentas ela pode operar, quanta memória precisa e se as organizações podem depender de acesso.
+
+[NOVA]: ...
+
+[NOVA]: MOSS Transcribe Diarize é um modelo de áudio aberto que está em alta agora para transcrição com diarização de locutores, o que significa que ele transforma uma gravação em texto enquanto separa as pessoas que falaram. As informações publicadas do modelo listam entrada de áudio e texto. Isso o torna relevante para reuniões privadas, entrevistas, histórias orais, chamadas de suporte e produção de podcasts. Executar localmente pode manter vozes brutas e conversas sensíveis fora de um serviço de nuvem. Sua utilidade depende de ambas as habilidades trabalhando juntas: palavras precisas não são suficientes se forem repetidamente atribuídas à pessoa errada, enquanto bons rótulos de locutor não conseguem salvar uma transcrição ruim.
+
+[NOVA]: ...
+
+[ALLOY]: Hugging Face Transformers 5.14 adicionou suporte ao modelo Inkling de peso aberto da Thinking Machines. Inkling aceita texto, imagens e áudio, com 975 bilhões de parâmetros totais, mas apenas 41 bilhões ativos para uma entrada. O suporte na biblioteca Transformers amplamente usada torna o modelo mais fácil de usar em ajuste fino, busca, codificação e projetos de agentes.
+
+[NOVA]: Unity MCP tem mais de 12.500 estrelas e lançou a versão 10.1. Ele permite que assistentes gerenciem assets, controlem cenas, editem scripts e automatizem trabalho dentro do Unity Editor. Desenvolvedores de jogos podem dar a um assistente ferramentas para ações comuns do editor sem sair do ambiente onde constroem e testam seus jogos.
+
+[ALLOY]: Semble tem mais de 5.600 estrelas e lançou a versão zero ponto cinco. Ele retorna correspondências de código focadas para agentes e afirma uma redução de cerca de 98 por cento no uso de tokens em comparação com buscar e ler arquivos inteiros repetidamente. Isso pode deixar mais contexto disponível para entender as funções relevantes e fazer uma alteração coerente no software.
+
+[NOVA]: ...
+
+[NOVA]: Sol e o ChatGPT Work empurram a IA em direção a software concluído, pacotes de pesquisa, documentos e apresentações. Ganhos de pequenas empresas estão aparecendo em faturas, orçamentos, vendas, licenças, máquinas e linhas de produção. Bonsai, Pixel AI e o desktop de 128 gigabytes da AMD expandem a computação local privada de bolsos para mesas. JetBrains conecta esses modelos com um editor estabelecido, enquanto o Gemini Flash conecta agentes com telas comuns.
+
+[ALLOY]: O resultado de robótica da Claude mantém modelos de linguagem no planejamento e supervisão enquanto controladores comprovados lidam com o movimento. GOLD EAGLE aplica IA à coordenação de vulnerabilidades nacionais. Nova York e Austrália mostram que eletricidade, água, licenças, direitos dos criadores e custos comunitários agora moldam a expansão da IA junto com chips e modelos. A reconstrução de Pelé pelo Google mostra por que a história gerada precisa de evidências visíveis e rotulagem clara.
+
+[NOVA]: Para detalhes das fontes e leitura adicional, veja as notas do programa em Toby On Fitness Tech ponto com.
+
+[ALLOY]: Obrigado por ouvir o AgentStack Daily. Voltamos em breve.
