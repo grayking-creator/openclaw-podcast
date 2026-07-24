@@ -1,29 +1,26 @@
 #!/usr/bin/env python3
 """
-Telegram review-surface notifier (locked 2026-06-27, EP075 incident class).
+ARIA Telegram review notifier plus Discord failure router.
 
-Replaces the Discord review channel post for AgentStack Daily. Three intents:
+Complements the Discord episode review post for AgentStack Daily:
 
   --intent ready      post the morning "ready to review" message with the
-                       audio + cover + show notes + transcript URLs and a
-                       5–7 bullet slate summary. Approving on Telegram is
-                       the operator-confirmed path; no Discord message ID
-                       is required.
+                       audio + cover + show notes + transcript URLs and the
+                       complete slate summary. Approval is recorded only from
+                       a later verified reply in the Discord episode channel.
   --intent shipped    post the post-approval "shipped" confirmation with the
                        canonical episode link and CDN URL.
-  --intent skipped    post a "today's build was skipped" message naming the
-                       specific gate that failed.
+  --intent failed     route a run-stopping failure to the Discord build log.
+  --intent skipped    route a skipped-build reason to the Discord build log.
 
-Telegram is for DECISIONS and APPROVALS only. This script never posts
-status pings, plans, or pipeline narration. Replies are matched by the
-orchestrator from the operator-confirmed path
-(release_episode_approved.py:mark_audio_approved_from_telegram), not by
-fabricated Discord message IDs.
+ARIA Telegram is for listenable review audio and shipped confirmation only.
+Status, warnings, failures, and pipeline narration go to Discord. Publication
+approval is verified from a later non-bot reply in the Discord episode channel;
+the ARIA message is a convenient listening duplicate, not an approval source.
 
 Send-record persistence: after every successful send, the message id and
-chat id are saved to scripts/.telegram_send_records/ep{NNN}.json so the
-approval gate (mark_audio_approved_from_telegram) can verify the
-operator is approving the audio they actually heard.
+chat id, ARIA account id, and audio hash are saved to
+scripts/.telegram_send_records/ep{NNN}.json for routing/audit evidence.
 
 Usage:
     python3 scripts/notify_telegram_review.py --ep 76 --intent ready \\
@@ -37,52 +34,22 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import time
-import urllib.parse
-import urllib.request
 from pathlib import Path
 from typing import Optional
-import mimetypes
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PODCAST_DIR = SCRIPT_DIR.parent
 
 TELEGRAM_CHANNEL = "telegram"
-TELEGRAM_TARGET = os.environ.get("PODCAST_TELEGRAM_TARGET", "8319992332")
-# Locked 2026-06-27: this pipeline MUST use the @DigiToby_bot bot, which
-# is the bot this conversation is on. openclaw's default Telegram bot
-# (the ARIA bot, token 8260045001:***) is the wrong identity and posts to
-# a different channel. We read the token directly from
-# /Users/tobyglennpeters/.hermes/.env to bypass openclaw's account
-# selection. If the env file is missing, the pipeline aborts loudly.
-TELEGRAM_BOT_TOKEN = ""
-TELEGRAM_BOT_TOKEN_FILE = "/Users/tobyglennpeters/.hermes/.env"
+TELEGRAM_TARGET = "8319992332"
+# Locked 2026-07-10: podcast review audio is back on ARIA's Telegram account.
+# Every send names ``default`` explicitly so a future additional Telegram
+# account cannot silently capture the review workflow.
+TELEGRAM_ACCOUNT = "default"
 OPENCLAW_BIN = os.environ.get("OPENCLAW_BIN", "/opt/homebrew/bin/openclaw")
-
-
-def _load_bot_token() -> str:
-    """Read TELEGRAM_BOT_TOKEN from the hermes .env. This is the
-    @DigiToby_bot token, the one this Telegram session is on. We do NOT
-    use the openclaw CLI's bot account because openclaw defaults to the
-    ARIA bot, which posts to a different chat."""
-    global TELEGRAM_BOT_TOKEN
-    if TELEGRAM_BOT_TOKEN:
-        return TELEGRAM_BOT_TOKEN
-    try:
-        for line in Path(TELEGRAM_BOT_TOKEN_FILE).read_text().splitlines():
-            if line.startswith("TELEGRAM_BOT_TOKEN="):
-                TELEGRAM_BOT_TOKEN = line.split("=", 1)[1].strip()
-                return TELEGRAM_BOT_TOKEN
-    except FileNotFoundError:
-        pass
-    raise SystemExit(
-        f"❌ ROUTING MIS-WIRED: TELEGRAM_BOT_TOKEN not found in "
-        f"{TELEGRAM_BOT_TOKEN_FILE}. The agentstack-podcast pipeline must "
-        f"post via the @DigiToby_bot bot, which is the bot this "
-        f"conversation is on. Do not fall back to openclaw's default "
-        f"Telegram bot — that posts to the ARIA channel, not yours."
-    )
 
 SEND_RECORD_DIR = SCRIPT_DIR / ".telegram_send_records"
 
@@ -99,15 +66,14 @@ READY_TEMPLATE = (
     "Slate ({slate_count} stories):\n"
     "{summary_lines}\n"
     "\n"
-    "Reply publish to ship  /  reply with feedback to rebuild."
+    "Approval is recorded from your ✅ reply in the Discord episode channel. "
+    "Send feedback here or there to rebuild."
 )
 
-# Telegram routing (operator rule, 2026-07-07): listenable audio — the
-# "ready" post with audio attached and the shipped confirmation link — plus
-# run-stopping failures (anything that stops audio generation or publishing).
-# Progress notes and mid-stream gates belong in the Discord build log
-# (agentstack_morning.sh alert()), kept short. Do not add in-progress
-# intents here.
+# Telegram routing: only the listenable ready post and shipped confirmation.
+# Failures, warnings, progress, and mid-stream gates belong in the Discord
+# build log. The failed/skipped templates remain for callers but are dispatched
+# by _post_discord_build_log(), never by the Telegram sender.
 FAILED_TEMPLATE = (
     "❌ EP{ep:03d} {reason} FAILED — {detail}\n"
     "Build log: {build_log}"
@@ -138,17 +104,23 @@ SKIPPED_TEMPLATE = (
 # result of the openclaw CLI call. main() sets these before dispatching.
 _active_ep: Optional[int] = None
 _active_intent: Optional[str] = None
+_active_audio_sha: Optional[str] = None
 
 
 # ── Send-record persistence ──────────────────────────────────────────────────
 
-def _persist_send_record(ep: Optional[int], intent: Optional[str], raw: str) -> None:
+def _persist_send_record(
+    ep: Optional[int],
+    intent: Optional[str],
+    raw: str,
+    *,
+    media_message: bool = False,
+) -> None:
     """Persist the message id + chat id returned by the openclaw CLI.
 
     Best-effort: failures to parse or write the record are swallowed.
-    The approval gate (mark_audio_approved_from_telegram) requires the
-    ready-post record; if it is missing, the gate falls back to
-    verifying only the audio SHA against the file on disk.
+    Discord remains the canonical approval anchor; this record proves which
+    ARIA message carried the playable duplicate.
     """
     if ep is None or intent is None or not raw:
         return
@@ -164,19 +136,31 @@ def _persist_send_record(ep: Optional[int], intent: Optional[str], raw: str) -> 
             parsed["id"] = m_id.group(1)
         if m_chat:
             parsed.setdefault("chat", {})["id"] = m_chat.group(1)
-    msg_id = parsed.get("id") or parsed.get("message_id")
-    chat = parsed.get("chat") or {}
-    chat_id = chat.get("id") if isinstance(chat, dict) else None
+    candidates = [parsed]
+    for parent in list(candidates):
+        for key in ("payload", "result", "sendResult"):
+            nested = parent.get(key) if isinstance(parent, dict) else None
+            if isinstance(nested, dict):
+                candidates.append(nested)
+                nested_result = nested.get("result")
+                if isinstance(nested_result, dict):
+                    candidates.append(nested_result)
+    msg_id = None
+    chat_id = None
+    for candidate in candidates:
+        msg_id = msg_id or candidate.get("messageId") or candidate.get("message_id") or candidate.get("id")
+        chat_id = chat_id or candidate.get("chatId") or candidate.get("chat_id")
+        chat = candidate.get("chat") or {}
+        if not chat_id and isinstance(chat, dict):
+            chat_id = chat.get("id")
+    if msg_id and not chat_id:
+        chat_id = TELEGRAM_TARGET
     if not msg_id and not chat_id:
         return
     try:
         SEND_RECORD_DIR.mkdir(parents=True, exist_ok=True)
         record_path = SEND_RECORD_DIR / f"ep{ep:03d}.json"
         record: dict = {"updated_at": time.strftime("%Y-%m-%dT%H:%M:%S")}
-        record[intent] = {
-            "message_id": str(msg_id) if msg_id else None,
-            "chat_id": str(chat_id) if chat_id else None,
-        }
         if record_path.exists():
             try:
                 existing = json.loads(record_path.read_text())
@@ -185,6 +169,17 @@ def _persist_send_record(ep: Optional[int], intent: Optional[str], raw: str) -> 
                     record = existing
             except Exception:
                 pass
+        intent_record = record.setdefault(intent, {})
+        if media_message:
+            intent_record["audio_message_id"] = str(msg_id) if msg_id else None
+        else:
+            intent_record["message_id"] = str(msg_id) if msg_id else None
+        intent_record.update({
+            "chat_id": str(chat_id) if chat_id else None,
+            "account_id": TELEGRAM_ACCOUNT,
+            "review_audio_sha256": _active_audio_sha if intent == "ready" else None,
+        })
+        record["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         record_path.write_text(json.dumps(record, indent=2))
     except Exception:
         pass
@@ -208,7 +203,11 @@ def _format_summary(summary: str, max_bullets: int = 24) -> str:
 
 
 def _summary_chunks(summary: str) -> list[str]:
-    return [c.strip() for c in re.split(r"[;\n]+", summary or "") if c.strip()]
+    # Current callers serialize one headline per line so punctuation inside a
+    # title stays intact. Semicolons remain a legacy fallback for older callers.
+    if "\n" in (summary or ""):
+        return [line.strip() for line in summary.splitlines() if line.strip()]
+    return [chunk.strip() for chunk in summary.split(";") if chunk.strip()]
 
 
 def _summary_count(summary: str) -> int:
@@ -218,40 +217,43 @@ def _summary_count(summary: str) -> int:
 # ── Send ────────────────────────────────────────────────────────────────────
 
 def _send(message: str, dry_run: bool) -> int:
-    """Send a Telegram message via the @DigiToby_bot Bot API directly.
-
-    We do NOT use `openclaw message send` because openclaw defaults to
-    the ARIA bot, which posts to a different chat. The agentstack-podcast
-    pipeline posts to the @DigiToby_bot bot (the one this conversation
-    is on), and it does so via a direct HTTP POST to the Telegram Bot
-    API, not via the openclaw CLI.
-    """
+    """Send through OpenClaw's explicit ARIA Telegram account."""
+    cmd = [
+        OPENCLAW_BIN, "message", "send",
+        "--channel", TELEGRAM_CHANNEL,
+        "--account", TELEGRAM_ACCOUNT,
+        "--target", TELEGRAM_TARGET,
+        "--message", message,
+        "--json",
+    ]
     if dry_run:
-        print("DRY-RUN: would post to Telegram via @DigiToby_bot:")
-        print("---")
-        print(message)
-        print("---")
-        return 0
-    token = _load_bot_token()
-    data = urllib.parse.urlencode({
-        "chat_id": TELEGRAM_TARGET,
-        "text": message,
-        "disable_web_page_preview": "true",
-    }).encode()
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=data, method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            result = json.loads(r.read())
-    except Exception as exc:
-        print(f"notify_telegram_review: FAIL telegram post: {exc}", file=sys.stderr)
+        cmd.append("--dry-run")
+    proc = None
+    detail = "unknown error"
+    for attempt, delay in enumerate((0, 2, 5), start=1):
+        if delay:
+            time.sleep(delay)
+        try:
+            proc = subprocess.run(
+                cmd, check=False, capture_output=True, text=True, timeout=30,
+            )
+            if proc.returncode == 0:
+                break
+            detail = (proc.stderr or proc.stdout or "unknown error").strip()
+        except Exception as exc:
+            detail = str(exc)
+        if attempt < 3:
+            print(
+                f"notify_telegram_review: retrying ARIA Telegram post after attempt {attempt}: {detail}",
+                file=sys.stderr,
+            )
+    if proc is None or proc.returncode != 0:
+        print(f"notify_telegram_review: FAIL OpenClaw Telegram post: {detail}", file=sys.stderr)
         return 1
-    if not result.get("ok"):
-        print(f"notify_telegram_review: FAIL telegram API: {result}", file=sys.stderr)
-        return 1
-    _persist_send_record(_active_ep, _active_intent, json.dumps(result.get("result", {})))
+    if dry_run:
+        print(proc.stdout.strip())
+    else:
+        _persist_send_record(_active_ep, _active_intent, proc.stdout.strip())
     return 0
 
 
@@ -267,43 +269,57 @@ def _send_audio_file(audio_file: str, caption: str, dry_run: bool) -> int:
     if not path.exists():
         print(f"notify_telegram_review: FAIL audio file missing: {path}", file=sys.stderr)
         return 1
+    cmd = [
+        OPENCLAW_BIN, "message", "send",
+        "--channel", TELEGRAM_CHANNEL,
+        "--account", TELEGRAM_ACCOUNT,
+        "--target", TELEGRAM_TARGET,
+        "--message", caption,
+        "--media", str(path),
+        "--json",
+    ]
     if dry_run:
-        print(f"DRY-RUN: would send Telegram audio attachment: {path}")
-        return 0
-    token = _load_bot_token()
-    boundary = f"----agentstack{int(time.time() * 1000)}"
-    mime = mimetypes.guess_type(path.name)[0] or "audio/mpeg"
-    fields = {"chat_id": TELEGRAM_TARGET, "caption": caption}
-    body = bytearray()
-    for key, value in fields.items():
-        body.extend(f"--{boundary}\r\n".encode())
-        body.extend(f'Content-Disposition: form-data; name="{key}"\r\n\r\n'.encode())
-        body.extend(str(value).encode())
-        body.extend(b"\r\n")
-    body.extend(f"--{boundary}\r\n".encode())
-    body.extend((
-        f'Content-Disposition: form-data; name="audio"; filename="{path.name}"\r\n'
-        f"Content-Type: {mime}\r\n\r\n"
-    ).encode())
-    body.extend(path.read_bytes())
-    body.extend(b"\r\n")
-    body.extend(f"--{boundary}--\r\n".encode())
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendAudio",
-        data=bytes(body),
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
-        method="POST",
-    )
+        cmd.append("--dry-run")
     try:
-        with urllib.request.urlopen(req, timeout=120) as r:
-            result = json.loads(r.read())
+        proc = subprocess.run(
+            cmd, check=False, capture_output=True, text=True, timeout=180,
+        )
     except Exception as exc:
-        print(f"notify_telegram_review: FAIL telegram audio post: {exc}", file=sys.stderr)
+        print(f"notify_telegram_review: FAIL OpenClaw Telegram audio post: {exc}", file=sys.stderr)
         return 1
-    if not result.get("ok"):
-        print(f"notify_telegram_review: FAIL telegram audio API: {result}", file=sys.stderr)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "unknown error").strip()
+        print(f"notify_telegram_review: FAIL OpenClaw Telegram audio post: {detail}", file=sys.stderr)
         return 1
+    if dry_run:
+        print(proc.stdout.strip())
+    else:
+        _persist_send_record(
+            _active_ep,
+            _active_intent,
+            proc.stdout.strip(),
+            media_message=True,
+        )
     return 0
+
+
+def _post_discord_build_log(message: str, dry_run: bool) -> int:
+    """Route non-listenable pipeline notices to the Discord build log."""
+    if dry_run:
+        print("DRY-RUN: would post to the Discord build log:")
+        print(message)
+        return 0
+    try:
+        helper_dir = Path.home() / ".openclaw/workspace/scripts/utils"
+        if str(helper_dir) not in sys.path:
+            sys.path.insert(0, str(helper_dir))
+        from post_build_log import post_build_log
+
+        post_build_log(message)
+        return 0
+    except (Exception, SystemExit) as exc:
+        print(f"notify_telegram_review: FAIL Discord build-log post: {exc}", file=sys.stderr)
+        return 1
 
 
 # ── Intent dispatchers ──────────────────────────────────────────────────────
@@ -327,7 +343,7 @@ def _intent_ready(args: argparse.Namespace) -> int:
         return rc
     return _send_audio_file(
         args.audio_file,
-        f"EP{args.ep:03d} review audio — reply publish to ship / reply with feedback to rebuild.",
+        f"EP{args.ep:03d} review audio — approve with ✅ in the Discord episode channel; send feedback here or there to rebuild.",
         args.dry_run,
     )
 
@@ -339,7 +355,7 @@ def _intent_failed(args: argparse.Namespace) -> int:
         detail=(args.detail or "(no detail)")[:600],
         build_log=args.build_log or "/tmp/show_notes_build.log",
     )
-    return _send(msg, args.dry_run)
+    return _post_discord_build_log(msg, args.dry_run)
 
 
 def _intent_shipped(args: argparse.Namespace) -> int:
@@ -361,13 +377,13 @@ def _intent_skipped(args: argparse.Namespace) -> int:
         run_log=args.run_log or "/tmp/show_notes_research.log",
         build_log=args.build_log or "/tmp/show_notes_build.log",
     )
-    return _send(msg, args.dry_run)
+    return _post_discord_build_log(msg, args.dry_run)
 
 
 # ── Main ────────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    global _active_ep, _active_intent
+    global _active_ep, _active_intent, _active_audio_sha
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ep", type=int, required=True)
     parser.add_argument(
@@ -397,6 +413,7 @@ def main() -> int:
 
     _active_ep = args.ep
     _active_intent = args.intent
+    _active_audio_sha = args.sha256 or None
 
     if args.intent == "ready":
         return _intent_ready(args)
@@ -411,4 +428,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

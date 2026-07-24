@@ -107,8 +107,8 @@ def extract_section(notes: str, heading: str) -> str:
     return "\n".join(lines).strip()
 
 
-def extract_topic_summary(notes: str, max_items: int = 10) -> str:
-    """Return a short topic summary for Discord review posts."""
+def extract_topic_summary(notes: str, max_items: int = 24) -> str:
+    """Return the complete normal-sized slate for Discord review posts."""
     lines = []
     in_slate = False
     for raw in notes.splitlines():

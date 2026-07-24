@@ -227,11 +227,6 @@ def notify_unexpected_exit() -> None:
         int(ep_num),
         f"❌ Approved release process exited before completion near {step}; rerun the approved release launcher to resume.",
     )
-    # Also alert the operator on Telegram so failures are never invisible.
-    try:
-        telegram_alert(ep_num, f"❌ EP{ep_num:03d} approved release exited unexpectedly at {step}.\nRerun: `python3 scripts/launch_approved_release.py {ep_num} --audio-approved-by-telegram`")
-    except Exception:
-        pass
 
 
 def install_signal_handlers(ep_num: int, state: dict[str, Any]) -> None:
@@ -754,72 +749,50 @@ def translation_lane(ep_num: int, state: dict[str, Any], pub_date: str) -> dict[
 TRANSLATION_MAX_RETRIES = 2
 TRANSLATION_RETRY_DELAY = 60  # seconds; multiplied by attempt number
 
-# Telegram home channel for operator alerts (Toby / @DigiToby_bot).
-# Locked 2026-06-21 (EP072 incident): when the translation lane exhausts
-# retries, the failure is posted to BOTH the build log AND Telegram — the
-# build log alone is invisible to the operator during the day.
-TELEGRAM_ALERT_TARGET = os.environ.get("PODCAST_TELEGRAM_TARGET", "8319992332")
+# ARIA Telegram channel for the shipped confirmation only.
+# Failures stay in the Discord error log; Telegram receives only the final
+# shipped confirmation after a successful release.
+TELEGRAM_ALERT_TARGET = "8319992332"
 TELEGRAM_ALERT_CHANNEL = "telegram"
-# Locked 2026-06-27: must use @DigiToby_bot, NOT openclaw's default
-# ARIA bot. Read the token directly from the hermes .env. Do not fall
-# back to openclaw's bot account; that posts to a different chat.
-TELEGRAM_ALERT_BOT_TOKEN_FILE = "/Users/tobyglennpeters/.hermes/.env"
+# Every send names ARIA's default account explicitly.
+TELEGRAM_ALERT_ACCOUNT = "default"
 TELEGRAM_ALERT_BIN = os.environ.get("OPENCLAW_BIN", "/opt/homebrew/bin/openclaw")
 
 
-def _telegram_alert_load_token() -> str:
-    """Read TELEGRAM_BOT_TOKEN from the hermes .env. Required for the
-    @DigiToby_bot identity. If the file is missing or the var is
-    unset, raise SystemExit so the orchestrator fails loudly rather
-    than silently routing to the wrong bot."""
+def telegram_shipped(ep_num: int, canonical_url: str, cdn_url: str, pub_date: str) -> bool:
+    """Send the shipped confirmation through the canonical audited notifier."""
     try:
-        env_text = Path("/Users/tobyglennpeters/.hermes/.env").read_text()
-    except FileNotFoundError:
-        raise SystemExit(
-            f"❌ ROUTING MIS-WIRED: /Users/tobyglennpeters/.hermes/.env not "
-            f"found. The agentstack-podcast orchestrator must post via "
-            f"@DigiToby_bot. Do not fall back to openclaw's ARIA bot."
+        probe = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "assert_telegram_routing.py"), "--check-only"],
+            check=False, capture_output=True, text=True, timeout=45,
         )
-    for line in env_text.splitlines():
-        if line.startswith("TELEGRAM_BOT_TOKEN="):
-            return line.split("=", 1)[1].strip()
-    raise SystemExit(
-        f"❌ ROUTING MIS-WIRED: TELEGRAM_BOT_TOKEN not set in "
-        f"/Users/tobyglennpeters/.hermes/.env."
-    )
-
-
-def telegram_alert(ep_num: int, message: str) -> None:
-    """Best-effort Telegram alert to the operator. Failures are swallowed so
-    the alert path never breaks the orchestrator (it logs to /tmp instead)."""
-    try:
-        token = _telegram_alert_load_token()
-        import urllib.parse, urllib.request, json
-        data = urllib.parse.urlencode({
-            "chat_id": TELEGRAM_ALERT_TARGET,
-            "text": message,
-            "disable_web_page_preview": "true",
-        }).encode()
-        req = urllib.request.Request(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            data=data, method="POST",
+        if probe.returncode != 0:
+            raise RuntimeError((probe.stderr or probe.stdout or "ARIA routing probe failed").strip())
+        proc = subprocess.run(
+            [
+                sys.executable, str(SCRIPTS_DIR / "notify_telegram_review.py"),
+                "--ep", str(ep_num),
+                "--intent", "shipped",
+                "--canonical-url", canonical_url,
+                "--cdn-url", cdn_url,
+                "--pub-date", pub_date,
+            ],
+            check=False, capture_output=True, text=True, timeout=120,
         )
-        with urllib.request.urlopen(req, timeout=20) as r:
-            result = json.loads(r.read())
-        if not result.get("ok"):
-            raise RuntimeError(f"Telegram API error: {result}")
+        if proc.returncode != 0:
+            raise RuntimeError((proc.stderr or proc.stdout or "unknown OpenClaw error").strip())
+        return True
     except Exception as exc:  # pragma: no cover — never block the pipeline
         try:
             with open("/tmp/podcast_telegram_alert_errors.log", "a") as fh:
                 fh.write(f"[{utc_now()}] ep{ep_num:03d}: telegram alert failed: {exc}\n")
         except Exception:
             pass
+        return False
 
 
 def format_translation_failure(ep_num: int, exc: "LaneError") -> str:
-    """Surface the SPECIFIC QC failure (not the generic "TTS/publish failures"
-    summary) to Telegram. Pulls the per-language QC messages from the lane
-    error so Toby can diagnose without grepping build logs."""
+    """Surface the specific QC failure in Discord's error log."""
     raw = str(exc) if exc else "unknown"
     # Try to extract the per-language QC hints from the lane state if attached
     qc_hints: list[str] = []
@@ -848,9 +821,9 @@ def translation_lane_with_retry(ep_num: int, state: dict[str, Any], pub_date: st
     Between retries, state is reloaded from disk so any per-language progress
     already saved (translations.*.done flags) is preserved and not repeated.
 
-    When all retries are exhausted, a Telegram alert is sent to the operator
-    with the specific QC failure (not just "TTS/publish failures") so the
-    next-day recovery is one command, not an investigation.
+    When all retries are exhausted, the specific QC failure is sent to the
+    Discord error log so the next-day recovery is one command, not an
+    investigation.
     """
     last_exc: LaneError | None = None
     for attempt in range(TRANSLATION_MAX_RETRIES + 1):
@@ -871,14 +844,9 @@ def translation_lane_with_retry(ep_num: int, state: dict[str, Any], pub_date: st
             if attempt < TRANSLATION_MAX_RETRIES:
                 log(f"[ LANE / TRANSLATIONS ] Attempt {attempt + 1} failed: {exc}")
                 post_build_log(ep_num, f"❌ [lane_translations] attempt {attempt + 1} failed: {exc}")
-    # All retries exhausted. Surface the specific failure to Telegram so the
-    # operator sees it the same day, not the next morning when the morning
-    # pipeline tries to resume.
+    # All retries exhausted. Surface the specific failure in Discord.
     if last_exc is not None:
-        try:
-            telegram_alert(ep_num, format_translation_failure(ep_num, last_exc))
-        except Exception:
-            pass
+        post_build_log(ep_num, format_translation_failure(ep_num, last_exc))
     raise last_exc  # type: ignore[misc]
 
 
@@ -931,31 +899,14 @@ def run_step(ep_num: int, state: dict[str, Any], step: str, label: str, fn, *arg
 
 
 def run_shorts(ep_num: int, state: dict[str, Any]) -> dict[str, Any]:
-    log("[ SHORTS ] Staging shorts candidates and metadata...")
-    post_build_log(ep_num, "⏳ [SHORTS] Staging shorts candidates and metadata...")
-
-    stage_script = SCRIPTS_DIR / "youtube_shorts_pipeline.py"
-    if not stage_script.exists():
-        raise FileNotFoundError(f"Missing youtube_shorts_pipeline.py script: {stage_script}")
-
-    stage_python = "/Users/tobyglennpeters/.codex-video-tools/.venv/bin/python"
-    if not Path(stage_python).exists():
-        stage_python = sys.executable
-    cmd_stage = [stage_python, str(stage_script), "--mode", "cron"]
-    run_streaming(cmd_stage, cwd=PODCAST_DIR)
-
-    log("[ SHORTS ] Starting distributed shorts build...")
-    post_build_log(ep_num, "⏳ [SHORTS] Starting distributed shorts build...")
-
-    dist_script = SCRIPTS_DIR / "distribute_shorts_build.sh"
-    if not dist_script.exists():
-        raise FileNotFoundError(f"Missing distribute_shorts_build.sh script: {dist_script}")
-
-    cmd = ["/bin/bash", str(dist_script), str(ep_num)]
-    run_streaming(cmd, cwd=PODCAST_DIR)
-
-    log("[ SHORTS ] Distributed shorts build complete")
-    post_build_log(ep_num, "✅ [SHORTS] Distributed shorts build complete")
+    # AgentStack Daily / OpenClaw Daily shorts are disabled by standing policy.
+    # Keep the historical step resumable so older release state can advance,
+    # but never stage, render, schedule, upload, or alert from this path.
+    state["shorts"] = {
+        "status": "disabled_by_policy",
+        "updated_at": utc_now(),
+    }
+    log("[ SHORTS ] Disabled by policy; no staging, rendering, or upload attempted")
     return state
 
 
@@ -1041,9 +992,12 @@ def main() -> int:
 
     state = rel.load_state(ep_num)
     audio_path = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
-    if args.audio_approved_by_toby and not args.approval_message_id:
-        raise SystemExit("--audio-approved-by-toby requires --approval-message-id from Toby's review-channel reply")
-    if args.approval_message_id:
+    if args.audio_approved_by_toby != bool(args.approval_message_id):
+        raise SystemExit(
+            "A new approval requires BOTH --audio-approved-by-toby and "
+            "--approval-message-id from Toby's Discord review reply."
+        )
+    if args.audio_approved_by_toby:
         approval_gate.mark_audio_approved_from_discord(
             state,
             audio_path=audio_path,
@@ -1051,8 +1005,9 @@ def main() -> int:
             approval_message_id=args.approval_message_id,
             token=rel.load_env_key("DISCORD_BOT_TOKEN"),
         )
-        rel.save_state(ep_num, state)
     approval_gate.assert_audio_approved(state, audio_path=audio_path, ep_num=ep_num)
+    if args.audio_approved_by_toby:
+        rel.save_state(ep_num, state)
     video_mode = str(
         args.youtube_video_mode
         or state.get("youtube_video_mode")
@@ -1144,16 +1099,6 @@ def main() -> int:
                     save_state(ep_num, state)
                     post_build_log(ep_num, f"❌ [{lane}] FAILED: {exc}")
                     log(f"[ {lane} ] FAILED: {exc}")
-                    # Telegram alert for any lane failure (not just translations)
-                    try:
-                        telegram_alert(
-                            ep_num,
-                            f"❌ EP{ep_num:03d} {lane} FAILED.\n"
-                            f"Fatal: {exc}\n"
-                            f"Run: `python3 scripts/launch_approved_release.py {ep_num:03d} --pub-date '{state.get('pub_date','')}'` to resume from completed steps.",
-                        )
-                    except Exception:
-                        pass
                 except Exception as exc:
                     lane_errors[lane] = exc
                     mark_lane_result(state, lane, "failed", {"error": str(exc)})
@@ -1229,7 +1174,14 @@ def main() -> int:
             return 0
 
         if STEP_SHORTS not in completed_steps(state):
-            state = run_step(ep_num, state, STEP_SHORTS, "SHORTS", run_shorts)
+            heartbeat(ep_num, state, STEP_SHORTS)
+            state = run_shorts(ep_num, state)
+            mark_step_complete(
+                ep_num,
+                state,
+                STEP_SHORTS,
+                {"status": "disabled_by_policy"},
+            )
         else:
             log("[ SHORTS ] Already complete, skipping")
 
@@ -1242,43 +1194,22 @@ def main() -> int:
         log(f"{'=' * 68}")
         mark_run_status(ep_num, state, "complete", STEP_SHORTS, {"completed_at": utc_now()})
         post_build_log(ep_num, f"🎙️ Approved release complete — <https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/>")
-        # Telegram "shipped" notification (locked 2026-06-27). Telegram is
-        # the operator's review surface; after a successful release the
-        # post goes here, not to the Discord #agent-stack-epNNN channel.
-        # The notify_telegram_review.py script owns the message format and
-        # is also called from the morning pipeline's stage-7 ready post.
-        _shipped_msg = (
-            f"🚀 EP{ep_num:03d} shipped\n"
-            f"\n"
-            f"Canonical: https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/\n"
-            f"CDN: {rel.en_audio_url(ep_num) if hasattr(rel, 'en_audio_url') else ''}\n"
-            f"Released at: {utc_now()}\n"
-            f"\n"
-            f"Translations + shorts queued. Telegram stays quiet until the "
-            f"next morning's review."
+        # ARIA Telegram "shipped" notification. The Discord episode channel
+        # remains the approval/audit surface; this is the listenable workflow's
+        # concise completion signal.
+        _shipped_ok = telegram_shipped(
+            ep_num,
+            f"https://tobyonfitnesstech.com/podcasts/episode-{ep_num}/",
+            rel.en_audio_url(ep_num) if hasattr(rel, "en_audio_url") else "",
+            utc_now(),
         )
-        _shipped_ok = False
-        try:
-            token = _telegram_alert_load_token()
-            import urllib.parse, urllib.request
-            data = urllib.parse.urlencode({
-                "chat_id": TELEGRAM_ALERT_TARGET,
-                "text": _shipped_msg,
-                "disable_web_page_preview": "true",
-            }).encode()
-            req = urllib.request.Request(
-                f"https://api.telegram.org/bot{token}/sendMessage",
-                data=data, method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=20) as r:
-                _shipped_result = json.loads(r.read())
-            _shipped_ok = bool(_shipped_result.get("ok"))
-        except Exception as _exc:
-            post_build_log(ep_num, f"WARN Telegram shipped-post failed: {_exc}")
         if not _shipped_ok:
-            # Fall through silently — the release is already complete; a
-            # failed Telegram post must not roll back the publish.
-            pass
+            # The release remains complete, but the missing completion signal
+            # must be visible in Discord for manual follow-up.
+            post_build_log(
+                ep_num,
+                "⚠️ Release completed, but the ARIA Telegram shipped confirmation failed.",
+            )
         return 0
 
     except Exception as exc:
@@ -1287,14 +1218,6 @@ def main() -> int:
         step = orchestrator_meta(state).get("current_step")
         mark_run_status(ep_num, state, "failed", step, {"failure": trace})
         post_build_log(ep_num, f"❌ Approved release failed: {trace}")
-        # Run-stopping failures also go to Telegram (operator rule,
-        # 2026-07-07: Telegram = listenable audio + failures that stop
-        # audio generation or publishing). Best-effort.
-        telegram_alert(
-            ep_num,
-            f"❌ EP{ep_num:03d} approved release FAILED at {step or 'unknown step'} — "
-            f"{trace[:600]}\nRerun the approved release launcher to resume.",
-        )
         return 1
 
 

@@ -6,7 +6,7 @@ The hard rule: AgentStack Daily may only build today's episode from research
 that is (a) < 24h old, (b) not used by any prior episode, and (c) reflects
 real movement (YouTube channel counter must have advanced since the prior
 release). If any check fails the morning pipeline must NOT regenerate — it
-posts a Telegram alert naming which gate failed and exits 0.
+posts a Discord error naming which gate failed and exits non-zero.
 
 The "no duplicate ever" invariant is owned here. The morning pipeline calls
 this script at the very top of Stage 1; if it exits non-zero, the rest of
@@ -20,7 +20,7 @@ Usage:
 
 Exit codes:
     0   Gate PASSED — proceed to the morning pipeline.
-    2   Gate FAILED — pipeline must NOT build; a Telegram alert was sent.
+    2   Gate FAILED — pipeline must NOT build; a Discord error was sent.
     3   Gate FAILED — research context missing or unreadable.
 """
 from __future__ import annotations
@@ -28,7 +28,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import re
 import subprocess
 import sys
@@ -42,11 +41,6 @@ DONE_FILE = SCRIPT_DIR / "youtube_uploaded.txt"
 RESEARCH_JSON = Path("/tmp/agent_research_context.json")
 RESEARCH_MD = Path("/tmp/agent_research_context.md")
 
-# Telegram is the only review surface going forward (locked 2026-06-27).
-TELEGRAM_CHANNEL = "telegram"
-TELEGRAM_TARGET = os.environ.get("PODCAST_TELEGRAM_TARGET", "8319992332")
-OPENCLAW_BIN = os.environ.get("OPENCLAW_BIN", "/opt/homebrew/bin/openclaw")
-
 # Research is only "fresh" if it was gathered within this many hours.
 MAX_AGE_HOURS = 24
 
@@ -55,8 +49,8 @@ MAX_AGE_HOURS = 24
 # re-run it by hand. Why this exists (locked 2026-06-29, EP076 incident):
 # the original ordering (gate runs in Stage 0, BEFORE the morning script's
 # Stage 3 gather) meant a stale research artifact could block the pipeline
-# indefinitely, while the bail-out Telegram message told the operator to
-# re-run the very script the morning pipeline should be running. The fix is
+# indefinitely, while the bail-out notice told the operator to re-run the very
+# script the morning pipeline should be running. The fix is
 # for the gate to be self-healing: stale → call gather → re-check.
 GATHER_SCRIPT = SCRIPT_DIR / "gather_research_context.py"
 # 360s (was 240): the 2026-07-04 source expansion added ~15 network sources
@@ -185,19 +179,8 @@ def _counter_advanced_since(ep_num: int) -> Tuple[bool, str]:
     )
 
 
-def _send_telegram(message: str) -> None:
-    """Gate bail-out destination handler — DEPRECATED for Telegram.
-
-    Locked 2026-06-29, EP076 incident: Telegram is reserved for explicit
-    approvals / decision requests, never for gate failures or pipeline
-    diagnostics. This function now routes EVERY bail-out to the Discord
-    Build Log via the workspace post_build_log utility. Operators find
-    these in the same channel as every other pipeline event. Bail-out
-    messages must point operators at LOGS, never at "run this script".
-
-    The Telegram token lookup / direct send code is removed entirely to
-    stop the ARIA-channel misroute that recurred on EP076.
-    """
+def _post_discord_error(message: str) -> None:
+    """Post a gate failure to Discord's error log."""
     try:
         import subprocess
         # Truncate the message to Discord's 2000-char limit
@@ -211,14 +194,14 @@ def _send_telegram(message: str) -> None:
             check=False,
         )
     except Exception as exc:
-        # Last-resort: print to stderr only — never reach for Telegram.
+        # Last-resort: print to stderr only.
         print(f"fresh_research_gate: WARN Discord Build Log delivery failed: {exc}", file=sys.stderr)
 
 
 def _auto_refresh_research() -> bool:
     """Re-run gather_research_context.py when on-disk research is stale,
     so the morning pipeline can self-heal instead of bailing into a
-    're-run this script' Telegram alert. Locked 2026-06-29, EP076
+    're-run this script' alert. Locked 2026-06-29, EP076
     incident: the previous ordering had the gate run BEFORE the morning
     pipeline's gather stage, which meant a stale artifact could block
     every morning indefinitely while the bail-out message told the
@@ -306,8 +289,8 @@ def main() -> int:
         help="next episode number (defaults to youtube_uploaded.txt + 1)",
     )
     parser.add_argument(
-        "--no-telegram", action="store_true",
-        help="do not post the Telegram alert on a gate failure (CI / test mode)",
+        "--no-alert", "--no-telegram", dest="no_alert", action="store_true",
+        help="do not post the Discord error on a gate failure (CI / test mode)",
     )
     args = parser.parse_args()
 
@@ -347,8 +330,8 @@ def main() -> int:
                 "(auto-refresh did not heal)",
                 file=sys.stderr,
             )
-            if not args.no_telegram:
-                _send_telegram(msg)
+            if not args.no_alert:
+                _post_discord_error(msg)
             return 2
         print(
             f"fresh_research_gate: freshness healed after auto-refresh "
@@ -362,8 +345,8 @@ def main() -> int:
             f"Reason: {no_dup_detail}"
         )
         print(f"fresh_research_gate: FAIL {no_dup_detail}", file=sys.stderr)
-        if not args.no_telegram:
-            _send_telegram(msg)
+        if not args.no_alert:
+            _post_discord_error(msg)
         return 2
 
     print(f"fresh_research_gate: PASS ({fresh_detail}; {no_dup_detail})")

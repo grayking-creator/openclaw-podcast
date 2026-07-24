@@ -80,19 +80,6 @@ def monitor_child(ep_num: int, pid: int, log_path: Path, poll_seconds: int) -> i
         f"(status {status}, step {step}, heartbeat {heartbeat}).{detail} "
         "Rerun the approved release launcher to resume.",
     )
-    # Run-stopping failures also go to Telegram (operator rule, 2026-07-07).
-    # Best-effort; the watcher's exit code is the record of truth.
-    subprocess.run(
-        [
-            sys.executable, str(SCRIPTS_DIR / "notify_telegram_review.py"),
-            "--ep", str(ep_num), "--intent", "failed",
-            "--reason", f"release ({step})",
-            "--detail", f"process exited before completion (status {status})."
-                        " Rerun the approved release launcher to resume.",
-            "--build-log", str(log_path),
-        ],
-        check=False, capture_output=True, timeout=60,
-    )
     return 1
 
 
@@ -104,21 +91,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--audio-approved-by-toby",
         action="store_true",
-        help="Record Toby's explicit approval of the current EN review audio before launching; requires --approval-message-id",
+        help="Record Toby's verified Discord approval of the current EN review audio; requires --approval-message-id",
     )
     parser.add_argument(
         "--audio-approved-by-telegram",
         action="store_true",
-        help="Record operator-confirmed Telegram approval (no Discord message id needed). "
-             "This is the default approval path as of 2026-06-27; the launcher is "
-             "invoked from the Telegram chat that received the review-post, so the "
-             "✅ reply is the operator confirmation. The audio SHA is verified to "
-             "match the review post before the release starts.",
-    )
-    parser.add_argument(
-        "--approver",
-        default="Toby (Telegram)",
-        help="Approver name recorded in release state. Defaults to 'Toby (Telegram)'.",
+        help="Retired compatibility flag. New approvals require a verified Discord reply.",
     )
     parser.add_argument(
         "--approval-message-id",
@@ -160,32 +138,18 @@ def launch(args: argparse.Namespace) -> int:
     ep_str = f"{ep_num:03d}"
     state = rel.load_state(ep_num)
     audio_path = PODCAST_DIR / "audio" / f"episode_{ep_str}.mp3"
-    if args.audio_approved_by_toby and not args.approval_message_id:
-        raise SystemExit("--audio-approved-by-toby requires --approval-message-id from Toby's review-channel reply")
-    if args.audio_approved_by_toby and args.audio_approved_by_telegram:
+    if args.audio_approved_by_telegram:
         raise SystemExit(
-            "Pass EITHER --audio-approved-by-toby (legacy Discord path) OR "
-            "--audio-approved-by-telegram (default). They are mutually exclusive."
+            "--audio-approved-by-telegram is retired. Approve with a new ✅ reply "
+            "in the Discord episode channel, then pass --audio-approved-by-toby "
+            "and --approval-message-id."
         )
-    # Default: Telegram approval path. The launcher is invoked from the
-    # Telegram chat that received the review post; the ✅ reply is the
-    # operator confirmation. No third-party message id is needed.
-    if not args.audio_approved_by_toby:
-        if not state.get("audio_approval", {}).get("approved") is True \
-                or not args.audio_approved_by_telegram:
-            # First time: require the explicit flag to record the approval.
-            # On subsequent runs the approval is already in state and the
-            # launcher resumes without re-confirming.
-            pass
-        if args.audio_approved_by_telegram:
-            approval_gate.mark_audio_approved_from_telegram(
-                state,
-                audio_path=audio_path,
-                ep_num=ep_num,
-                approver=args.approver,
-            )
-            rel.save_state(ep_num, state)
-    if args.approval_message_id:
+    if args.audio_approved_by_toby != bool(args.approval_message_id):
+        raise SystemExit(
+            "A new approval requires BOTH --audio-approved-by-toby and "
+            "--approval-message-id from Toby's Discord review reply."
+        )
+    if args.audio_approved_by_toby:
         approval_gate.mark_audio_approved_from_discord(
             state,
             audio_path=audio_path,
@@ -194,15 +158,8 @@ def launch(args: argparse.Namespace) -> int:
             token=rel.load_env_key("DISCORD_BOT_TOKEN"),
         )
         rel.save_state(ep_num, state)
-    if not state.get("audio_approval", {}).get("approved"):
-        state = approval_gate.mark_audio_approved_from_recent_telegram_text(
-            state,
-            audio_path=audio_path,
-            ep_num=ep_num,
-            approver=args.approver,
-        )
-        if state.get("audio_approval", {}).get("approved"):
-            rel.save_state(ep_num, state)
+    # Resumes may omit approval flags only when the same audio hash is already
+    # approved in state. New approvals are always verified Discord messages.
     approval_gate.assert_audio_approved(state, audio_path=audio_path, ep_num=ep_num)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     log_path = LOG_DIR / f"ep{ep_str}_approved_release_{ts}.log"

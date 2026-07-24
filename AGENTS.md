@@ -20,13 +20,32 @@ crontab → scripts/show_notes_research_guard.sh → scripts/agentstack_morning.
   5. post_show_notes_draft_discord.py    draft attachment (reference)
   6. generate_episode_transcript.py <N>  model + check_episode.py repair loop
   7. build_episode.py <N>                slate verify, QC, nova render, EN audio,
-                                         bespoke cover art, CDN push, Discord review post
+                                         bespoke cover art, CDN push, ARIA playable
+                                         audio + Discord review/approval record
 ```
 
-Result by ~8:00 AM ET: listenable review audio + transcript + cover posted to
-Discord. **⛔ Publish requires Toby's explicit ✅ reply on the review audio.
+Result by ~8:00 AM ET: listenable review audio is posted through ARIA Telegram,
+with transcript/cover/audio links and the hash-locked approval record in Discord.
+**⛔ Publish requires Toby's verified ✅ reply in the Discord episode channel.
 Nothing auto-releases.** Logs: /tmp/show_notes_research.log (run),
 /tmp/show_notes_build.log (build log; failures also post to Discord alerts).
+
+## Build-log error recovery (locked 2026-07-13)
+
+`#build-log-errors` is an operational repair queue. Every podcast warning,
+degraded rollup, stalled stage, or failure posted there must receive an
+automatic repair attempt unless it is an active retry or an approval hold.
+The watcher owns the terminal Discord closure: one leading `👍` for a
+source-of-truth-verified recovery; `❌❌❌`, `HUMAN INTERACTION REQUIRED`, and
+the exact next action if the repair is blocked, failed, or unverifiable. A
+model turn ending successfully or a pipeline merely reaching the next stage
+does not close an incident. Never infer or bypass audio approval during repair.
+
+Podcast-rollup Instagram/Facebook capture on the M3 must use the installed
+Google Chrome app with Toby's existing `tobypeters@gmail.com` identity
+(currently Profile 2, resolved by account identity), matching AgentStack
+Shorts. Never use Playwright Chromium, Chrome for Testing, or a separate auth
+profile for this capture.
 
 ## Editorial format (EP072+)
 
@@ -47,6 +66,13 @@ Nothing auto-releases.** Logs: /tmp/show_notes_research.log (run),
   prerelease tags in public copy, listener-specific references) are enforced by
   scripts/check_show_notes.py — read its hints, don't guess.
 - Transcript: hard floor **4,800** words AND hard ceiling **5,400** words (floor re-locked 2026-07-04 after the EP079 rejection — the floor-less EP076 rule produced a 19-min / 2,898-word show; ceiling locked 2026-06-18 after the EP072 drone). That lands 30-34 minutes at the ~159 wpm calibration for a 14-story slate + radar + spotlight + queue. [NOVA]:/[ALLOY]: turns, [PAUSE] tags, shortened spoken version numbers, exact CTA "Toby On Fitness Tech dot com" and closing "We'll be back soon." Per-story segment band 270-320 words non-release / 350-480 release. Enforced by scripts/check_episode.py.
+- **Specs, not testing homework (locked 2026-07-13):** technical depth means
+  concrete capabilities, specifications, architecture/mechanisms, measured
+  behavior, limitations, and the actual news. Do not turn the show into test
+  plans, evaluation procedure, checklists, drills, generic operator workflow,
+  or repeated advice to "run tests." Explain specialist terms in plain spoken
+  English. A 7,000-word draft is always rejected; the 5,400-word ceiling is a
+  hard listener-fatigue guard, not a soft target.
 - **Full-surface spoken coverage (locked 2026-06-18, EP072 round 3):** the
   transcript must cover every required show-notes section, not just the
   numbered slate. Required spoken segments, in order, are: 14-story slate,
@@ -84,15 +110,16 @@ python3 scripts/build_show_notes.py <N>
 # Transcript from approved show notes
 python3 scripts/generate_episode_transcript.py <N>
 
-# Audio + art + CDN + Discord review post (stops at approval gate)
+# Audio + art + CDN + ARIA Telegram and Discord review posts
 python3 scripts/build_episode.py <N>
 
 # Toby disapproved review audio with a comment → ONE command, never hand-edits:
 python3 scripts/attempt_review_audio.py <N> --feedback "<Toby's exact audio comment>"
 
-# Post-approval full release — ONLY after Toby's ✅ on the review audio
+# Post-approval full release — ONLY after Toby's verified Discord ✅ reply
 python3 scripts/launch_approved_release.py <N> --audio-approved-by-toby \
-    --approval-message-id <toby_reply_message_id> --pub-date "Day, DD Mon YYYY HH:MM:SS +0000"
+    --approval-message-id <discord_reply_message_id> \
+    --pub-date "Day, DD Mon YYYY HH:MM:SS +0000"
 
 # Targeted phase recovery
 python3 scripts/release_episode.py <N> --from-phase <phase> --pub-date "..."
@@ -119,6 +146,31 @@ episode is released.
 - **Never reuse a transcript without slate verification** (build_episode.py enforces).
 - Cover art: `scripts/generate_episode_art.py` uses OpenAI Responses + local
   Pillow render. Never Claude CLI / nested agents for art.
+- **Title-specific cover art (locked 2026-07-15, EP087):** parse the real
+  `**Title:**` and `**Tagline:**` fields before prompting. The image must turn
+  the title's named subjects, mechanisms, and quantitative hook into visible
+  content, with at least two title-specific cues and the headline subject
+  dominant. Generic dashboards, robot arms, glowing cores, and reusable agent
+  network scenes fail review. When a headline source supplies a useful figure
+  or reference image (for example TerraZero), use it as visual grounding where
+  licensing/access permits; do not merely repeat the previous cover aesthetic.
+- **Weighted editorial cover selection (locked 2026-07-19, EP089):** the art
+  prompt must evaluate the real title plus the full story slate. Treat the
+  headline as dominant, then rank supporting stories by listener importance,
+  novelty, visual distinctiveness, concrete imagery, and ability to form one
+  coherent scene. Use at most one or two supporting cues. Never turn the slate
+  into a checklist collage, and never let rundown order determine the cover.
+  At thumbnail review, reject any artwork that could plausibly belong to a
+  different episode.
+  Withhold the episode number and podcast/show branding from the image-model
+  prompt entirely; the deterministic local renderer adds those afterward.
+- **Headline is independent of Story 1 (locked 2026-07-17, EP088):** the
+  harness-release readout can lead the rundown without becoming the episode
+  title or cover. Select the strongest, most visually distinctive headline
+  from the entire slate. Prefer a major model/capability story or quantitative
+  hook over routine harness patch versions. Never put Codex, Claude Code,
+  OpenClaw, or other release strings on the cover merely because that block is
+  first. Once selected, both title and artwork must center that same headline.
 - Discord posts: URL links only, never filesystem paths.
 - Git: stage explicit paths only (never `git add .`/`-A`); never commit
   `__pycache__/`, `*_nova.md`, YouTube token/state files; `xmllint --noout`
@@ -196,24 +248,20 @@ on the radar repos, or without model parameters/context on Model
 Discovery Selected entries, is a hard QC failure of this rule, not
 a stylistic preference.
 
-## Pacing is a first-class QC requirement (locked 2026-06-27, EP075 recovery)
-The same NOVA/ALLOY 4-turn exposition loop on every story is a hard fail. Per-story segment in `show_notes_episode_*.md` must be 90-160 words for non-release stories and 160-220 words for release stories. Per-story spoken body between `[PAUSE]` tags must be ≤320 words (non-release) or ≤480 words (release). No two consecutive stories can use the same opening move. The exposition loop (`NOVA news → ALLOY why-it-matters → NOVA deeper-implication → ALLOY builder-relevance → [PAUSE]`) cannot fire more than 2× per episode. Transcript target is 4,600-5,200 words with a 5,400-word hard ceiling for a tight 30-ish minute show. The EP072 8,052-word / 55-minute drone pattern remains a QC failure regardless of how clean the slate is.
+## Pacing is a first-class QC requirement (updated 2026-07-10, EP084 recovery)
+The same NOVA/ALLOY 4-turn exposition loop on every story is a hard fail. Per-story show-notes material targets 270-320 words for non-release stories and 350-420 words for release stories. Per-story spoken body between `[PAUSE]` tags must be ≤320 words (non-release) or ≤480 words (release). No two consecutive stories can use the same opening move. The exposition loop (`NOVA news → ALLOY why-it-matters → NOVA deeper-implication → ALLOY builder-relevance → [PAUSE]`) cannot fire more than 2× per episode. Transcript hard band is 4,800-5,700 words for a dense 30-ish minute show. The EP072 8,052-word / 55-minute drone pattern remains a QC failure regardless of how clean the slate is.
 
-## Telegram is the only review surface (locked 2026-06-27, EP075 recovery)
-Discord is no longer the review channel for AgentStack Daily. The morning
-pipeline (cron 6:30 AM ET) builds the show notes, transcript, audio, and
-cover art as before; the review-listening post is delivered to Toby's
-Telegram home channel (`@DigiToby_bot`, chat id `8319992332`) by
-`scripts/notify_telegram_review.py`. The Discord review channel
-(`#agent-stack-epNNN`) is preserved as a fallback behind
-`build_episode.py --use-discord`.
+## ARIA Telegram + Discord review surfaces (restored 2026-07-10)
+The morning pipeline posts the playable review audio through ARIA's explicit
+Telegram `default` account (`@TobyCoderBot`, chat id `8319992332`) and posts
+the durable review record to `#agent-stack-epNNN` in Discord. Telegram carries
+only listenable review audio and the shipped confirmation. Progress, warnings,
+failures, and pipeline narration go to the Discord build logs.
 
-The Telegram post carries: ✅/❌ decision prompt, audio hash, all four
-URLs (audio, cover, show notes, transcript), duration, and a 5–7 bullet
-slate summary. **Telegram is for decisions and approvals only** — never
-status pings, plans, pipeline narration, or "run this script yourself"
-messages. The fitness/dashboard sub-projects keep their existing
-Discord Build Log channel because they are not moving.
+Discord is the canonical approval surface. A later non-bot ✅ reply in the
+episode channel is fetched and verified against the review timestamp and the
+current audio hash. ARIA Telegram is a listening/feedback duplicate and cannot
+authorize publication by itself.
 
 ## Fresh-research gate (locked 2026-06-27, EP075 recovery; updated 2026-06-29 EP076)
 The morning pipeline runs `scripts/fresh_research_gate.py` as Stage 0,
@@ -231,7 +279,7 @@ before the YouTube sync. The gate enforces two hard rules:
    stuck, not that the morning research is stale.
 
 If the gate fails the pipeline exits 2 and no show notes, transcript,
-or audio is generated. The `scripts/fresh_research_gate.py --no-telegram`
+or audio is generated. The `scripts/fresh_research_gate.py --no-alert`
 flag exists for tests and CI.
 
 ### Gate behavior (locked 2026-06-29, EP076 incident)
@@ -242,7 +290,7 @@ indefinitely, while the bail-out message told the operator to
 exact script the morning pipeline should be running. The same incident
 also routed the bail-out alert to Telegram (via `openclaw message
 send`) instead of Discord Build Log, violating the rule that Telegram
-is for approvals only.
+is reserved for playable review audio and the shipped confirmation.
 
 Fixed behavior:
 - **Auto-refresh on stale.** When `_check_freshness()` fails, the gate
@@ -250,11 +298,10 @@ Fixed behavior:
   and re-checks. Self-heals the common case. If the auto-refresh also
   fails (script missing, non-zero exit, timeout, no JSON written), the
   gate then exits 2.
-- **No Telegram posts.** The Telegram-alert code path is retained as a
-  no-op for back-compat (`--no-telegram` flag and call sites still
-  work). All gate-failure alerts now route through the surrounding
-  `show_notes_research_guard.sh` wrapper's Discord Build Log post.
-  This aligns with Toby's standing rule: Telegram is for approvals.
+- **No Telegram posts.** All gate-failure alerts route through the Discord
+  error log. `--no-telegram` remains an alias for the clearer `--no-alert`
+  test flag. This aligns with Toby's standing rule: Telegram receives only
+  playable review audio and the shipped confirmation.
 - **Bail-out message updated.** When the gate does fail (after auto-
   refresh also failed), the message no longer instructs the operator
   to run a script by hand — it points them at gather's logs instead.
@@ -283,32 +330,26 @@ expected critical pattern is missing from `check_episode.py`, the
 test exits 1. The fixture lives in the test file; new bleed phrases
 must be added to the fixture and the live pattern list together.
 
-## Telegram approval gate (locked 2026-06-27, EP075 recovery)
-`scripts/release_approval_gate.py:mark_audio_approved_from_telegram`
-records operator-confirmed Telegram approval. The gate verifies:
+## Discord approval gate (restored 2026-07-10)
+`scripts/release_approval_gate.py:mark_audio_approved_from_discord`
+records a verified Discord approval. The gate verifies:
 
 * the audio file exists,
-* a Telegram ready-post (or legacy Discord review post) is recorded
-  in `scripts/release_ep{NNN}_state.json:review_audio`,
+* the Discord review channel/message/timestamp are recorded in
+  `scripts/release_ep{NNN}_state.json:review_audio`,
+* the approving reply is later than the review post, from a non-bot author,
+  and contains approval rather than rejection/rebuild language,
 * the audio file SHA-256 on disk matches the SHA the review post
   was sent for (i.e. the operator is approving the audio they
   actually heard).
 
-There is no third-party message-id verification because the
-approval is operator-confirmed: the launcher is being run by the
-operator from the same Telegram chat that received the review post.
-The `approved_by` string defaults to "Toby (Telegram)" and is
-recorded in `state["audio_approval"]`.
-
-`scripts/launch_approved_release.py --audio-approved-by-telegram` is
-the new approval flag. The old `--audio-approved-by-toby --approval-message-id`
-Discord path is preserved for rollback. The two flags are mutually
-exclusive.
+`scripts/launch_approved_release.py --audio-approved-by-toby
+--approval-message-id <id>` is the only new-approval path. The retired
+`--audio-approved-by-telegram` flag fails closed.
 
 ## Post-approval shipping notification
-`scripts/release_episode_approved.py` posts a single Telegram
+`scripts/release_episode_approved.py` posts a single ARIA Telegram
 "🚀 EP{NNN} shipped" message after the orchestrator reaches
 `run_status == complete`. The message carries the canonical episode
 URL and the CDN audio URL. The post is best-effort; a failed
 Telegram post does not roll back the publish.
-

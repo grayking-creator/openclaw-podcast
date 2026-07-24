@@ -5,36 +5,22 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
-import sqlite3
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
-SCRIPTS_DIR = Path(__file__).resolve().parent
-TELEGRAM_TARGET_CHAT_ID = os.environ.get("PODCAST_TELEGRAM_TARGET", "8319992332")
-
-
 APPROVAL_RE = re.compile(
-    r"(✅|\bapprove\b|\bapproved\b|\bgreen[- ]?light\b|\bgreenlit\b|\bship\b|\bpublish\b|\bgo\b|\bdo it\b|\bit was good\b|\bthis is good\b|\b(?:episode|audio)\s+is\s+good\b|\bdeploy\b|\brelease\b)",
+    r"(✅|\bapprove\b|\bapproved\b|\bgreen[- ]?light\b|\bgreenlit\b|"
+    r"\bship it\b|\bship this\b|\bdo it\b|\bit was good\b|\bthis is good\b|"
+    r"\b(?:episode|audio)\s+is\s+good\b|\bdeploy this\b|\bpublish\b)",
     re.I,
 )
 REJECTION_RE = re.compile(r"(❌|\bnot approved\b|\bdo not\b|\bdon't\b|\brebuild\b|\bfeedback\b|\bchanges\b)", re.I)
-# Unattended scanning of chat traffic (mark_audio_approved_from_recent_telegram_text)
-# must not treat incidental words like "go"/"ship"/"release" mid-sentence as a
-# decision. Only a short standalone decision reply may approve there; the broad
-# APPROVAL_RE stays for operator-selected messages.
-STRICT_APPROVAL_RE = re.compile(
-    r"^\s*(?:✅|approved?|publish(?:\s+it)?|ship(?:\s+it)?|go\s+ahead|"
-    r"green[- ]?light|greenlit|do\s+it|release(?:\s+it)?|it was good|this is good|"
-    r"(?:episode|audio)\s+is\s+good)"
-    r"\s*[.!👍✅]*\s*$",
-    re.I,
-)
 FOLLOWUP_NOTES_RE = re.compile(r"\bnotes?\s+for\s+next\s+episode\b\s*:", re.I)
+TOBY_DISCORD_USER_ID = "362606339509190656"
 
 
 def sha256_file(path: Path) -> str:
@@ -126,142 +112,6 @@ def _clear_rejection_marker(state: dict[str, Any]) -> None:
     state.pop("rejection_reason", None)
 
 
-def _load_telegram_review_record(state: dict[str, Any], ep_num: int) -> dict[str, Any]:
-    """Return review_audio with Telegram send metadata merged when available."""
-    ep_str = f"{ep_num:03d}"
-    review_audio = dict(state.get("review_audio") or {})
-    if review_audio.get("telegram_message_id") or review_audio.get("telegram_chat_id"):
-        return review_audio
-
-    record_path = SCRIPTS_DIR / ".telegram_send_records" / f"ep{ep_str}.json"
-    if not record_path.exists():
-        return review_audio
-    try:
-        record = json.loads(record_path.read_text(encoding="utf-8"))
-        ready = record.get("ready") or {}
-        ready_msg_id = ready.get("message_id")
-        ready_chat_id = ready.get("chat_id") or TELEGRAM_TARGET_CHAT_ID
-        if ready_msg_id:
-            review_audio["telegram_message_id"] = str(ready_msg_id)
-            review_audio["telegram_chat_id"] = str(ready_chat_id)
-            review_audio["telegram_posted_at"] = record.get("updated_at") or ""
-            state["review_audio"] = review_audio
-    except (OSError, ValueError, KeyError, TypeError):
-        pass
-    return review_audio
-
-
-def _hermes_state_db_path() -> Path:
-    hermes_home = Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes")
-    return hermes_home / "state.db"
-
-
-def mark_audio_approved_from_recent_telegram_text(
-    state: dict[str, Any],
-    *,
-    audio_path: Path,
-    ep_num: int,
-    approver: str = "Toby (Telegram)",
-    state_db_path: Path | None = None,
-) -> dict[str, Any]:
-    """Record approval when Toby replies in Telegram with text such as "approve".
-
-    The review post is the anchor: only user messages in the same Telegram chat
-    strictly after the review post are considered. Any rejection/rebuild reply
-    in that window blocks auto-approval, and only a short standalone decision
-    reply (STRICT_APPROVAL_RE) counts as approval — this path scans arbitrary
-    chat traffic, so incidental words must never ship an episode.
-    """
-    ep_str = f"{ep_num:03d}"
-    if not audio_path.exists():
-        raise SystemExit(
-            f"EP{ep_str} release blocked: missing EN audio file {audio_path}"
-        )
-
-    review_audio = _load_telegram_review_record(state, ep_num)
-    chat_id = str(review_audio.get("telegram_chat_id") or TELEGRAM_TARGET_CHAT_ID)
-    posted_at = parse_timestamp(
-        str(review_audio.get("telegram_posted_at") or review_audio.get("reviewed_at") or "")
-    )
-    if not posted_at:
-        return state
-
-    db_path = state_db_path or _hermes_state_db_path()
-    if not db_path.exists():
-        return state
-
-    # Only messages strictly after the review post may decide this episode.
-    cutoff = posted_at
-    rows: list[tuple[str, float, str, str | None]] = []
-    try:
-        with sqlite3.connect(str(db_path)) as conn:
-            conn.row_factory = sqlite3.Row
-            for row in conn.execute(
-                """
-                SELECT m.content, m.timestamp, m.platform_message_id, s.chat_id, s.user_id
-                FROM messages m
-                LEFT JOIN sessions s ON s.id = m.session_id
-                WHERE m.role = 'user'
-                  AND m.timestamp >= ?
-                  AND (s.source = 'telegram' OR s.session_key LIKE '%:telegram:%')
-                ORDER BY m.timestamp DESC
-                LIMIT 80
-                """,
-                (cutoff.timestamp(),),
-            ):
-                # Rows without a resolvable chat/user id must not be treated
-                # as Toby's chat — skip them along with other chats.
-                row_chat = str(row["chat_id"] or row["user_id"] or "")
-                if row_chat != chat_id:
-                    continue
-                rows.append((
-                    str(row["content"] or ""),
-                    float(row["timestamp"] or 0),
-                    str(row["platform_message_id"] or ""),
-                    row_chat or None,
-                ))
-    except sqlite3.Error:
-        return state
-
-    # Rejection anywhere in the window wins, regardless of message order.
-    decisions: list[tuple[str, float, str]] = []
-    for content, ts, platform_message_id, _row_chat in rows:
-        text = content.strip()
-        if not text or text.startswith("[CONTEXT COMPACTION"):
-            continue
-        decision_text = approval_decision_text(text)
-        if REJECTION_RE.search(decision_text):
-            return state
-        decisions.append((decision_text, ts, platform_message_id))
-
-    for decision_text, ts, platform_message_id in decisions:
-        if not STRICT_APPROVAL_RE.match(decision_text):
-            continue
-
-        msg_time = datetime.fromtimestamp(ts, timezone.utc)
-        audio_sha = sha256_file(audio_path)
-        if review_audio.get("sha256") and review_audio["sha256"] != audio_sha:
-            raise SystemExit(
-                f"EP{ep_str} release blocked: audio file SHA has changed since "
-                "the review post was sent. Repost the new audio before approving."
-            )
-        _clear_rejection_marker(state)
-        state["audio_approval"] = {
-            "approved": True,
-            "required": True,
-            "approved_by": approver,
-            "approval_channel_id": chat_id,
-            "approval_message_id": platform_message_id,
-            "approval_message_timestamp": msg_time.isoformat(),
-            "approval_message_excerpt": decision_text[:160],
-            "source": "verified-telegram-text",
-            "review_audio_sha256": audio_sha,
-            "approved_at": datetime.now(timezone.utc).isoformat(),
-        }
-        return state
-    return state
-
-
 def discord_request(token: str, method: str, path: str) -> dict[str, Any]:
     req = urllib.request.Request(
         f"https://discord.com/api/v10{path}",
@@ -276,72 +126,6 @@ def discord_request(token: str, method: str, path: str) -> dict[str, Any]:
         return json.loads(r.read())
 
 
-def mark_audio_approved_from_telegram(
-    state: dict[str, Any],
-    *,
-    audio_path: Path,
-    ep_num: int,
-    approver: str,
-) -> dict[str, Any]:
-    """Operator-confirmed Telegram approval (locked 2026-06-27, EP075).
-
-    Telegram is the operator's review surface; the operator replies with
-    ✅ in the same chat that received the review-post message. There is no
-    third-party message-id to verify against — the approval is recorded
-    against the audio hash and the operator's self-identification
-    (typically the chat owner / Toby).
-
-    The gate verifies:
-      * the audio file exists,
-      * a review post has been recorded for this episode (either the
-        Telegram ready-post or, as a transitional fallback, the old
-        Discord review post),
-      * the audio SHA in the state matches the file on disk
-        (i.e. the operator is approving the audio they actually heard).
-
-    It does NOT verify an external message id because the Telegram
-    approval path is operator-confirmed: the launcher is being run by
-    the operator from this very chat. The recording is the
-    `approved_by` string they pass in, and the timestamp is the system
-    clock at the moment of approval.
-    """
-    ep_str = f"{ep_num:03d}"
-    if not audio_path.exists():
-        raise SystemExit(
-            f"EP{ep_str} release blocked: missing EN audio file {audio_path}"
-        )
-    review_audio = _load_telegram_review_record(state, ep_num)
-    if not (review_audio.get("telegram_message_id") or review_audio.get("telegram_chat_id")
-            or review_audio.get("discord_message_id")):
-        raise SystemExit(
-            f"EP{ep_str} release blocked: no Telegram (or Discord) review post "
-            "is recorded for this audio. Rebuild/repost the review audio "
-            "before approving release."
-        )
-    audio_sha = sha256_file(audio_path)
-    if review_audio.get("sha256") and review_audio["sha256"] != audio_sha:
-        raise SystemExit(
-            f"EP{ep_str} release blocked: audio file SHA has changed since "
-            "the review post was sent. The audio you listened to and the "
-            "audio on disk are not the same file — re-run build_episode.py "
-            "and re-listen before approving."
-        )
-    _clear_rejection_marker(state)
-    state["audio_approval"] = {
-        "approved": True,
-        "required": True,
-        "approved_by": approver or "Telegram operator",
-        "approval_channel_id": str(review_audio.get("telegram_chat_id") or ""),
-        "approval_message_id": str(review_audio.get("telegram_message_id") or ""),
-        "approval_message_timestamp": datetime.now(timezone.utc).isoformat(),
-        "approval_message_excerpt": "(operator-confirmed ✅ in Telegram)",
-        "source": "operator-confirmed-telegram",
-        "review_audio_sha256": audio_sha,
-        "approved_at": datetime.now(timezone.utc).isoformat(),
-    }
-    return state
-
-
 def mark_audio_approved_from_discord(
     state: dict[str, Any],
     *,
@@ -353,7 +137,9 @@ def mark_audio_approved_from_discord(
     ep_str = f"{ep_num:03d}"
     review_audio = state.get("review_audio") or {}
     channel_id = str(review_audio.get("discord_channel_id") or "")
-    if not channel_id:
+    review_message_id = str(review_audio.get("discord_message_id") or "")
+    review_sha = str(review_audio.get("sha256") or "")
+    if not channel_id or not review_message_id:
         raise SystemExit(
             f"EP{ep_str} release blocked: no Discord review post is recorded for this audio. "
             "Rebuild/repost the review audio before approving release."
@@ -378,6 +164,8 @@ def mark_audio_approved_from_discord(
 
     if author.get("bot") is True:
         raise SystemExit(f"EP{ep_str} release blocked: approval message is from a bot account.")
+    if str(author.get("id") or "") != TOBY_DISCORD_USER_ID:
+        raise SystemExit(f"EP{ep_str} release blocked: approval message is not from Toby's Discord account.")
     if REJECTION_RE.search(decision_text):
         raise SystemExit(f"EP{ep_str} release blocked: approval message contains rejection/rebuild language.")
     # Voice-message approvals (locked 2026-06-17, EP071 v3): when a non-bot
@@ -396,12 +184,19 @@ def mark_audio_approved_from_discord(
     )
     if not is_voice_approval and not APPROVAL_RE.search(decision_text):
         raise SystemExit(
-            f"EP{ep_str} release blocked: approval message must contain ✅, approved, greenlight, or ship it."
+            f"EP{ep_str} release blocked: approval message must contain ✅, approved, greenlight, ship it, or publish."
         )
-    if review_time and msg_time and msg_time <= review_time:
+    if review_time is None or msg_time is None:
+        raise SystemExit(f"EP{ep_str} release blocked: review and approval timestamps must both be verifiable.")
+    if msg_time <= review_time:
         raise SystemExit(f"EP{ep_str} release blocked: approval message predates the review-audio post.")
 
     audio_sha = sha256_file(audio_path)
+    if not review_sha or review_sha != audio_sha:
+        raise SystemExit(
+            f"EP{ep_str} release blocked: current audio does not match the hash-locked Discord review. "
+            "Repost the current audio before approving release."
+        )
     _clear_rejection_marker(state)
     state["audio_approval"] = {
         "approved": True,
@@ -434,8 +229,9 @@ def assert_audio_approved(state: dict[str, Any], *, audio_path: Path, ep_num: in
     if not approved:
         raise SystemExit(
             f"EP{ep_str} release blocked: EN audio has not been explicitly approved. "
-            "Run the launcher only after Toby approves the review audio, using the approval "
-            "message id from the episode review channel."
+            "Run the launcher only after Toby approves the hash-locked review audio "
+            "with a new reply in the Discord episode channel; pass both "
+            "--audio-approved-by-toby and --approval-message-id."
         )
     if approved_sha != current_sha:
         raise SystemExit(

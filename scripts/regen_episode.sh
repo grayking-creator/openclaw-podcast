@@ -5,8 +5,8 @@
 #
 #   scripts/regen_episode.sh <N> ["optional guidance for the rebuild"]
 #
-# It archives the current notes + transcript (audio is overwritten by
-# --force-audio) so nothing is silently lost, re-gathers research, rebuilds the
+# It archives the current notes, transcript, audio, and art so nothing is
+# silently lost, re-gathers research, rebuilds the
 # show notes with the deterministic builder (+ repair loop), regenerates the
 # transcript, and runs build_episode.py to remake audio/art and post one fresh
 # review. Publish still requires Toby's ✅ — this never releases.
@@ -30,6 +30,11 @@ GUIDANCE="${2:-}"
 
 NOTES="${PODCAST_DIR}/show_notes_episode_${EP_PAD}.md"
 TRANSCRIPT="${PODCAST_DIR}/episodes/episode_${EP_PAD}_transcript.md"
+FINAL_AUDIO="${PODCAST_DIR}/audio/episode_${EP_PAD}.mp3"
+NOVA_AUDIO="${PODCAST_DIR}/audio/episode_${EP_PAD}_nova.mp3"
+ALLOY_AUDIO="${PODCAST_DIR}/audio/episode_${EP_PAD}_alloy.mp3"
+COVER_ART="${PODCAST_DIR}/images/episode_${EP_PAD}_cover.png"
+SOURCE_ART="${PODCAST_DIR}/images/episode_${EP_PAD}_openai_art.png"
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 # Released-episode guard: feed.xml is the canonical release record.
@@ -43,6 +48,11 @@ mkdir -p "$ARCHIVE_DIR"
 echo "[regen] EP${EP_PAD}: archiving current artifacts (stamp ${STAMP})"
 [ -f "$NOTES" ] && mv "$NOTES" "${ARCHIVE_DIR}/show_notes_episode_${EP_PAD}.md.${STAMP}"
 [ -f "$TRANSCRIPT" ] && mv "$TRANSCRIPT" "${ARCHIVE_DIR}/episode_${EP_PAD}_transcript.md.${STAMP}"
+[ -f "$FINAL_AUDIO" ] && mv "$FINAL_AUDIO" "${ARCHIVE_DIR}/episode_${EP_PAD}.mp3.${STAMP}"
+[ -f "$NOVA_AUDIO" ] && mv "$NOVA_AUDIO" "${ARCHIVE_DIR}/episode_${EP_PAD}_nova.mp3.${STAMP}"
+[ -f "$ALLOY_AUDIO" ] && mv "$ALLOY_AUDIO" "${ARCHIVE_DIR}/episode_${EP_PAD}_alloy.mp3.${STAMP}"
+[ -f "$COVER_ART" ] && mv "$COVER_ART" "${ARCHIVE_DIR}/episode_${EP_PAD}_cover.png.${STAMP}"
+[ -f "$SOURCE_ART" ] && mv "$SOURCE_ART" "${ARCHIVE_DIR}/episode_${EP_PAD}_openai_art.png.${STAMP}"
 
 echo "[regen] EP${EP_PAD}: gathering fresh research"
 python3 "${SCRIPT_DIR}/gather_research_context.py" || { echo "❌ research gather failed" >&2; exit 1; }

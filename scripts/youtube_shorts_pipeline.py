@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""AgentStack Daily Shorts staging and cron helper.
+"""Legacy fail-closed AgentStack Daily Shorts staging entry point.
 
-Stages short candidates for each new episode and reports failures to #build-log
-on Discord. Daily shorts are active; staging metadata is for audit/review, not a
-manual upload gate.
+AgentStack Daily / OpenClaw Daily shorts are disabled by standing policy. This
+module retains historical helpers for state compatibility, but its entry point
+must never stage, schedule, render, upload, or alert.
 """
 
 from __future__ import annotations
@@ -555,6 +555,9 @@ def main() -> int:
     parser.add_argument("--approve-en", type=str)
     parser.add_argument("--episode-range", type=str, help="Episode range like 1-9 for cross-episode review")
     args = parser.parse_args()
+
+    print("AgentStack Shorts disabled by policy; no staging attempted.")
+    return 0
 
     state = load_state()
 

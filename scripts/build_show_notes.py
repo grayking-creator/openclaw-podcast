@@ -36,6 +36,8 @@ from pathlib import Path
 SCRIPTS_DIR = Path(__file__).resolve().parent
 PODCAST_DIR = SCRIPTS_DIR.parent
 RESEARCH_JSON = Path("/tmp/agent_research_context.json")
+RADAR_STAR_HISTORY = PODCAST_DIR / "radar_star_history.json"
+EDITORIAL_OVERRIDES_DIR = PODCAST_DIR / "editorial_overrides"
 
 sys.path.insert(0, str(SCRIPTS_DIR))
 import check_show_notes as qc  # reuse the QC module's patterns/helpers — single source of truth
@@ -61,6 +63,29 @@ EXO_ENDPOINTS = [e.strip() for e in os.environ.get(
     "EXO_ENDPOINTS", "http://localhost:52415,http://192.168.1.6:52415").split(",") if e.strip()]
 STORY_COUNT = int(os.environ.get("SHOW_NOTES_STORY_COUNT", "14"))
 WPM = 159  # spoken words per minute, matches check_episode.py calibration
+# Editorial balance is a release gate, not a soft preference.  EP087's first
+# build let 14 research papers win a single global score sort and produced an
+# unlistenable methods lecture.  The daily show is a greatest-hits briefing:
+# models/products, things people can build, local AI, compute, policy, and only
+# a small research digest.
+RESEARCH_KINDS = {"arxiv", "hf_paper", "research_digest"}
+MAX_NUMBERED_RESEARCH_STORIES = 2
+EDITORIAL_LANE_MINIMUMS = {
+    "flagship_products": 2,
+    "builder_projects": 3,
+    "local_ai": 2,
+    "hardware_compute": 2,
+    "policy_regulation": 1,
+}
+EDITORIAL_LANE_LABELS = {
+    "flagship_products": "flagship models and product changes",
+    "builder_projects": "things people are building",
+    "local_ai": "local/open models and inference",
+    "hardware_compute": "hardware and compute",
+    "policy_regulation": "government, regulation, and scrutiny",
+    "research": "research findings",
+    "industry_news": "other consequential AI news",
+}
 # Optional free-text steer for a rebuild (set by regen_episode.sh from Toby's
 # disapproval note); appended to every prose prompt's feedback block.
 EXTRA_GUIDANCE = os.environ.get("SHOW_NOTES_EXTRA_GUIDANCE", "").strip()
@@ -351,14 +376,23 @@ def validate_story(pkg: dict, allowed_tags: set[str], is_release: bool,
                    source_kind: str = "news") -> list[str]:
     """Validate a story package.
     
-    source_kind: "news" (default) | "arxiv" | "hf_paper" | "trending" |
+    source_kind: "news" (default) | "hn" | "arxiv" | "hf_paper" | "trending" |
                  "reddit" | "hf_model" | "infra_release"
-    Research/community sources use a relaxed mechanism-term threshold since
-    their source material is thin on product-release vocabulary.
+    Research sources use a shorter spoken band; no source type is forced to
+    contain vocabulary from a technical-mechanism dictionary.
     """
-    is_research = source_kind in ("arxiv", "hf_paper", "trending", "reddit", "hf_model")
-    mech_min = 0 if is_research else 2
+    # An HN candidate reaches this point only after it was enriched from a
+    # matching source feed; headline-only HN items are excluded upstream.
+    # Do not force product-release vocabulary into a chart DSL, voice model,
+    # or research story merely to satisfy a lexical counter.
+    is_research = source_kind in RESEARCH_KINDS
+    # Concrete evidence can be a named build, measured outcome, availability,
+    # policy action, or useful product change.  EP087 proved that requiring two
+    # words from a technical-mechanism dictionary makes an otherwise strong
+    # human/use-case story fail until the model injects jargon.
     problems = []
+    if pkg.get("insufficient_source") is True:
+        return ["source material is insufficient for a grounded full-length story; replace candidate"]
     for key in ("title", "summary", "technical_depth_angle", "actionability_angle",
                 "listener_hook", "segment"):
         if not str(pkg.get(key, "")).strip():
@@ -386,14 +420,16 @@ def validate_story(pkg: dict, allowed_tags: set[str], is_release: bool,
     # 270-320 band. 14 stories × ~280 words = ~3,920 word slate target;
     # plus radar/spotlight/queue (~900) = ~4,800 minimum to land the
     # show at 30+ minutes.
-    min_seg = 350 if is_release else 270
-    max_seg = 480
+    if is_release:
+        min_seg, max_seg = 350, 480
+    elif is_research:
+        # A research item is a finding-level digest, not a methods recital.
+        # EP087's 14 papers at ~2 minutes each consumed 82% of the audio.
+        min_seg, max_seg = 130, 190
+    else:
+        min_seg, max_seg = 270, 480
     if not (min_seg <= seg_words <= max_seg):
         problems.append(f"segment must be {min_seg}-{max_seg} words (got {seg_words})")
-    if len(MECHANISM_RE.findall(str(pkg["segment"]))) < mech_min:
-        if not is_research:
-            problems.append("segment needs at least 2 concrete mechanism terms "
-                            "(API/SDK/runtime/architecture/config/inference/latency/...)")
     everything = " ".join(str(pkg[k]) for k in
                           ("title", "summary", "technical_depth_angle",
                            "actionability_angle", "listener_hook", "segment"))
@@ -752,20 +788,213 @@ def featured_models_recently(research: dict) -> set[str]:
     return feat
 
 
+_LOCAL_AI_RE = re.compile(
+    r"\b(local[- ]?ai|local[- ]?llm|local[- ]?first|on[- ]device|edge ai|self[- ]?host|"
+    r"open[- ]?weight\w*|gguf|quantiz\w*|ollama|llama\.cpp|"
+    r"lm studio|mlx|litert|webgpu|webnn|vllm|sglang|open webui|"
+    r"transformers|comfyui|localai|exo|ternary|1[- ]?bit)\b",
+    re.IGNORECASE,
+)
+_HARDWARE_RE = re.compile(
+    r"\b(gpu|npu|tpu|chip|chips|hardware|accelerator|semiconductor|"
+    r"workstation|laptop|phone|silicon|soc|cuda|rocm|hbm|"
+    r"memory wall|interconnect|fabric|performance per watt|data ?cent(?:er|re)|"
+    r"nvidia|amd|intel|qualcomm|tenstorrent|cerebras|groq|blackwell|thor)\b",
+    re.IGNORECASE,
+)
+_POLICY_RE = re.compile(
+    r"\b(government|regulat\w*|law|lawsuit|court|judge|attorney general|"
+    r"congress|senate|assembly|governor|white house|federal|state bill|"
+    r"moratorium|ban|scrutiny|antitrust|copyright|trade secret|"
+    r"export control|standards body|ai act|safety institute|public policy|"
+    r"military|defen[cs]e|procurement|electricity costs?|water supplies?)\b",
+    re.IGNORECASE,
+)
+_BUILDER_RE = re.compile(
+    r"\b(build|built|building|ships?|launch(?:es|ed)?|framework|sdk|api|"
+    r"plugin|skill|mcp|app|apps|workflow|tool|server|client|gateway|"
+    r"agent|coding|browser|desktop|automation|integration|use case|"
+    r"customer|team|deploy|editor|design|docs?|robot|vision)\b",
+    re.IGNORECASE,
+)
+_FLAGSHIP_RE = re.compile(
+    r"\b(flagship|frontier|gpt[- ]?5|claude|gemini|grok|llama|qwen|"
+    r"deepseek|minimax|mistral|nemotron|model family|new model|"
+    r"chatgpt|codex|siri|computer use|multi[- ]agent|reasoning model)\b",
+    re.IGNORECASE,
+)
+
+
+def editorial_lanes(item: dict) -> list[str]:
+    """Classify a source into listener-facing editorial lanes.
+
+    Research is deliberately exclusive: a hardware-themed paper remains a
+    research story and cannot satisfy the hardware quota.  That prevents the
+    selector from recreating EP087 with papers that merely *mention* every
+    desired beat.  Other real-world stories may satisfy multiple lanes (for
+    example an on-device model running on a new accelerator).
+    """
+    explicit = [str(x) for x in item.get("editorial_lanes", []) if str(x)]
+    kind = str(item.get("kind", "news"))
+    if kind in RESEARCH_KINDS:
+        return ["research"]
+    if explicit:
+        return list(dict.fromkeys(explicit))
+
+    blob = " ".join(str(item.get(k, "")) for k in
+                    ("title", "summary", "extra", "feed", "url"))
+    lanes: list[str] = []
+    if kind in {"trending", "radar"} or _BUILDER_RE.search(blob):
+        lanes.append("builder_projects")
+    if kind in {"infra_release", "hf_model"} or _LOCAL_AI_RE.search(blob):
+        lanes.append("local_ai")
+    if _HARDWARE_RE.search(blob):
+        lanes.append("hardware_compute")
+    if _POLICY_RE.search(blob) or re.search(r"https?://[^/]+\.gov(?:/|$)", blob, re.I):
+        lanes.append("policy_regulation")
+    if kind == "model" or _FLAGSHIP_RE.search(blob):
+        lanes.append("flagship_products")
+    if not lanes:
+        lanes.append("industry_news")
+    return list(dict.fromkeys(lanes))
+
+
+def editorial_mix_counts(items: list[dict], base_counts: dict[str, int] | None = None) -> dict[str, int]:
+    counts = {lane: 0 for lane in EDITORIAL_LANE_LABELS}
+    for lane, count in (base_counts or {}).items():
+        counts[lane] = counts.get(lane, 0) + int(count)
+    for item in items:
+        for lane in editorial_lanes(item):
+            counts[lane] = counts.get(lane, 0) + 1
+    return counts
+
+
+def select_balanced_news(candidates: list[dict], limit: int,
+                         base_counts: dict[str, int] | None = None) -> tuple[list[dict], dict[str, int]]:
+    """Select by beat coverage first, then impact score.
+
+    `candidates` is already source-qualified, score-sorted, and deduplicated.
+    The research ceiling applies to both quota seeding and score-based fill.
+    Missing beats are returned in the counts and are rejected by the final
+    Editorial Mix Check instead of silently being replaced with papers.
+    """
+    selected: list[dict] = []
+    selected_ids: set[int] = set()
+    counts = editorial_mix_counts([], base_counts)
+
+    def can_add(item: dict) -> bool:
+        if id(item) in selected_ids:
+            return False
+        if "research" in editorial_lanes(item) \
+                and counts.get("research", 0) >= MAX_NUMBERED_RESEARCH_STORIES:
+            return False
+        return True
+
+    def add(item: dict) -> None:
+        selected.append(item)
+        selected_ids.add(id(item))
+        for lane in editorial_lanes(item):
+            counts[lane] = counts.get(lane, 0) + 1
+
+    # Seed the non-negotiable beats. Candidate order is impact order, so the
+    # first qualifying source is the strongest one in that lane.
+    for lane, minimum in EDITORIAL_LANE_MINIMUMS.items():
+        while counts.get(lane, 0) < minimum and len(selected) < limit:
+            match = next((item for item in candidates
+                          if can_add(item) and lane in editorial_lanes(item)), None)
+            if match is None:
+                break
+            add(match)
+
+    # Research is useful as a concise findings digest, never as the backbone.
+    if counts.get("research", 0) == 0 and len(selected) < limit:
+        research = next((item for item in candidates
+                         if can_add(item) and "research" in editorial_lanes(item)), None)
+        if research is not None:
+            add(research)
+
+    for item in candidates:
+        if len(selected) >= limit:
+            break
+        if can_add(item):
+            add(item)
+
+    return selected, counts
+
+
 def select_candidates(research: dict, lanes: dict) -> dict:
     """Pick the slate sources: release readout (if any lane shipped), new models,
     HN/RSS news ranked by agent-stack relevance, radar repos as padding."""
     prior = prior_titles(research)
     shipped = [k for k in lanes if lanes[k]["candidates"]]
 
-    # Model discovery candidates
+    # Model discovery candidates.  The OpenRouter "seen" baseline can advance
+    # before an episode is successfully reviewed, leaving new models absent
+    # from `new_models` on a rebuild.  Recover major-provider listings created
+    # in the last 48 hours, then collapse Sol/Terra/Luna tier listings into one
+    # family story instead of pretending six base/Pro routes are six launches.
+    openrouter = research.get("openrouter", {})
+    raw_model_candidates = list(openrouter.get("new_models", []))
+    if not raw_model_candidates:
+        recent_cutoff = time.time() - 48 * 3600
+        raw_model_candidates = [
+            m for m in openrouter.get("major_models", [])
+            if float(m.get("created") or 0) >= recent_cutoff
+        ]
+
+    tier_groups: dict[str, dict[str, dict]] = {}
+    for m in raw_model_candidates:
+        match = re.match(r"^(.+)-(sol|terra|luna)(-pro)?$", m.get("id", ""), re.IGNORECASE)
+        if match and not match.group(3):
+            tier_groups.setdefault(match.group(1), {})[match.group(2).lower()] = m
+    grouped_ids: set[str] = set()
+    family_models: list[dict] = []
+    for family_id, tiers in tier_groups.items():
+        if set(tiers) != {"sol", "terra", "luna"}:
+            continue
+        grouped_ids.update(
+            m.get("id", "") for m in raw_model_candidates
+            if m.get("id", "").startswith(family_id + "-")
+        )
+        generation = family_id.split("/")[-1].upper().replace("GPT-", "GPT-")
+        descriptions = " ".join(
+            f"{tier.title()}: {(tiers[tier].get('description') or '').rstrip('. ')}."
+            for tier in ("sol", "terra", "luna")
+        )
+        family_models.append({
+            "id": family_id,
+            "name": f"OpenAI: {generation} family (Sol, Terra, Luna)",
+            "context_length": max(int(m.get("context_length") or 0) for m in tiers.values()),
+            "created": max(float(m.get("created") or 0) for m in tiers.values()),
+            "description": descriptions,
+            "family_tiers": ["sol", "terra", "luna"],
+            "availability": "OpenAI API (Sol, Terra, and Luna)",
+            "params_active": "n/a",
+            "params_total": "n/a",
+            "modality": "text and image input; text output; Responses API tool use",
+            "try_now": ("Evaluate Sol, Terra, and Luna on separate complex, balanced, and "
+                        "latency-sensitive workloads before choosing a routing policy."),
+            "url": ("https://openai.com/index/gpt-5-6/"
+                    if family_id == "openai/gpt-5.6"
+                    else f"https://openrouter.ai/models/{family_id}"),
+        })
+
+    collapsed_model_candidates = family_models + [
+        m for m in raw_model_candidates if m.get("id", "") not in grouped_ids
+    ]
     featured = featured_models_recently(research)
     model_cands, model_skipped = [], []
-    for m in research.get("openrouter", {}).get("new_models", []):
+    for m in collapsed_model_candidates:
         mid = m.get("id", "")
         base = mid.split("/")[-1].lower()
         name_tokens = set(re.findall(r"[a-z0-9][a-z0-9.\-]{2,}", (m.get("name") or "").lower()))
-        if base in featured or (name_tokens and name_tokens.issubset(featured)):
+        family_tiers = set(m.get("family_tiers") or [])
+        was_featured = (
+            (base in featured and family_tiers.issubset(featured))
+            if family_tiers
+            else (base in featured or (name_tokens and name_tokens.issubset(featured)))
+        )
+        if was_featured:
             model_skipped.append(m)
         elif ":free" in mid or base.endswith("-free"):
             model_skipped.append(m)
@@ -781,11 +1010,59 @@ def select_candidates(research: dict, lanes: dict) -> dict:
     boost = re.compile(r"\b(agent|mcp|claude|codex|openclaw|hermes|llm|model|inference|"
                        r"open[- ]?source|local|cli|sdk|api|benchmark|security)\b", re.IGNORECASE)
     pool = []
+
+    # HN only gives us a headline, score, and outbound URL.  Treating that as
+    # enough evidence for a 270-word story caused the EP084 factual failure:
+    # the model filled the missing source body with plausible details.  Reuse
+    # the matching RSS item when one exists; otherwise keep the HN item as a
+    # low-priority signal rather than letting its score outrank sourced news.
+    rss_items: list[tuple[str, dict]] = []
+    for feed, items in research.get("rss", {}).items():
+        for item in items:
+            rss_items.append((feed, item))
+
+    def normalized_url(url: str) -> str:
+        return (url or "").strip().rstrip("/").lower()
+
+    def matching_rss_item(hn_item: dict) -> tuple[str, dict] | None:
+        hn_url = normalized_url(hn_item.get("url", ""))
+        hn_title = hn_item.get("title", "")
+        for feed, item in rss_items:
+            summary = (item.get("summary") or "").strip()
+            if not summary:
+                continue
+            if hn_url and normalized_url(item.get("url", "")) == hn_url:
+                return feed, item
+            if qc.titles_are_same_topic(hn_title, item.get("title", "")):
+                return feed, item
+        return None
+
     for h in research.get("hackernews", []):
         score = h["points"] + 40 * len(set(boost.findall(h["title"])))
+        rss_match = matching_rss_item(h)
+        if rss_match:
+            feed, item = rss_match
+            summary = (item.get("summary") or "").strip()
+            source_note = (f"Hacker News score {h['points']}; discussion: {h['comments_url']}; "
+                           f"published {item.get('published', '')} via {feed}")
+        else:
+            summary = ""
+            # A headline and popularity number are not source material.  Keep
+            # the candidate available for Extra Research, but below stories
+            # with abstracts, release notes, or first-party feed summaries.
+            score = min(score, 120)
+            source_note = (f"Hacker News score {h['points']}; discussion: {h['comments_url']}; "
+                           "headline-only source — insufficient for a full story")
         pool.append({"kind": "hn", "title": h["title"], "url": h["url"],
-                     "summary": "", "score": score,
-                     "extra": f"Hacker News score {h['points']}; discussion: {h['comments_url']}"})
+                     "summary": summary, "score": score,
+                     "extra": source_note})
+    primary_rss_feeds = {
+        "OpenAI News", "DeepMind Blog", "Google AI Blog", "Google Developers Blog",
+        "Hugging Face Blog", "GitHub Changelog", "Microsoft Research Blog",
+        "Mistral AI Blog", "NVIDIA Blog", "Intel Newsroom", "Qwen Blog",
+        "White House Releases", "European Commission Digital Strategy",
+        "Federal Reserve Speeches", "Australian Prime Minister",
+    }
     for feed, items in research.get("rss", {}).items():
         for it in items:
             score = 60 + 40 * len(set(boost.findall(it["title"] + " " + it.get("summary", ""))))
@@ -806,7 +1083,9 @@ def select_candidates(research: dict, lanes: dict) -> dict:
                 score += 80
             pool.append({"kind": "rss", "title": it["title"], "url": it["url"],
                          "summary": it.get("summary", ""), "score": score,
-                         "extra": f"Published {it.get('published','')} via {feed}"})
+                         "extra": f"Published {it.get('published','')} via {feed}",
+                         "feed": feed,
+                         "source_tier": "primary" if feed in primary_rss_feeds else "secondary"})
     # arXiv submissions: base 70 (research signal), +20 per boost keyword hit
     # in title/abstract, +30 if title has a clear mechanism/benchmark signal.
     # Goal: research papers rank competitively with vendor news, not buried.
@@ -828,7 +1107,7 @@ def select_candidates(research: dict, lanes: dict) -> dict:
                      r"introduce|propose|present)\b", arxiv_title_summary, re.IGNORECASE):
             score += 30
         pool.append({"kind": "arxiv", "title": p["title"], "url": p["url"],
-                     "summary": p.get("summary", "")[:600], "score": score,
+                     "summary": p.get("summary", "")[:2400], "score": score,
                      "extra": f"arXiv {p['arxiv_id']}; authors: {', '.join(p['authors'][:3])}"})
 
     # HuggingFace Daily Papers: upvotes are the community signal. Use them
@@ -844,7 +1123,7 @@ def select_candidates(research: dict, lanes: dict) -> dict:
                      r"introduce|propose|present)\b", hf_title_summary, re.IGNORECASE):
             score += 20
         pool.append({"kind": "hf_paper", "title": p["title"], "url": p["url"],
-                     "summary": (p.get("ai_summary") or p.get("summary", ""))[:600],
+                     "summary": (p.get("ai_summary") or p.get("summary", ""))[:2400],
                      "score": score,
                      "extra": f"HF Daily Paper ↑{p['upvotes']}; arXiv {p['arxiv_id']}"})
 
@@ -928,6 +1207,48 @@ def select_candidates(research: dict, lanes: dict) -> dict:
                          "summary": body, "score": 130 + 20 * len(hits),
                          "extra": f"Stable release published {pub} on GitHub"})
             break  # one story candidate per repo per day — the newest release
+
+    # Curated first-party sources are the escape hatch for stories discovered
+    # in press/community feeds but verified at an official announcement, model
+    # card, government page, or project repository.  They are still scored and
+    # deduplicated normally; `material_followup` only bypasses the broad
+    # family-name history block when the event/angle is genuinely new.
+    for item in research.get("editorial_items", []):
+        if not item.get("title") or not item.get("url") or not item.get("summary"):
+            continue
+        pool.append({
+            "kind": item.get("kind", "editorial"),
+            "title": item["title"],
+            "url": item["url"],
+            "summary": str(item.get("summary", ""))[:5000],
+            "score": int(item.get("score", 250)),
+            "extra": item.get("extra", "Curated primary-source editorial item"),
+            "source_tier": "primary",
+            "editorial_lanes": item.get("editorial_lanes", []),
+            "material_followup": bool(item.get("material_followup")),
+        })
+
+    # GitHub Radar contains the concrete projects people can clone and build
+    # with.  EP087 left them in a 105-second appendix while papers consumed 29
+    # minutes.  Freshly pushed/released repos now compete for numbered builder
+    # slots, with stars and release recency as evidence rather than filler.
+    for r in research.get("github_radar", []):
+        description = (r.get("description") or "").strip()
+        if not description:
+            continue
+        latest_release = r.get("latest_release") or "no tagged release"
+        latest_date = r.get("latest_release_date") or ""
+        summary = (f"{description} GitHub reports {r.get('stars', 0)} stars. "
+                   f"Latest release: {latest_release} {latest_date}. "
+                   f"Repository pushed {r.get('pushed_at', '')}.")
+        freshness = 30 if str(r.get("pushed_at", ""))[:10] >= infra_cutoff[:10] else 0
+        release_bump = 25 if latest_date and latest_date[:10] >= (
+            datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d") else 0
+        pool.append({"kind": "radar", "title": f"{r['full_name']} — {description[:80]}",
+                     "url": r["url"], "summary": summary[:1200],
+                     "score": 115 + freshness + release_bump,
+                     "extra": "Verified GitHub repository and recent activity",
+                     "source_tier": "primary"})
     pool.sort(key=lambda x: x["score"], reverse=True)
 
     # Dedupe within pool and against the previous episode's slate.
@@ -936,20 +1257,70 @@ def select_candidates(research: dict, lanes: dict) -> dict:
     # tokenize differently). qc.titles_are_same_topic adds the normalized
     # lead-subject rule; the QC gate enforces the same rule, so drift here
     # costs a repair round, never a duplicate slate.
-    chosen, seen_titles = [], []
+    def model_subject_ids(title: str) -> set[str]:
+        """Stable model/version keys for cross-source duplicate detection."""
+        normalized = re.sub(r"[\u2010-\u2015]", "-", (title or "").lower())
+        matches = re.findall(
+            r"\b(?:gpt|grok|claude|gemini|llama|qwen|glm|muse|swe)"
+            r"(?:[-\s]?[a-z]+)?[-\s]?\d+(?:\.\d+)+\b",
+            normalized,
+        )
+        return {re.sub(r"[-\s]+", "-", match) for match in matches}
+
+    chosen, seen_titles, sparse_signals = [], [], []
+    seen_hf_model_subjects: set[str] = set()
+    seen_model_subjects: set[str] = set()
+    for model in model_selected:
+        seen_model_subjects.update(model_subject_ids(
+            f"{model.get('id', '')} {model.get('name', '')}"
+        ))
     anthropic_family_items = 0
     for item in pool:
+        if item.get("kind") == "hn" and not (item.get("summary") or "").strip():
+            sparse_signals.append(item)
+            continue
+        if item.get("kind") == "rss" and item.get("source_tier") != "primary":
+            sparse_signals.append(item)
+            continue
+        if item.get("kind") == "reddit":
+            sparse_signals.append(item)
+            continue
+        if item.get("kind") in {"hf_paper", "trending"} and wc(item.get("summary") or "") < 60:
+            sparse_signals.append(item)
+            continue
         title_summary = (item["title"] + " " + item.get("summary", "")).lower()
         if re.search(r"\b(anthropic|claude|fable|mythos)\b", title_summary):
-            if anthropic_family_items >= 2:
+            if anthropic_family_items >= 2 and not item.get("material_followup"):
                 continue
             anthropic_family_items += 1
-        if overlaps_prior(item["title"], prior):
+        if overlaps_prior(item["title"], prior) and not item.get("material_followup"):
             continue
-        if any(qc.titles_are_same_topic(item["title"], seen) for seen in seen_titles):
+        # Hugging Face model candidates all end in the renderer-owned phrase
+        # "trending on Hugging Face".  Treating that shared suffix as the
+        # subject collapsed every model after the first one, which left the
+        # final-QC repair pool with no alternate Local AI story when the first
+        # model overlapped a recent episode (EP091).  Dedupe these entries by
+        # repository/model family instead; all other candidates keep the
+        # stricter title-topic check.
+        hf_subject = ""
+        if item.get("kind") == "hf_model":
+            hf_subject = re.sub(
+                r"(?:-(?:gguf|mlx(?:-\d+bit)?|bf16|fp16|int\d+|\d+bit))+$",
+                "",
+                item["title"].split(" trending on Hugging Face", 1)[0].lower(),
+            )
+            if hf_subject in seen_hf_model_subjects:
+                continue
+        elif any(qc.titles_are_same_topic(item["title"], seen) for seen in seen_titles):
+            continue
+        subject_ids = model_subject_ids(item["title"])
+        if subject_ids & seen_model_subjects:
             continue
         chosen.append(item)
         seen_titles.append(item["title"])
+        seen_model_subjects.update(subject_ids)
+        if hf_subject:
+            seen_hf_model_subjects.add(hf_subject)
 
     radar = [r for r in research.get("github_radar", [])
              if not overlaps_prior(r["full_name"].replace("/", " "), prior)]
@@ -957,7 +1328,12 @@ def select_candidates(research: dict, lanes: dict) -> dict:
     n_release = 1 if shipped else 0
     n_models = len(model_selected)
     n_news = STORY_COUNT - n_release - n_models
-    news = chosen[:n_news]
+    # The release readout is rendered as a real numbered flagship/product
+    # story below, so include it in the same discovery manifest that QC sees.
+    # Omitting it made release days fail the pre-build mix gate even when the
+    # final slate already contained the qualifying product story.
+    base_counts = {"flagship_products": n_models + n_release}
+    news, mix_counts = select_balanced_news(chosen, n_news, base_counts)
     # Pad from radar repos if the news pool came up short
     radar_promoted = []
     i = 0
@@ -967,13 +1343,34 @@ def select_candidates(research: dict, lanes: dict) -> dict:
                                "url": r["url"], "summary": r["description"],
                                "score": 0, "extra": f"{r['stars']} GitHub stars"})
         i += 1
-    leftover_news = chosen[n_news:n_news + 8]
-    leftover_radar = radar[i:]
+    selected_news_urls = {item.get("url") for item in news}
+    remaining_news = [item for item in chosen
+                      if item.get("url") not in selected_news_urls]
+    # The support lane is extra *news*, not a back door for three more paper
+    # reviews. Prefer products, projects, hardware, policy, and deployments;
+    # research is only a last resort after the numbered digest.
+    remaining_news.sort(
+        key=lambda item: (item.get("kind") in RESEARCH_KINDS,
+                          -int(item.get("score", 0)))
+    )
+    # Keep the complete qualified reserve for bounded final-QC repair.  The
+    # old eight-item truncation retained only high-scoring builder stories;
+    # lower-scoring but mandatory Local AI / hardware candidates were thrown
+    # away before the repair loop could restore a lane removed by overlap QC.
+    # Extras still render only the first three entries, so this does not make
+    # the public episode sprawl.
+    leftover_news = list(remaining_news)
+    seen_leftover_urls = {item.get("url") for item in leftover_news}
+    for item in sparse_signals:
+        if item.get("url") not in seen_leftover_urls:
+            leftover_news.append(item)
+            seen_leftover_urls.add(item.get("url"))
+    leftover_radar = [r for r in radar[i:] if r.get("url") not in selected_news_urls]
 
     return {"shipped_lanes": shipped, "model_selected": model_selected,
             "model_skipped": model_skipped, "news": news + radar_promoted,
             "leftover_news": leftover_news, "radar": leftover_radar,
-            "prior_titles": prior}
+            "prior_titles": prior, "editorial_mix_counts": mix_counts}
 
 
 # ── Prompt construction ──────────────────────────────────────────────────────
@@ -1089,28 +1486,38 @@ def _detect_family_hits(text: str) -> dict[str, int]:
 
 def story_prompt(source_block: str, is_release: bool, allowed_tags: set[str],
                  feedback: str = "", ep_num: int = 0,
-                 family_hits: dict[str, int] | None = None) -> str:
+                 family_hits: dict[str, int] | None = None,
+                 source_kind: str = "news") -> str:
     allowed = ", ".join(sorted(allowed_tags)) or "(none)"
-    seg_target_min, seg_target_max = (350, 420) if is_release else (270, 320)
-    seg_hard_ceiling = 420 if is_release else 320
+    is_research = source_kind in RESEARCH_KINDS
+    if is_release:
+        seg_target_min, seg_target_max, seg_hard_ceiling = 350, 420, 420
+    elif is_research:
+        seg_target_min, seg_target_max, seg_hard_ceiling = 130, 180, 190
+    else:
+        seg_target_min, seg_target_max, seg_hard_ceiling = 270, 320, 320
     fb = (f"\nYOUR PREVIOUS ATTEMPT WAS REJECTED FOR THESE REASONS — fix every one:\n{feedback}\n" if feedback else "") + _guidance_fb()
     doctrine = _doctrine_reminder(ep_num, family_hits or {}) if ep_num else ""
     if doctrine:
         doctrine = "\n" + doctrine + "\n"
-    return f"""You write one story section for AgentStack Daily, a developer podcast about AI coding agents, models, and tooling. Tone: builder workflow guide — concrete, technical, news-first. Not a tech-news roundup, not implementation minutiae.
+    return f"""You write one story section for AgentStack Daily, an accessible daily briefing about what changed in AI and what people can build with it. Tone: impact-first, curious, concrete, and conversational. Assume an intelligent listener who follows AI but does not want a graduate seminar.
 
 CRITICAL LENGTH RULE (locked 2026-07-04, EP079 rejection — 19-min / 2,898-word episode; Toby: "30 minute videos with way more news... way more content"):
 - The "segment" field must produce a ~2-minute spoken segment per story (matches the 30-minute target across a 14-story slate + radar + spotlight + queue).
 - Target {seg_target_min}-{seg_target_max} words. HARD CEILING {seg_hard_ceiling} words. HARD FLOOR {seg_target_min} words — anything shorter makes the episode come in at 19 minutes and gets rejected.
-- Each segment covers: what changed → who shipped it → two concrete mechanisms (name specific APIs/architectures/protocols/numbers from the source) → one implication for builders → one thing to watch next.
-- Pad with substance, not with hedges. Add a second mechanism, a benchmark number, or a concrete integration pattern — never "this is worth tracking" filler.
-- The transcript reads this segment aloud at 4-6 NOVA/ALLOY turns per story; a 270-word segment lands at ~2 minutes, which is what the 30-minute target needs.
+- For product, builder, local-AI, hardware, and policy stories: cover what changed → who shipped or did it → the most useful concrete evidence → what people can now build or do → one thing to watch next.
+- For research: explain only the headline finding, why it matters, and one tangible example in plain English. Omit author roll calls, paper identifiers, equations, statistical-test plumbing, internal variable names, and step-by-step methodology unless one detail is essential to understand the finding. Never use research jargon merely to fill time.
+- Open with the human result, product change, or concrete build—not a definition or architecture inventory. Prefer a short real example over a list of mechanisms.
+- Define any necessary specialist term in ordinary language the first time it appears. Use no more than two unexplained acronyms in a story. Do not narrate formulas, variable names, p-values, test names, or chains of benchmark sub-scores.
+- FACTUAL GROUNDING OVERRIDES LENGTH. Every mechanism, benchmark, architecture, parameter count, context limit, feature, and product-behavior claim must appear explicitly in SOURCE MATERIAL below. Do not infer plausible details or expand a generic source phrase into named components. EP084 was rejected after a GPT-5.6 story ignored the documented Terra and Luna tiers and speculated about future mini/nano siblings.
+- If SOURCE MATERIAL cannot support {seg_target_min} grounded words, stay shorter and strictly grounded; the caller's validator may replace the candidate. Never pad sparse evidence into a full story.
+- The transcript reads this segment aloud at 4-6 NOVA/ALLOY turns per story. Product and build stories carry the runtime; research digests stay under about 75 seconds.
 - History: EP072 rejected at 8052 words / 55 min (drone). EP076 dropped the floor at Toby's request and EP079 came in at 2,898 words / 19 min and was rejected. Locked: the floor is back, and the ceiling stays.
 
 Return ONLY a single JSON object (no markdown fence, no commentary) with exactly these keys:
 - "title": story headline, max 14 words.{' MUST include the product name and exact release tag(s).' if is_release else ''}
 - "summary": one paragraph, 50-140 words — what happened and what it is.
-- "technical_depth_angle": under 100 words — the concrete mechanism (APIs, architecture, configs, runtime behavior, protocol details).
+- "technical_depth_angle": under 100 words — for products, the one useful mechanism; for research, the plain-language finding and no methods inventory.
 - "actionability_angle": 2-3 sentences on what this means for builders/workflows. AT MOST 2 imperative "do this" sentences — phrase as "what this means" / "why this matters", not a to-do list.
 - "listener_hook": ONE sentence — a listenable reason to care.
 - "segment": {seg_target_min}-{seg_target_max} words of show-notes body text for this story: what changed, who shipped it, why it matters now, one or two concrete mechanisms, what it enables, what to watch next. Plain paragraphs, no headings, no bullet lists, no links. HARD CEILING {seg_hard_ceiling} WORDS — anything longer fails QC and Toby will reject the audio.
@@ -1132,6 +1539,14 @@ Return ONLY a single JSON object with exactly these keys:
 - "title": episode title, max 16 words, concrete product/version names over vibes.
 - "tagline": one paragraph, 60-110 words, summarizing the top stories.
 - "feed_description": one paragraph, 50-100 words, podcast-feed style summary.
+
+EDITORIAL HEADLINE SELECTION (locked): Story order is not headline priority. The
+mandatory harness-release readout may be Story 1 without appearing in the title.
+Choose the strongest, most visually distinctive listener-facing story across the
+entire slate, preferring a major model launch, capability jump, or quantitative
+hook over routine harness patch versions. Do not put Codex, Claude Code, OpenClaw,
+or other version strings in the title merely because releases lead the rundown.
+The title must be suitable as the sole creative brief for the episode cover.
 
 {BAN_TEXT.format(allowed=allowed)}
 {fb}
@@ -1191,7 +1606,8 @@ LOCAL LLM SPOTLIGHT SUBJECT:
 
 # ── Deterministic fallbacks ──────────────────────────────────────────────────
 
-def fallback_story(source: dict, is_release: bool, lane_detail: str = "") -> dict:
+def fallback_story(source: dict, is_release: bool, lane_detail: str = "",
+                   source_kind: str = "news") -> dict:
     title = re.sub(r"\s+", " ", source.get("title", "Untitled story")).strip()[:110]
     base = (source.get("summary") or source.get("extra") or "").strip()
     url_host = re.sub(r"^https?://(www\.)?", "", source.get("url", "")).split("/")[0]
@@ -1208,8 +1624,12 @@ def fallback_story(source: dict, is_release: bool, lane_detail: str = "") -> dic
     # (2026-07-01 EP078 incident: the previous 220-word release ceiling could
     # never satisfy the 260-word gate, so every model-fallback release story
     # was born failing QC.)
-    seg_target_min, seg_target_max = (350, 420) if is_release else (270, 320)
-    seg_hard_ceiling = 420 if is_release else 320
+    if is_release:
+        seg_target_min, seg_target_max, seg_hard_ceiling = 350, 420, 420
+    elif source_kind in RESEARCH_KINDS:
+        seg_target_min, seg_target_max, seg_hard_ceiling = 130, 180, 190
+    else:
+        seg_target_min, seg_target_max, seg_hard_ceiling = 270, 320, 320
     seg_parts = [
         f"{title}. {base}",
         lane_detail,
@@ -1233,7 +1653,14 @@ def fallback_story(source: dict, is_release: bool, lane_detail: str = "") -> dic
     # rebuilds the 19-minute episode. The 2026-06-18 "trim, never pad" lock
     # still holds for the ceiling; for the floor we extend with source-derived
     # context sentences (not repeated boilerplate) until the band is reached.
-    floor_extenders = [
+    floor_extenders = ([
+        "The useful takeaway is the finding itself, not the paper's internal notation or test "
+        "procedure. In practical terms, it gives builders and researchers a clearer question to "
+        "test in real systems without treating one study as a finished product claim.",
+        "The next evidence to watch is whether independent teams reproduce the result and whether "
+        "it survives outside the study setting. Until then, this is a promising signal with a "
+        "concrete implication, not a universal rule.",
+    ] if source_kind in RESEARCH_KINDS else [
         f"For context, the announcement channel matters here: {url_host or 'the primary source'} is "
         f"where the maintainers publish authoritative detail, and the linked page carries the "
         f"specifics that determine whether this lands in default configurations or stays opt-in.",
@@ -1248,7 +1675,7 @@ def fallback_story(source: dict, is_release: bool, lane_detail: str = "") -> dic
         f"workload against the new surface, measure the difference, and only then decide whether "
         f"the default should move. That keeps the stack's behavior explainable while still "
         f"capturing the improvement early.",
-    ]
+    ])
     i = 0
     while wc(segment) < seg_target_min and i < len(floor_extenders):
         segment = f"{segment} {floor_extenders[i]}"
@@ -1310,6 +1737,16 @@ def render_slate(stories: list[dict]) -> str:
     return "\n\n".join(out)
 
 
+def model_depth_values(model: dict) -> tuple[str, str, str, str]:
+    """Return the four depth fields required by the final show-notes gate."""
+    params_active = str(model.get("params_active") or "n/a")
+    params_total = str(model.get("params_total") or "n/a")
+    context = model.get("context_length")
+    context_label = f"{context} tokens" if context not in (None, "") else "n/a"
+    modality = str(model.get("modality") or "see primary source")
+    return params_active, params_total, context_label, modality
+
+
 def render_model_discovery(selected: list[dict], skipped: list[dict],
                            stories: list[dict]) -> str:
     bullets = []
@@ -1317,20 +1754,27 @@ def render_model_discovery(selected: list[dict], skipped: list[dict],
     sel_ids = set()
     for m in selected:
         mid = m.get("id", "")
+        source_url = m.get("url") or f"https://openrouter.ai/models/{mid}"
+        availability = m.get("availability") or "API via OpenRouter"
+        params_active, params_total, context_label, modality = model_depth_values(m)
+        try_now = (m.get("try_now") or
+                   f"Route a coding-agent session through {source_url} and compare it with the current default.")
         sel_ids.add(mid)
         bullets.append(
             f"- **{m.get('name') or mid}** ({mid.split('/')[0]}) — Newly listed this cycle "
-            f"(verified {today}). Primary source: https://openrouter.ai/models/{mid}. "
-            f"Availability: API via OpenRouter. Capabilities: context length "
+            f"(verified {today}). Primary source: {source_url}. "
+            f"Availability: {availability}. params_active: {params_active}; "
+            f"params_total: {params_total}; context: {context_label}; "
+            f"modality: {modality}. Capabilities: context length "
             f"{m.get('context_length')}; {(m.get('description') or 'see model page')[:220]}. "
-            f"Try now / integration angle: route a coding-agent session through "
-            f"https://openrouter.ai/models/{mid} to evaluate it against current defaults. "
+            f"Try now / integration angle: {try_now} "
             f"Decision: Selected — new major-provider model not featured on a recent broadcast.")
     for m in skipped[:4]:
         mid = m.get("id", "")
+        source_url = m.get("url") or f"https://openrouter.ai/models/{mid}"
         bullets.append(
             f"- **{m.get('name') or mid}** ({mid.split('/')[0]}) — Newly listed this cycle "
-            f"(verified {today}). Primary source: https://openrouter.ai/models/{mid}. "
+            f"(verified {today}). Primary source: {source_url}. "
             f"Availability: API via OpenRouter. Capabilities: context length "
             f"{m.get('context_length')}; {(m.get('description') or 'see model page')[:160]}. "
             f"Try now / integration angle: available for evaluation via the model page above. "
@@ -1350,13 +1794,211 @@ def render_spotlight(spotlight: dict) -> str:
             f"  Try now: {spotlight['try_now']}")
 
 
+def choose_local_spotlight(research: dict, distinct=lambda _title: True) -> dict:
+    """Prefer an actual current local/open model over a runtime fallback."""
+    for model in research.get("hf_trending_models", []):
+        mid = model.get("id", "")
+        if not mid or not distinct(mid):
+            continue
+        tags = [str(tag) for tag in model.get("tags", [])]
+        local_signal = bool(model.get("is_gguf")) or any(
+            re.search(r"gguf|mlx|onnx|tflite|text-generation|image-text|quant", tag, re.I)
+            for tag in tags
+        )
+        if not local_signal:
+            continue
+        return {
+            "name": mid,
+            "url": model.get("url") or f"https://huggingface.co/{mid}",
+            "description": (
+                f"Trending open model on Hugging Face; task {model.get('pipeline_tag') or 'model'}; "
+                f"{model.get('likes', 0)} likes and {model.get('downloads', 0)} downloads. "
+                f"Tags: {', '.join(tags[:10])}."
+            ),
+        }
+
+    for model in research.get("openrouter", {}).get("new_models", []):
+        provider = (model.get("id", "").split("/") or [""])[0]
+        if provider in ("qwen", "meta", "mistral", "deepseek", "moonshotai",
+                        "nousresearch", "z-ai", "microsoft") and distinct(model.get("id", "")):
+            return {
+                "name": model.get("name") or model.get("id"),
+                "url": model.get("url") or f"https://openrouter.ai/models/{model.get('id')}",
+                "description": (model.get("description") or "")[:400],
+            }
+
+    ollama = stable_releases(research, "ollama/ollama")
+    if ollama:
+        return {
+            "name": f"Ollama {ollama[0]['tag']}",
+            "url": ollama[0].get("url") or "https://github.com/ollama/ollama/releases",
+            "description": (ollama[0].get("body") or "Local model runtime release.")[:400],
+        }
+    return {
+        "name": "Ollama",
+        "url": "https://github.com/ollama/ollama",
+        "description": "Local model runtime for running open-weights LLMs on your own hardware.",
+    }
+
+
+def radar_star_delta(repo: str, current_stars: int) -> str:
+    """Return a truthful 30-day comparison from the rolling coverage log."""
+    try:
+        history = json.loads(RADAR_STAR_HISTORY.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        history = {}
+    observations = history.get(repo, []) if isinstance(history, dict) else []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    eligible = []
+    for obs in observations:
+        try:
+            observed = datetime.fromisoformat(str(obs["observed_at"]).replace("Z", "+00:00"))
+            if observed <= cutoff:
+                eligible.append((observed, int(obs["stars"])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not eligible:
+        return "n/a — first tracked appearance"
+    observed, old_stars = max(eligible, key=lambda item: item[0])
+    delta = current_stars - old_stars
+    pct = (delta / old_stars * 100) if old_stars else 0.0
+    return f"{delta:+,} ({pct:+.1f}%) since {observed.date().isoformat()}"
+
+
+def record_radar_history(ep_num: int, radar: list[dict]) -> None:
+    """Record only QC-passing radar coverage; rejected drafts never advance history."""
+    try:
+        history = json.loads(RADAR_STAR_HISTORY.read_text(encoding="utf-8"))
+        if not isinstance(history, dict):
+            history = {}
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        history = {}
+    observed_at = datetime.now(timezone.utc).isoformat()
+    for repo in radar:
+        observations = history.setdefault(repo["full_name"], [])
+        if any(int(obs.get("episode", -1)) == ep_num for obs in observations):
+            continue
+        observations.append({"episode": ep_num, "observed_at": observed_at,
+                             "stars": int(repo.get("stars") or 0)})
+    tmp = RADAR_STAR_HISTORY.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(history, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp.replace(RADAR_STAR_HISTORY)
+
+
+def radar_depth_values(repo: dict) -> tuple[int, str, str, str]:
+    """Return source-backed values for the four required radar depth fields."""
+    stars = int(repo.get("stars") or 0)
+    release = (f"{repo['latest_release']} ({str(repo.get('latest_release_date') or '')[:10]})"
+               if repo.get("latest_release")
+               else f"none published on GitHub as of {datetime.now().date().isoformat()}")
+    delta = radar_star_delta(repo["full_name"], stars)
+    pushed = str(repo.get("pushed_at") or "")[:10]
+    if repo.get("latest_release"):
+        why_now = (f"{repo['latest_release']} shipped on "
+                   f"{str(repo.get('latest_release_date') or '')[:10]} and the repository "
+                   f"was updated on {pushed}.")
+    else:
+        why_now = (f"The repository was updated on {pushed} and enters the radar with "
+                   f"{stars:,} stars.")
+    return stars, delta, release, why_now
+
+
 def render_radar(radar: list[dict]) -> str:
     out = []
     for r in radar:
-        out.append(f"- **{r['full_name']}** — {r['url']} — {r['blurb']}\n"
+        stars, delta, release, why_now = radar_depth_values(r)
+        out.append(f"- **{r['full_name']}** — {r['url']} — {r['blurb']} "
+                   f"`stars: {stars:,}`; `stars_delta_30d: {delta}`; "
+                   f"`latest_release: {release}`.\n"
+                   f"  Why this is on the radar now: {why_now}\n"
                    f"  Stack improvement angle: {r['stack_improvement_angle']}\n"
                    f"  Try now: {r['try_now']}")
     return "\n\n".join(out)
+
+
+def _append_depth_lines(block: str, lines: list[str]) -> str:
+    """Append repair-only metadata without disturbing the next Markdown bullet."""
+    if not lines:
+        return block
+    suffix = "\n\n" if block.endswith("\n\n") else ("\n" if block.endswith("\n") else "")
+    return block.rstrip() + "\n" + "\n".join(lines) + suffix
+
+
+def ensure_radar_depth_metadata(section: str, radar: list[dict]) -> tuple[str, int]:
+    """Repair legacy radar bullets that predate the EP084 depth contract.
+
+    The normal renderer writes these fields already. This independent, idempotent
+    path exists for the final-QC repair loop so a checker/renderer rollout cannot
+    sink a morning run with "no actionable repair mapping" again.
+    """
+    parts = re.split(r"(?=^[ \t]*-[ \t]+\*\*)", section or "", flags=re.MULTILINE)
+    entry_index = 0
+    repairs = 0
+    for part_index, block in enumerate(parts):
+        if not re.match(r"^[ \t]*-[ \t]+\*\*", block):
+            continue
+        if entry_index >= len(radar):
+            entry_index += 1
+            continue
+        repo = radar[entry_index]
+        entry_index += 1
+        stars, delta, release, why_now = radar_depth_values(repo)
+        missing_fields = []
+        if "stars:" not in block.lower():
+            missing_fields.append(f"`stars: {stars:,}`")
+        if "stars_delta_30d:" not in block.lower():
+            missing_fields.append(f"`stars_delta_30d: {delta}`")
+        if "latest_release:" not in block.lower():
+            missing_fields.append(f"`latest_release: {release}`")
+        additions = []
+        if missing_fields:
+            additions.append("  Required radar metadata: " + "; ".join(missing_fields) + ".")
+        if not re.search(r"Why this is on the radar now\s*:\s*\S", block, re.IGNORECASE):
+            additions.append(f"  Why this is on the radar now: {why_now}")
+        if additions:
+            parts[part_index] = _append_depth_lines(block, additions)
+            repairs += len(additions)
+
+    if entry_index < len(radar):
+        missing_entries = render_radar(radar[entry_index:])
+        if missing_entries:
+            parts.append(("\n\n" if "".join(parts).strip() else "") + missing_entries)
+            repairs += len(radar) - entry_index
+    return "".join(parts), repairs
+
+
+def ensure_model_depth_metadata(section: str, selected: list[dict]) -> tuple[str, int]:
+    """Repair required depth fields on Selected model bullets only."""
+    parts = re.split(r"(?=^[ \t]*-[ \t]+\*\*)", section or "", flags=re.MULTILINE)
+    selected_index = 0
+    repairs = 0
+    for part_index, block in enumerate(parts):
+        if not re.match(r"^[ \t]*-[ \t]+\*\*", block):
+            continue
+        if not re.search(r"Decision\s*:\s*Selected", block, re.IGNORECASE):
+            continue
+        model = selected[selected_index] if selected_index < len(selected) else {}
+        selected_index += 1
+        params_active, params_total, context_label, modality = model_depth_values(model)
+        values = {
+            "params_active:": params_active,
+            "params_total:": params_total,
+            "context:": context_label,
+            "modality:": modality,
+        }
+        missing = [f"{field} {value}" for field, value in values.items()
+                   if field not in block.lower()]
+        if missing:
+            parts[part_index] = _append_depth_lines(
+                block, ["  Required model metadata: " + "; ".join(missing) + "."])
+            repairs += 1
+
+    if selected_index < len(selected):
+        missing_entries = render_model_discovery(selected[selected_index:], [], [])
+        if missing_entries:
+            parts.append(("\n\n" if "".join(parts).strip() else "") + missing_entries)
+            repairs += len(selected) - selected_index
+    return "".join(parts), repairs
 
 
 def render_extras(extras: list[dict]) -> str:
@@ -1365,6 +2007,15 @@ def render_extras(extras: list[dict]) -> str:
         out.append(f"- **{e['title']}** — {e['url']} — {e.get('summary') or e.get('extra','')} "
                    f"Technical depth angle: {e['technical_depth_angle']}")
     return "\n\n".join(out)
+
+
+def inline_source_excerpt(value: str, limit: int = 240) -> str:
+    """Flatten source Markdown before embedding it inside a single bullet."""
+    text = str(value or "").replace("\r", "\n")
+    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", text)
+    text = re.sub(r"(?m)^\s*[-*+]\s+", "", text)
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+    return re.sub(r"\s+", " ", text).strip()[:limit]
 
 
 def mmss(minutes_float: float) -> str:
@@ -1398,6 +2049,17 @@ def render_show_notes_block(ep_str: str, intro: str, stories: list[dict]) -> tup
     return "\n".join(lines).strip(), chapters
 
 
+def render_editorial_mix(stories: list[dict]) -> str:
+    counts = {lane: 0 for lane in EDITORIAL_LANE_LABELS}
+    for story in stories:
+        lanes = list(story.get("_editorial_lanes") or ["industry_news"])
+        for lane in lanes:
+            counts[lane] = counts.get(lane, 0) + 1
+    required_keys = list(EDITORIAL_LANE_MINIMUMS) + ["research"]
+    lines = [f"- {lane}: {counts.get(lane, 0)}" for lane in required_keys]
+    return "\n".join(lines)
+
+
 def assemble(ep_str: str, packaging: dict, stories: list[dict], block: str,
              chapters: list, links: list, model_discovery: str, spotlight: str,
              radar: str, extras: str, coverage: str, harness_ref: str) -> str:
@@ -1416,6 +2078,12 @@ def assemble(ep_str: str, packaging: dict, stories: list[dict], block: str,
 ## Story Slate
 
 {render_slate(stories)}
+
+---
+
+## Editorial Mix Check
+
+{render_editorial_mix(stories)}
 
 ---
 
@@ -1503,7 +2171,8 @@ def parse_gate_offenders(gate_out: str) -> list[str]:
 
 
 def gen_validated(pool: ModelPool, make_prompt, validate, fallback,
-                  what: str, max_rounds: int = 3):
+                  what: str, max_rounds: int = 3,
+                  allow_insufficient: bool = False):
     """generate → validate → retry-with-feedback → deterministic fallback."""
     feedback = ""
     for rnd in range(1, max_rounds + 1):
@@ -1514,6 +2183,9 @@ def gen_validated(pool: ModelPool, make_prompt, validate, fallback,
             feedback = f"Your output was not a single valid JSON object: {exc}"
             log(f"{what}: round {rnd} parse failure ({exc})")
             continue
+        if allow_insufficient and obj.get("insufficient_source") is True:
+            log(f"{what}: source explicitly marked insufficient — replacing candidate")
+            return None, False
         problems = validate(obj)
         if not problems:
             log(f"{what}: validated on round {rnd}")
@@ -1743,9 +2415,40 @@ def main() -> int:
         return 3
 
     research = load_research()
+    override_path = EDITORIAL_OVERRIDES_DIR / f"episode_{ep_str}.json"
+    if override_path.exists():
+        try:
+            override = json.loads(override_path.read_text(encoding="utf-8"))
+            items = override.get("editorial_items", override) if isinstance(override, dict) else override
+            if not isinstance(items, list):
+                raise ValueError("override must be a list or an object with editorial_items")
+            research = dict(research)
+            research["editorial_items"] = items
+            log(f"EP{ep_str}: loaded {len(items)} curated primary-source editorial items "
+                f"from {override_path}")
+        except Exception as exc:
+            log(f"FATAL: invalid editorial override {override_path}: {exc}")
+            return 1
     lanes = compute_lanes(research)
     sel = select_candidates(research, lanes)
     shipped = sel["shipped_lanes"]
+    if ep_num >= 87:
+        mix_counts = sel.get("editorial_mix_counts", {})
+        shortages = [
+            f"{lane}={mix_counts.get(lane, 0)} (needs {minimum})"
+            for lane, minimum in EDITORIAL_LANE_MINIMUMS.items()
+            if mix_counts.get(lane, 0) < minimum
+        ]
+        if mix_counts.get("research", 0) > MAX_NUMBERED_RESEARCH_STORIES:
+            shortages.append(
+                f"research={mix_counts.get('research', 0)} "
+                f"(maximum {MAX_NUMBERED_RESEARCH_STORIES})"
+            )
+        if shortages:
+            log("FATAL: editorial discovery mix is incomplete — " + "; ".join(shortages))
+            log("Refusing to let missing product/builder/local/hardware/policy sources be "
+                "silently replaced by research papers.")
+            return 1
     pool = ModelPool([m.strip() for m in DEFAULT_MODELS.split(",") if m.strip()])
 
     # Release tags that may legitimately appear in public copy this episode
@@ -1809,13 +2512,15 @@ def main() -> int:
             f"EP{ep_str} release readout")
         pkg["title"] = forced_title
         pkg["_link"] = ("Agent stack releases", rel_links[0][1] if rel_links else "")
+        pkg["_editorial_lanes"] = ["flagship_products"]
+        pkg["_source_kind"] = "release"
         fallbacks_used += int(fb)
         stories.append(pkg)
 
     # 2) Model discovery stories
     for m in sel["model_selected"]:
         mid = m.get("id", "")
-        url = f"https://openrouter.ai/models/{mid}"
+        url = m.get("url") or f"https://openrouter.ai/models/{mid}"
         src = (f"NEW MODEL LISTING: {m.get('name')} ({mid})\nContext length: {m.get('context_length')}\n"
                f"Provider: {mid.split('/')[0]}\nDescription: {m.get('description')}\nModel page: {url}")
         m_family_hits = _detect_family_hits(
@@ -1840,6 +2545,8 @@ def main() -> int:
         pkg["_model_source"] = {"id": mid, "url": url,
                                 "name": m.get("name") or "",
                                 "description": m.get("description") or ""}
+        pkg["_editorial_lanes"] = ["flagship_products"]
+        pkg["_source_kind"] = "model"
         stories.append(pkg)
         links.append(pkg["_link"])
 
@@ -1848,7 +2555,7 @@ def main() -> int:
     # loop so there is one code path for "turn this headline into a story".
     fallback_counter = {"n": 0}
 
-    def make_news_story(item: dict, extra_feedback: str = "") -> dict:
+    def make_news_story(item: dict, extra_feedback: str = "") -> dict | None:
         # Source-specific framing so the model writes the right shape:
         # - research papers → mechanism + benchmark + measured improvement, not
         #   "a new release landed"; cite the abstract structure verbatim where
@@ -1862,19 +2569,12 @@ def main() -> int:
                    f"Primary link: {item['url']}\n"
                    f"Abstract / summary: {item.get('summary') or '(no abstract — describe conservatively from title only)'}\n"
                    f"Context: {item.get('extra','')}\n\n"
-                   f"INSTRUCTION FOR THIS STORY: this is an academic paper, not a vendor news release. "
-                   f"Lead with the concrete mechanism the paper introduces or analyzes "
-                   f"(architecture, training method, eval, dataset, benchmark, scaling law). "
-                   f"Surface the headline result with the numbers that the abstract reports "
-                   f"(avoid fabricating percentages). Name the authors and the arXiv id in the "
-                   f"story metadata. Frame for builders as: what new capability or measurement "
-                   f"this enables, and where it sits on the agent-stack roadmap. Do not write "
-                   f"vendor-news framing like 'X has announced'.\n\n"
-                   f"SEGMENT LENGTH (locked 2026-07-04, EP079 rejection): the segment field MUST "
-                   f"be 270-320 words — the validator hard-fails anything shorter. Cover: what "
-                   f"the paper measures or proposes, the mechanism (architecture/training/eval "
-                   f"method), the headline result with concrete numbers from the abstract, the "
-                   f"implication for builders, and one watch-next sentence.")
+                   f"INSTRUCTION FOR THIS STORY: this is a brief research finding, not a paper "
+                   f"review. In 130-180 plain-language words, state the headline finding, why a "
+                   f"non-specialist should care, and one tangible use or consequence. Omit the "
+                   f"author list, arXiv id, equations, variable names, statistical-test details, "
+                   f"and step-by-step method. Include at most one result number, only when it is "
+                   f"necessary to understand the finding. Do not write vendor-news framing.")
         elif kind == "hf_paper":
             src = (f"COMMUNITY-HIGHLIGHTED RESEARCH (HuggingFace Daily Papers): {item['title']}\n"
                    f"Primary link: {item['url']}\n"
@@ -1882,9 +2582,18 @@ def main() -> int:
                    f"Context: {item.get('extra','')}\n\n"
                    f"INSTRUCTION FOR THIS STORY: this paper is trending on HuggingFace's daily "
                    f"feed (upvotes = community signal). Lead with what the paper measures or "
-                   f"proposes, the headline capability, and the reason the community is reading "
-                   f"it. Treat as research coverage, not vendor news. Surface the upvote count "
-                   f"in the listener hook if the score is meaningful (>20).")
+                   f"proposes, the headline capability, and why it matters in ordinary language. "
+                   f"Treat as a 130-180 word findings digest, not vendor news or a methodology "
+                   f"walkthrough. Do not surface the upvote count in spoken copy.")
+        elif kind == "research_digest":
+            src = (f"RESEARCH FINDING FOR A GENERAL AI NEWS AUDIENCE: {item['title']}\n"
+                   f"Primary link: {item['url']}\n"
+                   f"Verified finding summary: {item.get('summary') or '(no summary)'}\n"
+                   f"Context: {item.get('extra','')}\n\n"
+                   f"INSTRUCTION FOR THIS STORY: keep this to 130-180 plain-language words. "
+                   f"Explain the finding, why it matters, and one tangible use or consequence. "
+                   f"No equations, author roll call, internal variable names, test-procedure "
+                   f"inventory, or dense statistical terminology.")
         elif kind == "trending":
             src = (f"GITHUB TRENDING REPO: {item['title']}\n"
                    f"Primary link: {item['url']}\n"
@@ -1944,10 +2653,15 @@ def main() -> int:
             pool,
             lambda f, s=src, ef=extra_feedback, fh=i_family_hits: story_prompt(
                 s, False, allowed_tags, (ef + "\n" + f).strip(),
-                ep_num=ep_num, family_hits=fh),
+                ep_num=ep_num, family_hits=fh, source_kind=kind),
             lambda o: validate_story(o, allowed_tags, False, source_kind=item.get("kind", "news")),
-            lambda it=item: fallback_story(it, False),
-            f"EP{ep_str} story: {item['title'][:50]}")
+            lambda it=item, sk=kind: fallback_story(it, False, source_kind=sk),
+            f"EP{ep_str} story: {item['title'][:50]}",
+            allow_insufficient=True)
+        if pkg is None:
+            return None
+        if kind in RESEARCH_KINDS and not re.match(r"^Research digest\s*:", pkg.get("title", ""), re.I):
+            pkg["title"] = "Research digest: " + pkg.get("title", "").strip()
         fallback_counter["n"] += int(fb)
         pkg["_link"] = (item["title"][:70], item["url"])
         # Preserve source material so the title-collision repair can
@@ -1956,6 +2670,8 @@ def main() -> int:
         pkg["_model_source"] = {"id": "", "url": item.get("url", ""),
                                 "name": item.get("title", ""),
                                 "description": item.get("summary") or ""}
+        pkg["_editorial_lanes"] = editorial_lanes(item)
+        pkg["_source_kind"] = kind
         return pkg
 
     # 3) News stories
@@ -1963,6 +2679,8 @@ def main() -> int:
         if len(stories) >= STORY_COUNT:
             break
         pkg = make_news_story(item)
+        if pkg is None:
+            continue
         stories.append(pkg)
         links.append(pkg["_link"])
     fallbacks_used += fallback_counter["n"]
@@ -1982,7 +2700,32 @@ def main() -> int:
 
     prior = sel.get("prior_titles", [])
 
-    def next_backfill():
+    def next_backfill(required_lanes: set[str] | None = None,
+                      existing_titles: list[str] | None = None):
+        if required_lanes:
+            ranked: list[tuple[int, int, int, int]] = []
+            for idx, item in enumerate(backfill_pool):
+                if item.get("url") in used_urls:
+                    continue
+                if prior and overlaps_prior(item["title"], prior):
+                    continue
+                if existing_titles and any(
+                        qc.titles_are_same_topic(item["title"], title)
+                        for title in existing_titles):
+                    continue
+                gain = len(required_lanes & set(editorial_lanes(item)))
+                if gain == 0:
+                    continue
+                # Prefer primary/model/repository sources, then impact score.
+                # Community-only signals remain a last-resort reserve.
+                quality = 2 if (
+                    item.get("source_tier") == "primary"
+                    or item.get("kind") in {"hf_model", "infra_release", "radar", "trending"}
+                ) else (0 if item.get("kind") == "reddit" else 1)
+                ranked.append((gain, quality, int(item.get("score", 0)), idx))
+            if ranked:
+                return backfill_pool.pop(max(ranked)[3])
+            return None
         while backfill_pool:
             item = backfill_pool.pop(0)
             if item.get("url") in used_urls:
@@ -2032,6 +2775,8 @@ def main() -> int:
                 break
             used_urls.add(item["url"])
             pkg = make_news_story(item)
+            if pkg is None:
+                continue
             if overlaps_prior(pkg.get("title", ""), prior):
                 continue
             stories.append(pkg)
@@ -2042,6 +2787,11 @@ def main() -> int:
     if len(stories) < 6:
         log("FATAL: fewer than 6 stories — refusing to build a thin episode")
         return 1
+
+    # Depth metadata is deterministic, but the checker and renderer can be
+    # deployed at different moments. The repair loop toggles this fallback only
+    # when the gate reports the exact radar/model-depth contract labels.
+    depth_metadata_repair = {"enabled": False}
 
     # ── finalize(stories): build packaging/intro/color, assemble, run the real
     #    check_show_notes gate. Returns (returncode, notes_text, gate_output). ──
@@ -2110,6 +2860,22 @@ def main() -> int:
                     return False
             return True
 
+        def local_spotlight_distinct(title: str) -> bool:
+            if not distinct_from_slate(title):
+                return False
+            candidate_tokens = set(re.findall(r"[a-z][a-z0-9-]{3,}", title.lower()))
+            noise = {"model", "gguf", "mlx", "quantized", "instruct", "chat", "team"}
+            candidate_tokens -= noise
+            for story in stories:
+                story_tokens = set(re.findall(
+                    r"[a-z][a-z0-9-]{3,}", story.get("title", "").lower()
+                )) - noise
+                # One distinctive family token (Bonsai, Qwythos, GLM, etc.) is
+                # enough to make a spotlight a repeat of a numbered model story.
+                if candidate_tokens & story_tokens:
+                    return False
+            return True
+
         radar_pick = [r for r in sel["radar"] if distinct_from_slate(r["full_name"].replace("/", " "))][:3]
         while len(radar_pick) < 3 and sel["radar"]:
             for r in sel["radar"]:
@@ -2118,25 +2884,13 @@ def main() -> int:
                     break
             else:
                 break
-        extras_pick = [e for e in sel["leftover_news"] if distinct_from_slate(e["title"])][:3]
+        radar_urls = {r.get("url") for r in radar_pick}
+        extras_pick = [
+            e for e in sel["leftover_news"]
+            if distinct_from_slate(e["title"]) and e.get("url") not in radar_urls
+        ][:3]
 
-        spotlight_subject = None
-        for m in research.get("openrouter", {}).get("new_models", []):
-            prov = (m.get("id", "").split("/") or [""])[0]
-            if prov in ("qwen", "meta", "mistral", "deepseek", "moonshotai", "nousresearch", "z-ai", "microsoft"):
-                spotlight_subject = {"name": m.get("name") or m.get("id"),
-                                     "url": f"https://openrouter.ai/models/{m.get('id')}",
-                                     "description": (m.get("description") or "")[:400]}
-                break
-        if spotlight_subject is None:
-            oll = stable_releases(research, "ollama/ollama")
-            if oll:
-                spotlight_subject = {"name": f"Ollama {oll[0]['tag']}",
-                                     "url": oll[0].get("url") or "https://github.com/ollama/ollama/releases",
-                                     "description": (oll[0].get("body") or "Local model runtime release.")[:400]}
-            else:
-                spotlight_subject = {"name": "Ollama", "url": "https://github.com/ollama/ollama",
-                                     "description": "Local model runtime for running open-weights LLMs on your own hardware."}
+        spotlight_subject = choose_local_spotlight(research, local_spotlight_distinct)
 
         def v_color(obj):
             problems = []
@@ -2181,12 +2935,24 @@ def main() -> int:
             v_color, color_fallback, f"EP{ep_str} radar/extras/spotlight")
 
         radar_render = [{"full_name": r["full_name"], "url": r["url"],
+                         "stars": r.get("stars", 0),
+                         "pushed_at": r.get("pushed_at", ""),
+                         "latest_release": r.get("latest_release"),
+                         "latest_release_date": r.get("latest_release_date"),
                          "blurb": color["radar"][i]["blurb"],
                          "stack_improvement_angle": color["radar"][i]["stack_improvement_angle"],
                          "try_now": color["radar"][i]["try_now"]}
                         for i, r in enumerate(radar_pick)]
         extras_render = [{"title": e["title"], "url": e["url"],
-                          "summary": (e.get("summary") or e.get("extra", ""))[:240],
+                          # GitHub release bodies are Markdown and can contain
+                          # embedded headings/lists.  Extras are rendered as a
+                          # single bullet, so collapse that source excerpt to
+                          # one line before assembly; otherwise a raw
+                          # ``## Highlights`` silently terminates the section
+                          # for both show-notes and transcript QC.
+                          "summary": inline_source_excerpt(
+                              e.get("summary") or e.get("extra", "")
+                          ),
                           "technical_depth_angle": color["extras"][i]["technical_depth_angle"]}
                          for i, e in enumerate(extras_pick)]
         spotlight_render = {"name": spotlight_subject["name"], "url": spotlight_subject["url"],
@@ -2207,9 +2973,25 @@ def main() -> int:
                 seen_urls.add(url)
 
         block, chapters = render_show_notes_block(ep_str, intro, stories)
+        model_discovery_text = render_model_discovery(
+            sel["model_selected"], sel["model_skipped"], stories)
+        radar_text = render_radar(radar_render)
+        repaired_model_text, model_depth_repairs = ensure_model_depth_metadata(
+            model_discovery_text, sel["model_selected"])
+        repaired_radar_text, radar_depth_repairs = ensure_radar_depth_metadata(
+            radar_text, radar_render)
+        finalize.depth_metadata_repairable = bool(model_depth_repairs or radar_depth_repairs)
+        if depth_metadata_repair["enabled"]:
+            model_discovery_text = repaired_model_text
+            radar_text = repaired_radar_text
+            if model_depth_repairs or radar_depth_repairs:
+                log(
+                    f"EP{ep_str}: repair rebuilt deterministic depth metadata "
+                    f"(model={model_depth_repairs}, radar={radar_depth_repairs})"
+                )
         notes = assemble(ep_str, packaging, stories, block, chapters, deduped_links,
-                         render_model_discovery(sel["model_selected"], sel["model_skipped"], stories),
-                         render_spotlight(spotlight_render), render_radar(radar_render),
+                         model_discovery_text,
+                         render_spotlight(spotlight_render), radar_text,
                          render_extras(extras_render),
                          render_release_coverage_check(lanes),
                          render_harness_version_reference(lanes))
@@ -2220,6 +3002,8 @@ def main() -> int:
         tmp.write_text(notes, encoding="utf-8")
         result = subprocess.run([sys.executable, str(SCRIPTS_DIR / "check_show_notes.py"), str(tmp)],
                                 capture_output=True, text=True)
+        if result.returncode == 0:
+            record_radar_history(ep_num, radar_render)
         return result.returncode, notes, (result.stdout or "") + (result.stderr or "")
 
     def story_blob(s: dict) -> str:
@@ -2231,7 +3015,25 @@ def main() -> int:
         """Mutate `stories` to fix what the real checker rejected. Returns True if
         it made a change worth re-checking. Drift between the inline validators
         and the real checker now costs a repair round, never the morning run."""
-        # 0) Release segment too short — deterministic repair from real release
+        # 0) Auxiliary depth metadata — rebuild from the already-selected,
+        #    source-backed model/repo records. EP085 failed here because the
+        #    checker gained the radar/model depth contract before the renderer,
+        #    and this loop had no mapping outside story prose.
+        depth_gate_labels = (
+            "GitHub Project Radar carries stars, delta, release, and why-now evidence",
+            "Selected Model Discovery entries carry parameters, context, and modality",
+        )
+        if any(label in gate_out for label in depth_gate_labels):
+            if getattr(finalize, "depth_metadata_repairable", False):
+                depth_metadata_repair["enabled"] = True
+                log(f"EP{ep_str}: repair scheduling deterministic radar/model depth rebuild")
+                return True
+            log(
+                f"EP{ep_str}: depth gate fired but rendered sections already satisfy the "
+                "repair contract; leaving other mappings to diagnose the checker output"
+            )
+
+        # 1) Release segment too short — deterministic repair from real release
         #    body content (EP073 incident: 2026-06-21). When the model-written
         #    release segment is shorter than the QC threshold (260 words), the
         #    model is producing placeholder text. Pull the FULL release bodies
@@ -2296,11 +3098,106 @@ def main() -> int:
                     break
                 used_urls.add(item["url"])
                 pkg = make_news_story(item)
+                if pkg is None:
+                    continue
                 if qc.find_prior_episode_repeats(out_path, ep_num, [pkg.get("title", "")], lookback=3):
                     continue
                 stories.append(pkg)
                 links.append(pkg["_link"])
             return True
+
+        # 1.5) Editorial-lane shortages caused by a prior-overlap/duplicate
+        # drop.  Initial selection guarantees the required mix, but EP091
+        # proved that a later repair could remove the only second Local AI +
+        # hardware story and then blindly backfill it with another builder
+        # project.  Replace a surplus-lane story with the best source-backed
+        # reserve candidate for the missing lane(s), without weakening any
+        # other mandatory lane.
+        mix_shortages = {
+            lane: int(minimum)
+            for lane, _current, minimum in re.findall(
+                r"Editorial Mix Check `([^`]+)` is (\d+); minimum is (\d+)",
+                gate_out,
+            )
+        }
+        if mix_shortages:
+            mix_changed = False
+            attempts_left = len(backfill_pool)
+            while mix_shortages and attempts_left > 0:
+                attempts_left -= 1
+                existing_titles = [s.get("title", "") for s in stories]
+                item = next_backfill(set(mix_shortages), existing_titles)
+                if item is None:
+                    break
+                pkg = make_news_story(
+                    item,
+                    extra_feedback=(
+                        "This source is being used to restore the episode's "
+                        f"{', '.join(sorted(mix_shortages))} editorial coverage. "
+                        "Keep that concrete mechanism central and source-grounded."
+                    ),
+                )
+                if pkg is None:
+                    continue
+                if prior and qc.find_prior_episode_repeats(
+                        out_path, ep_num, [pkg.get("title", "")], lookback=3):
+                    continue
+                if any(qc.titles_are_same_topic(pkg.get("title", ""), title)
+                       for title in existing_titles):
+                    continue
+
+                counts = editorial_mix_counts([
+                    {"editorial_lanes": s.get("_editorial_lanes") or ["industry_news"]}
+                    for s in stories
+                ])
+                current_deficit = sum(
+                    max(0, minimum - counts.get(lane, 0))
+                    for lane, minimum in EDITORIAL_LANE_MINIMUMS.items()
+                )
+                candidate_lanes = set(pkg.get("_editorial_lanes") or ["industry_news"])
+                victim_choices: list[tuple[int, int]] = []
+                for idx, victim in enumerate(stories):
+                    if idx == 0 and shipped:
+                        continue
+                    result = dict(counts)
+                    for lane in victim.get("_editorial_lanes") or ["industry_news"]:
+                        result[lane] = result.get(lane, 0) - 1
+                    for lane in candidate_lanes:
+                        result[lane] = result.get(lane, 0) + 1
+                    new_deficit = sum(
+                        max(0, minimum - result.get(lane, 0))
+                        for lane, minimum in EDITORIAL_LANE_MINIMUMS.items()
+                    )
+                    if new_deficit >= current_deficit:
+                        continue
+                    if result.get("research", 0) > MAX_NUMBERED_RESEARCH_STORIES:
+                        continue
+                    # Lower deficit wins; for ties replace the later story so
+                    # the strongest front-of-episode stories remain stable.
+                    victim_choices.append((-new_deficit, idx))
+                if not victim_choices:
+                    continue
+                victim_idx = max(victim_choices)[1]
+                old_title = stories[victim_idx].get("title", "")
+                stories[victim_idx] = pkg
+                used_urls.add(item.get("url"))
+                links.append(pkg["_link"])
+                mix_changed = True
+                log(
+                    f"EP{ep_str}: repair replaced {old_title!r} with "
+                    f"{pkg.get('title', '')!r} to restore editorial lanes "
+                    f"{sorted(candidate_lanes & set(mix_shortages))}"
+                )
+                refreshed = editorial_mix_counts([
+                    {"editorial_lanes": s.get("_editorial_lanes") or ["industry_news"]}
+                    for s in stories
+                ])
+                mix_shortages = {
+                    lane: minimum for lane, minimum in EDITORIAL_LANE_MINIMUMS.items()
+                    if refreshed.get(lane, 0) < minimum
+                }
+            if mix_changed:
+                return True
 
         # 2) Content leaks (meta/banned/etc): regenerate the owning news story with
         #    the exact offending phrase banned. The release readout (idx 0) is
@@ -2326,6 +3223,11 @@ def main() -> int:
                     new = make_news_story(item, extra_feedback=(
                         f"Your previous version was rejected for this exact phrase — do not use it "
                         f"or any paraphrase: {sub!r}."))
+                    if new is None:
+                        log(f"EP{ep_str}: repair dropped story {i}; source insufficient after feedback")
+                        stories.pop(i)
+                        changed = True
+                        break
                     new.setdefault("_link", (title, url))
                     stories[i] = new
                     log(f"EP{ep_str}: repair regenerated story {i} to remove {sub!r}")
@@ -2408,6 +3310,8 @@ def main() -> int:
                 if any(qc.titles_are_same_topic(item["title"], t) for t in existing_titles):
                     continue
                 pkg = make_news_story(item)
+                if pkg is None:
+                    continue
                 stories.append(pkg)
                 links.append(pkg["_link"])
                 existing_titles.append(pkg.get("title", ""))

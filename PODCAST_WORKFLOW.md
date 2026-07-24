@@ -24,7 +24,8 @@ produces a complete reviewable episode by ~8:00 AM ET:
    `check_show_notes.py` runs as the final gate inside the builder.
 3. `generate_episode_transcript.py <N>` — transcript + check_episode.py repair loop
 4. `build_episode.py <N>` — slate verify, QC, nova render, EN audio, bespoke
-   cover art, CDN push, Discord review post
+   cover art, CDN push, playable review audio through ARIA Telegram, and a
+   hash-locked Discord review/approval record
 
 **The pipeline stops at the review post. Publish still requires Toby's ✅.**
 Failures at any stage append to `/tmp/show_notes_build.log` and post to the
@@ -47,7 +48,7 @@ python3 scripts/generate_episode_transcript.py <N>
 ```
 Do not use a wrapper that delegates transcript generation to another OpenClaw CLI process; EP060 showed that nested path can time out silently before creating an artifact. The transcript generator calls OpenClaw's configured OpenAI text model directly, runs `check_episode.py`, and only then moves the transcript into place. Review-audio work must start with a verified transcript file, then `build_episode.py`.
 
-Cover art generation must not use Claude CLI. The build's bespoke art step calls `scripts/generate_episode_art.py`, which uses OpenAI Responses to create `scripts/episode_art/episode_0NN_art.py`, then local Pillow renders `images/episode_0NN_cover.png`. If OpenAI cannot produce/test the module, stop with the exact blocker instead of falling back to Claude or a generic cover.
+Cover art generation must not use Claude CLI. The build's bespoke art step calls `scripts/generate_episode_art.py`, which uses the actual `**Title:**` and `**Tagline:**` metadata to generate a title-specific visual asset and a Pillow composite module, then local Pillow renders `images/episode_0NN_cover.png`. The image-model prompt must strip the episode number and AgentStack/podcast branding entirely; the deterministic local renderer adds those afterward. The scene must visibly encode the title's named subjects/mechanisms and quantitative hook; at least two title-specific cues are required, with the headline subject dominant. Generic dashboards, robot arms, glowing cores, and reusable agent-network scenes fail review. If a headline source includes a useful figure/reference image, use it as grounding where licensing and access permit. If OpenAI cannot produce/test the module, stop with the exact blocker instead of falling back to Claude or generic art.
 
 **What it does:**
 1. Verifies transcript matches the approved story slate in `show_notes_episode_0NN.md` — **blocks if any story is missing or mismatched**
@@ -56,7 +57,8 @@ Cover art generation must not use Claude CLI. The build's bespoke art step calls
 4. Generates EN audio
 5. Generates EN cover art
 6. Pushes audio + cover to CDN repo
-7. Posts listen URL to `#agent-stack-ep0NN` in Discord
+7. Sends the playable MP3 through ARIA's Telegram `default` account and posts
+   the review URLs/hash to `#agent-stack-ep0NN` in Discord
 
 **⛔ STOP after this. Do not proceed until Toby replies ✅.**
 
@@ -87,7 +89,7 @@ python3 scripts/launch_approved_release.py <N> --audio-approved-by-toby --approv
 
 `scripts/release_episode_approved.py` is the orchestrator underneath the launcher. `scripts/release_episode.py` remains the resumable phase library underneath this flow. Use either directly only for targeted recovery/debug work.
 
-When approval arrives through Discord/ARIA, verify the approval reply from the review channel, run the launcher directly, and monitor the state file/log until terminal success or a real failure. Do not infer approval from a "fix it", "run the scripts", or "what is broken" message. Do not stop at a delegated Codex/MiniMax artifact task; if a subtask fails, repair the artifact from disk and resume the release script from the right step.
+When approval arrives in Discord, verify the reply from the episode review channel, run the launcher directly, and monitor the state file/log until terminal success or a real failure. ARIA Telegram is a listening/feedback duplicate and cannot authorize release. Do not infer approval from a "fix it", "run the scripts", or "what is broken" message. Do not stop at a delegated Codex/MiniMax artifact task; if a subtask fails, repair the artifact from disk and resume the release script from the right step.
 
 **Recovery / targeted restart:**
 ```bash

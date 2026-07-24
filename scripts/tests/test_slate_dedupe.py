@@ -82,11 +82,53 @@ def test_distinct_stories_same_vendor_pass():
         "Mistral AI raises new funding round for EU datacenter build-out")
 
 
+def test_ep088_generic_headline_overlap_passes():
+    """Distribution/context phrasing and section labels are not products."""
+    assert not qc.titles_are_same_topic(
+        "Meta's Muse Spark 1.1 lands on OpenRouter with a 1M-token context window",
+        "Kimi K3 Lands on OpenRouter With a Million-Token Context Window")
+    assert not qc.titles_are_same_topic(
+        "Research digest: AI coding assistants still can't read your bug screenshots",
+        "Research digest: Search agents that stop getting stuck in loops")
+
+
+def test_distinct_mcp_products_with_generic_assistant_wording_pass():
+    """Generic headline verbs and audience nouns cannot make unrelated MCP
+    products look like the same launch."""
+    assert not qc.titles_are_same_topic(
+        "Unity MCP v10.1.0 Gives AI Assistants Direct Editor Access",
+        "codebase-memory-mcp gives AI coding assistants a persistent memory layer")
+
+
+def test_codex_claude_only_release_readout_is_exempt_from_prior_dedupe():
+    """A release readout remains slot-one infrastructure even when no
+    OpenClaw/Hermes GitHub tag exists for ``extract_release_tags`` to find."""
+    titles = [
+        "Agent Stack Release Readout: OpenAI Codex rust-v0.144.5; Claude Code CLI 2.1.205",
+        "Kimi K3 Lands on OpenRouter With a Million-Token Context",
+    ]
+    assert qc.story_titles_for_prior_repeat_check(titles, []) == titles[1:]
+    assert qc.story_titles_for_prior_repeat_check(titles, ["v2026.7.2"]) == titles[1:]
+
+
+def test_non_release_story_one_still_gets_prior_dedupe():
+    titles = ["OpenAI launches a new coding-agent safety filter"]
+    assert qc.story_titles_for_prior_repeat_check(titles, []) == titles
+
+
 if __name__ == "__main__":
     tests = [
         ("catches_ep079_zcode_double_coverage", test_catches_ep079_zcode_double_coverage),
         ("version_normalization", test_version_normalization),
         ("distinct_stories_same_vendor_pass", test_distinct_stories_same_vendor_pass),
+        ("ep088_generic_headline_overlap_passes",
+         test_ep088_generic_headline_overlap_passes),
+        ("distinct_mcp_products_with_generic_assistant_wording_pass",
+         test_distinct_mcp_products_with_generic_assistant_wording_pass),
+        ("codex_claude_only_release_readout_is_exempt_from_prior_dedupe",
+         test_codex_claude_only_release_readout_is_exempt_from_prior_dedupe),
+        ("non_release_story_one_still_gets_prior_dedupe",
+         test_non_release_story_one_still_gets_prior_dedupe),
     ]
     passed = failed = 0
     for name, fn in tests:

@@ -50,6 +50,19 @@ LISTENER_SPECIFIC_PATTERNS = [
     r"\bfor Toby\b",
 ]
 
+EDITORIAL_MIX_REQUIRED_FROM_EPISODE = 87
+EDITORIAL_MIX_MINIMUMS = {
+    "flagship_products": 2,
+    "builder_projects": 3,
+    "local_ai": 2,
+    "hardware_compute": 2,
+    "policy_regulation": 1,
+}
+EDITORIAL_MIX_MAXIMUMS = {
+    "research": 2,
+}
+EDITORIAL_MIX_KEYS = tuple(EDITORIAL_MIX_MINIMUMS) + tuple(EDITORIAL_MIX_MAXIMUMS)
+
 
 def check(label: str, condition: bool, severity: str = "ERROR", hint: str = "") -> None:
     if condition:
@@ -77,6 +90,75 @@ def extract_section(notes: str, heading: str) -> str:
     pattern = rf"^## {re.escape(heading)}\s*\n(.+?)(?=\n## |\Z)"
     match = re.search(pattern, notes, re.MULTILINE | re.DOTALL)
     return match.group(1).strip() if match else ""
+
+
+def editorial_mix_errors(notes: str, ep_num: int) -> list[str]:
+    """Validate the declared, machine-readable editorial mix for EP087+."""
+    if ep_num < EDITORIAL_MIX_REQUIRED_FROM_EPISODE:
+        return []
+
+    headings = re.findall(r"^## Editorial Mix Check[ \t]*$", notes, re.MULTILINE)
+    if not headings:
+        return ["Missing required `## Editorial Mix Check` section for EP087+."]
+    if len(headings) > 1:
+        return ["Duplicate `## Editorial Mix Check` sections; expected exactly one."]
+
+    section = extract_section(notes, "Editorial Mix Check")
+    values: dict[str, int] = {}
+    seen: set[str] = set()
+    errors: list[str] = []
+
+    for raw_line in section.splitlines():
+        line = raw_line.strip()
+        if not line or line == "---":
+            continue
+        match = re.fullmatch(r"-\s+([a-z_]+):\s*(.*?)\s*", line)
+        if not match:
+            errors.append(
+                f"Malformed Editorial Mix Check line {raw_line!r}; "
+                "expected `- key: N` with a non-negative integer."
+            )
+            continue
+
+        key, raw_value = match.groups()
+        if key not in EDITORIAL_MIX_KEYS:
+            errors.append(
+                f"Unknown Editorial Mix Check key `{key}`; expected only "
+                + ", ".join(f"`{expected}`" for expected in EDITORIAL_MIX_KEYS)
+                + "."
+            )
+            continue
+        if key in seen:
+            errors.append(f"Duplicate Editorial Mix Check key `{key}`.")
+            continue
+        seen.add(key)
+
+        if not re.fullmatch(r"\d+", raw_value):
+            errors.append(
+                f"Editorial Mix Check `{key}` must be a non-negative integer; "
+                f"got {raw_value!r}."
+            )
+            continue
+        values[key] = int(raw_value)
+
+    for key in EDITORIAL_MIX_KEYS:
+        if key not in seen:
+            errors.append(f"Missing Editorial Mix Check key `{key}`.")
+
+    for key, minimum in EDITORIAL_MIX_MINIMUMS.items():
+        value = values.get(key)
+        if value is not None and value < minimum:
+            errors.append(
+                f"Editorial Mix Check `{key}` is {value}; minimum is {minimum}."
+            )
+    for key, maximum in EDITORIAL_MIX_MAXIMUMS.items():
+        value = values.get(key)
+        if value is not None and value > maximum:
+            errors.append(
+                f"Editorial Mix Check `{key}` is {value}; maximum is {maximum}."
+            )
+
+    return errors
 
 
 def extract_show_notes_block(notes: str) -> str:
@@ -141,7 +223,13 @@ def title_lead_tokens(title: str, n: int = 4) -> set[str]:
 _TITLE_FUNCTION_WORDS = {
     "for", "the", "and", "with", "from", "into", "over", "after", "that",
     "this", "are", "its", "has", "how", "now", "new", "all", "out", "your",
-    "you", "via", "gets", "get", "not", "but", "her", "his", "their", "own",
+    "you", "via", "gets", "get", "gives", "give", "not", "but", "her", "his",
+    "their", "own", "assistant", "assistants",
+    # Generic headline framing cannot establish product identity. EP088 paired
+    # two unrelated OpenRouter model launches because both advertised a context
+    # window, and paired two unrelated papers because both began "Research
+    # digest". Keep these out of both overlap rules.
+    "context", "digest", "lands", "research", "window",
 }
 # Vendor names alone can't establish same-topic: two different stories about
 # the same vendor in one cycle are normal coverage, not double coverage. A
@@ -163,7 +251,9 @@ def titles_are_same_topic(title_a: str, title_b: str) -> bool:
     if not ta or not tb:
         return False
     shared = ta & tb
-    if len(shared) >= 3 and len(shared) / min(len(ta), len(tb)) >= 0.5:
+    shared_signal = shared - _TITLE_FUNCTION_WORDS - _TITLE_VENDOR_TOKENS
+    if (shared_signal and len(shared) >= 3
+            and len(shared) / min(len(ta), len(tb)) >= 0.5):
         return True
     na, nb = normalize_product_tokens(ta), normalize_product_tokens(tb)
     shared_norm = (na & nb) - _TITLE_FUNCTION_WORDS
@@ -185,6 +275,24 @@ def extract_release_tags(notes: str) -> list[str]:
             deduped.append(tag)
             seen.add(tag)
     return deduped
+
+
+def story_titles_for_prior_repeat_check(story_titles: list[str],
+                                        release_tags: list[str]) -> list[str]:
+    """Exclude the deterministic release readout from editorial-topic dedupe.
+
+    ``extract_release_tags`` intentionally recognizes only OpenClaw/Hermes
+    GitHub tags, while the release readout can also consist solely of Codex or
+    Claude Code releases.  In that case the old ``release_tags`` proxy was
+    empty and the checker compared the readout's recurring product names
+    against recent readouts even though the builder already exempts slot one.
+    """
+    if not story_titles:
+        return story_titles
+    first_is_release_readout = bool(re.match(
+        r"^Agent Stack Release Readout\s*:", story_titles[0], re.IGNORECASE
+    ))
+    return story_titles[1:] if (release_tags or first_is_release_readout) else story_titles
 
 
 # Public-facing sections of a show-notes draft where prerelease / beta tag mentions
@@ -350,6 +458,14 @@ def run_checks(path: str) -> None:
     print(f"   Release tags: {', '.join(release_tags) if release_tags else '(none)'}")
     print()
 
+    if ep_num >= EDITORIAL_MIX_REQUIRED_FROM_EPISODE:
+        mix_errors = editorial_mix_errors(notes, ep_num)
+        check(
+            "EP087+ Editorial Mix Check is complete and within hard limits",
+            not mix_errors,
+            hint=" | ".join(mix_errors),
+        )
+
     check("Show notes block exists", bool(show_notes_block),
           hint="Missing `## Show Notes` fenced markdown block.")
     check("Story slate exists", len(story_titles) >= 1,
@@ -368,7 +484,7 @@ def run_checks(path: str) -> None:
               hint=f"Expected at least 6 numbered Story Slate topics for EP055+; found {len(story_titles)}. Do not leave viable topics under Extra Research Candidates when building the draft.")
     if ep_num >= 57:
         # Release readout is deterministic and naturally repeats names/versions; exempt it.
-        titles_to_check = story_titles[1:] if (release_tags and story_titles) else story_titles
+        titles_to_check = story_titles_for_prior_repeat_check(story_titles, release_tags)
         prior_repeats = find_prior_episode_repeats(notes_path, ep_num, titles_to_check)
         check("Story slate does not repeat the previous episode's topics",
               len(prior_repeats) == 0,
@@ -656,6 +772,42 @@ def run_checks(path: str) -> None:
     github_try_now = re.findall(r"Try now\s*:\s*\S", github_project_radar, re.IGNORECASE)
     github_owned_repos = [url for url in set(github_repo_links) if re.search(r"https?://github\.com/github/", url, re.IGNORECASE)]
     model_discovery = extract_section(notes, "Model Discovery Check")
+    if ep_num >= 84:
+        radar_entries = [
+            block for block in re.split(r"(?=^\s*-\s+\*\*)", github_project_radar, flags=re.MULTILINE)
+            if re.match(r"^\s*-\s+\*\*", block)
+        ]
+        radar_depth_errors = []
+        for index, entry in enumerate(radar_entries, 1):
+            missing = [
+                field for field in ("stars:", "stars_delta_30d:", "latest_release:")
+                if field.lower() not in entry.lower()
+            ]
+            if not re.search(r"Why this is on the radar now\s*:\s*\S", entry, re.IGNORECASE):
+                missing.append("Why this is on the radar now:")
+            if missing:
+                radar_depth_errors.append(f"repo {index} missing {', '.join(missing)}")
+        check("GitHub Project Radar carries stars, delta, release, and why-now evidence",
+              len(radar_entries) >= 3 and not radar_depth_errors,
+              hint="Every radar repo needs stars, stars_delta_30d, latest_release tag/date, and a concrete Why this is on the radar now line. "
+                   + "; ".join(radar_depth_errors[:5]))
+
+        selected_model_entries = [
+            block for block in re.split(r"(?=^\s*-\s+\*\*)", model_discovery, flags=re.MULTILINE)
+            if re.search(r"Decision\s*:\s*Selected", block, re.IGNORECASE)
+        ]
+        selected_model_errors = []
+        for index, entry in enumerate(selected_model_entries, 1):
+            missing = [
+                field for field in ("params_active:", "params_total:", "context:", "modality:")
+                if field.lower() not in entry.lower()
+            ]
+            if missing:
+                selected_model_errors.append(f"selected model {index} missing {', '.join(missing)}")
+        check("Selected Model Discovery entries carry parameters, context, and modality",
+              not selected_model_errors,
+              hint="Every Selected model needs params_active, params_total (or n/a), context, and modality fields. "
+                   + "; ".join(selected_model_errors[:5]))
     if ep_num >= 61:
         model_links = re.findall(r"https?://\S+", model_discovery)
         model_decisions = re.findall(r"Decision\s*:\s*\S", model_discovery, re.IGNORECASE)

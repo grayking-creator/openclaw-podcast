@@ -3,7 +3,8 @@
 Gather Research Context — deterministic pre-flight data collection.
 
 Collects past show-notes covered versions, Hacker News AI/dev news, a
-25-feed RSS roster (frontier labs, local-AI projects, compute/hardware
+29-feed RSS roster (frontier labs, local-AI projects, compute/hardware,
+official government/policy sources,
 press, practitioner commentary, AI tech press), GitHub releases (harness
 lanes + local-AI/inference infra), OpenRouter model diffs, package registry
 versions, arXiv + HuggingFace Daily Papers, HuggingFace trending models,
@@ -292,7 +293,7 @@ def _regex_parse_rss_items(text, cutoff):
             return (m.group(1).strip() if m else "")
         title = re.sub(r"<[^>]+>", "", field("title"))
         link = field("link")
-        desc = re.sub(r"<[^>]+>", "", field("description"))[:300]
+        desc = re.sub(r"<[^>]+>", "", field("description"))[:1800]
         dt = None
         pd = field("pubDate")
         if pd:
@@ -326,14 +327,17 @@ def get_rss_feeds():
         # Frontier lab + partner announcement lanes
         "OpenAI News": ("https://openai.com/news/rss.xml", None),
         "Google AI Blog": ("https://blog.google/innovation-and-ai/technology/ai/rss/", None),
+        "Google Developers Blog": ("https://developers.googleblog.com/feeds/posts/default/", ai_filter),
         "Mistral AI Blog": ("https://mistral.ai/rss.xml", None),
         "DeepMind Blog": ("https://deepmind.google/blog/feed/", None),
         "Microsoft Research Blog": ("https://www.microsoft.com/en-us/research/feed/", ai_filter),
         "Qwen Blog": ("https://qwenlm.github.io/blog/index.xml", None),
         # Open models + local inference projects (Local AI lane)
         "Hugging Face Blog": ("https://huggingface.co/blog/feed.xml", None),
+        "GitHub Changelog": ("https://github.blog/changelog/feed/", ai_filter),
         # Compute / hardware lane
         "NVIDIA Blog": ("https://blogs.nvidia.com/feed/", ai_filter),
+        "Intel Newsroom": ("https://newsroom.intel.com/feed", ai_filter),
         "ServeTheHome": ("https://www.servethehome.com/feed/", ai_filter),
         "HPCwire": ("https://www.hpcwire.com/feed/", ai_filter),
         "SemiAnalysis": ("https://semianalysis.com/feed/", None),
@@ -352,13 +356,20 @@ def get_rss_feeds():
         "Ars Technica AI": ("https://arstechnica.com/ai/feed/", None),
         "The Register AI/ML": ("https://www.theregister.com/software/ai_ml/headlines.atom", None),
         "MarkTechPost": ("https://www.marktechpost.com/feed/", None),
+        # Official government / regulation / scrutiny lane.  EP087's original
+        # selector relegated the only policy item to a 27-second appendix; these
+        # feeds make public actions first-class discovery inputs.
+        "White House Releases": ("https://www.whitehouse.gov/releases/feed/", ai_filter),
+        "European Commission Digital Strategy": ("https://digital-strategy.ec.europa.eu/en/rss.xml", ai_filter),
+        "Federal Reserve Speeches": ("https://www.federalreserve.gov/feeds/speeches.xml", ai_filter),
+        "Australian Prime Minister": ("https://www.pm.gov.au/rss.xml", ai_filter),
     }
     md = ["### Major AI Lab, Local-AI, Compute & Developer Blog RSS Announcements (Last 72 Hours):"]
     data = {}
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=3)
 
-    # Fetch all feeds in parallel — the roster is now 25 feeds and a serial
+    # Fetch all feeds in parallel — the roster is now 29 feeds and a serial
     # loop with 15s timeouts risks blowing the fresh-research gate's gather
     # budget when several hosts hang.
     from concurrent.futures import ThreadPoolExecutor
@@ -382,7 +393,7 @@ def get_rss_feeds():
                 for item in rss_items:
                     title = item.findtext("title", default="Untitled").strip()
                     link = (item.findtext("link") or "").strip()
-                    desc = re.sub(r"<[^>]+>", "", item.findtext("description", default="") or "")[:300]
+                    desc = re.sub(r"<[^>]+>", "", item.findtext("description", default="") or "")[:1800]
                     dt = None
                     pd = item.findtext("pubDate")
                     if pd:
@@ -416,7 +427,7 @@ def get_rss_feeds():
                     if link_el is not None:
                         link = link_el.attrib.get("href", "") or (link_el.text or "").strip()
                     summary_el = find_first(entry, f"{ns}summary", f"{ns}content", "summary", "content")
-                    desc = re.sub(r"<[^>]+>", "", summary_el.text or "")[:300] if (summary_el is not None and summary_el.text) else ""
+                    desc = re.sub(r"<[^>]+>", "", summary_el.text or "")[:1800] if (summary_el is not None and summary_el.text) else ""
                     pub_el = find_first(entry, f"{ns}published", f"{ns}updated", "published", "updated")
                     dt = None
                     if pub_el is not None and pub_el.text:
@@ -797,17 +808,35 @@ def get_github_radar_suggestions():
             if full_name in seen:
                 continue
             seen.add(full_name)
+            latest_release = None
+            release_url = (f"https://api.github.com/repos/{full_name}/releases"
+                           "?per_page=10")
+            releases = fetch_url_json(release_url)
+            if isinstance(releases, list):
+                latest_release = next(
+                    (rel for rel in releases
+                     if isinstance(rel, dict)
+                     and not rel.get("draft")
+                     and not rel.get("prerelease")),
+                    None,
+                )
             results.append({"full_name": full_name,
                             "url": item.get("html_url", ""),
                             "stars": item.get("stargazers_count", 0),
                             "description": (item.get("description") or "No description provided.")[:300],
-                            "pushed_at": item.get("pushed_at", "")})
+                            "pushed_at": item.get("pushed_at", ""),
+                            "latest_release": (latest_release or {}).get("tag_name"),
+                            "latest_release_date": (latest_release or {}).get("published_at"),
+                            "latest_release_url": (latest_release or {}).get("html_url")})
             if len(results) >= 16:
                 break
         if len(results) >= 16:
             break
     for r in results:
-        md.append(f"- **{r['full_name']}** ({r['stars']} stars)\n  URL: {r['url']}\n  Description: {r['description']}")
+        release = (f"{r['latest_release']} ({r['latest_release_date']})"
+                   if r.get("latest_release") else "none published on GitHub")
+        md.append(f"- **{r['full_name']}** ({r['stars']} stars)\n  URL: {r['url']}\n"
+                  f"  Latest release: {release}\n  Description: {r['description']}")
     return "\n".join(md), results
 
 

@@ -2,9 +2,9 @@
 # AgentStack Daily — full morning pipeline.
 #
 # Goal: by 8:00 AM ET a complete, listenable episode (show notes + transcript +
-# EN audio + cover art) is on the CDN with a review post in Discord. Publish
-# still requires Toby's explicit ✅ on the review audio — this script never
-# releases anything.
+# EN audio + cover art) is on the CDN, the audio is playable in ARIA Telegram,
+# and a hash-locked review record is in Discord. Publish still requires Toby's
+# verified Discord ✅ — this script never releases anything.
 #
 # Stages:
 #   1. sync episode counter against live YouTube channel
@@ -19,9 +19,8 @@
 #                                      before the audio compute is spent)
 #   6. generate_episode_transcript.py (model + check_episode.py QC loop)
 #   7. build_episode.py               (slate verify, QC, nova render, EN audio,
-#                                      bespoke cover art, CDN push, full Discord
-#                                      review post bundling notes+transcript+audio
-#                                      — stops at approval gate)
+#                                      bespoke cover art, CDN push, ARIA audio +
+#                                      full Discord review record — stops at gate)
 #
 # Stage 5 gives Toby an early reject gate on the stories; stage 7 delivers the
 # listenable review. If he disapproves, regen all three: scripts/regen_episode.sh <N>
@@ -34,12 +33,14 @@ set -u
 
 BUILD_LOG="${SHOW_NOTES_BUILD_LOG:-/tmp/show_notes_build.log}"
 RUN_LOG="${SHOW_NOTES_RESEARCH_LOG:-/tmp/show_notes_research.log}"
-BUILD_LOG_CHANNEL=1485243812442804327
-BUILD_LOG_ERROR_CHANNEL=1524923755019636948
 SCRIPT_DIR=/Users/tobyglennpeters/.openclaw/workspace/openclaw-podcast/scripts
 PODCAST_DIR=/Users/tobyglennpeters/.openclaw/workspace/openclaw-podcast
 DONE_FILE="${SCRIPT_DIR}/youtube_uploaded.txt"
+POST_BUILD_LOG="${AGENTSTACK_POST_BUILD_LOG:-/Users/tobyglennpeters/.openclaw/workspace/scripts/utils/post_build_log.py}"
+POST_BUILD_LOG_PYTHON="${AGENTSTACK_POST_BUILD_LOG_PYTHON:-/usr/bin/python3}"
 OPENCLAW_BIN="${OPENCLAW_BIN:-/opt/homebrew/bin/openclaw}"
+BUILD_LOG_CHANNEL="${BUILD_LOG_CHANNEL_ID:-1485243812442804327}"
+BUILD_LOG_ERROR_CHANNEL="${BUILD_LOG_ERROR_CHANNEL_ID:-1524923755019636948}"
 
 # cron runs with a minimal PATH; the pipeline needs homebrew tools
 # (openclaw, ffmpeg, git helpers) on every stage.
@@ -49,29 +50,45 @@ ts() { date '+%Y-%m-%d %H:%M:%S'; }
 blog() { printf '[%s] %s\n' "$(ts)" "$*" >> "$BUILD_LOG"; }
 
 alert() {
-  "$OPENCLAW_BIN" message send --channel discord --target "channel:$BUILD_LOG_CHANNEL" \
-    --message "$1" >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN Discord alert failed"
+  if [ -f "$POST_BUILD_LOG" ] && \
+      "$POST_BUILD_LOG_PYTHON" "$POST_BUILD_LOG" --info "$1" >> "$BUILD_LOG" 2>&1; then
+    return 0
+  fi
+  blog "agentstack_morning: WARN shared Build Log info helper failed; trying OpenClaw fallback"
+  if "$OPENCLAW_BIN" message send --channel discord --target "channel:$BUILD_LOG_CHANNEL" \
+      --message "$1" >> "$BUILD_LOG" 2>&1; then
+    return 0
+  fi
+  blog "agentstack_morning: WARN Discord info alert failed through helper and fallback"
+  return 1
 }
 
 alert_error() {
-  "$OPENCLAW_BIN" message send --channel discord --target "channel:$BUILD_LOG_ERROR_CHANNEL" \
-    --message "$1" >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN Discord error alert failed"
+  if [ -f "$POST_BUILD_LOG" ] && \
+      "$POST_BUILD_LOG_PYTHON" "$POST_BUILD_LOG" --error "$1" >> "$BUILD_LOG" 2>&1; then
+    return 0
+  fi
+  blog "agentstack_morning: WARN shared Build Log error helper failed; trying OpenClaw fallback"
+  if "$OPENCLAW_BIN" message send --channel discord --target "channel:$BUILD_LOG_ERROR_CHANNEL" \
+      --message "$1" >> "$BUILD_LOG" 2>&1; then
+    return 0
+  fi
+  blog "agentstack_morning: WARN Discord error alert failed through helper and fallback"
+  return 1
 }
 
 fail_stage() {
   local stage=$1 detail=$2
   blog "FAIL EP${NEXT_EP_PAD:-???} stage '${stage}': ${detail}"
-  alert_error "❌ EP${NEXT_EP_PAD:-???} morning pipeline FAILED at stage: ${stage}
+  if [ "${AGENTSTACK_GUARD_MANAGED:-0}" = "1" ]; then
+    # The guard owns retry/final notification. Posting an attempt-level error
+    # here lets the repair watcher race and kill the guard's in-flight retry.
+    blog "agentstack_morning: guard-managed attempt failure; final notification belongs to show_notes_research_guard"
+  else
+    alert_error "❌ EP${NEXT_EP_PAD:-???} morning pipeline FAILED at stage: ${stage}
 ${detail}
 Run log: ${RUN_LOG}
 Build log: ${BUILD_LOG}"
-  # Run-stopping failures also go to Telegram (operator rule, 2026-07-07:
-  # Telegram = listenable audio + failures that stop audio or publishing).
-  # Best-effort; never masks the failure exit.
-  if [ -n "${_NEXT_EP:-}" ] && [ -f "${SCRIPT_DIR}/notify_telegram_review.py" ]; then
-    python3 "${SCRIPT_DIR}/notify_telegram_review.py" --ep "$_NEXT_EP" --intent failed \
-      --reason "$stage" --detail "$detail" --build-log "$BUILD_LOG" \
-      >> "$BUILD_LOG" 2>&1 || blog "agentstack_morning: WARN Telegram failure notice failed"
   fi
   exit 1
 }
@@ -84,12 +101,13 @@ blog "agentstack_morning: starting"
 blog "agentstack_morning: gathering research context before gate check"
 if ! python3 "${SCRIPT_DIR}/gather_research_context.py" >> "$RUN_LOG" 2>&1; then
   blog "agentstack_morning: WARN gather_research_context.py failed at startup"
+  alert_error "⚠️ AgentStack Daily morning pipeline DEGRADED: gather_research_context.py failed at startup. The fresh-research gate will still run, but today's source refresh is not verified. Run log: ${RUN_LOG}"
 fi
 
 # ── Stage 0: fresh-research gate (locked 2026-06-27, EP075 incident class).
 #    Hard fail. If research is stale, was used by a prior episode, or the
 #    YouTube counter has not advanced since the prior approved release,
-#    refuse to build. The gate posts its own Telegram alert and exits 2.
+#    refuse to build. The gate posts its own Discord error and exits 2.
 #    A new research context is gathered by the morning pipeline itself
 #    (Stage 3) so the gate normally runs against yesterday's context —
 #    that is intentional. The freshness check fires only if the cron has
@@ -104,20 +122,24 @@ if [ -f "${SCRIPT_DIR}/fresh_research_gate.py" ]; then
       _GATE_NEXT_EP=$(( 10#$_GATE_LAST + 1 ))
     fi
   fi
-  if ! python3 "${SCRIPT_DIR}/fresh_research_gate.py" "$_GATE_NEXT_EP" >> "$BUILD_LOG" 2>&1; then
-    rc=$?
+  python3 "${SCRIPT_DIR}/fresh_research_gate.py" "$_GATE_NEXT_EP" >> "$BUILD_LOG" 2>&1
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
     blog "agentstack_morning: EP$(printf '%03d' "$_GATE_NEXT_EP") fresh-research gate exit=$rc — HOLDING without rebuilding"
     exit 2
   fi
   blog "agentstack_morning: fresh-research gate PASS"
 else
   blog "agentstack_morning: WARN fresh_research_gate.py missing — proceeding without the no-duplicate guard"
+  alert_error "⚠️ AgentStack Daily morning pipeline DEGRADED: fresh_research_gate.py is missing, so the pipeline is proceeding without its freshness and duplicate-story guard. Build log: ${BUILD_LOG}"
 fi
 
 # ── Stage 1: sync against live YouTube channel ───────────────────────────────
 if [ -f "${SCRIPT_DIR}/sync_uploaded_from_youtube.py" ]; then
-  python3 "${SCRIPT_DIR}/sync_uploaded_from_youtube.py" >> "$BUILD_LOG" 2>&1 || \
+  if ! python3 "${SCRIPT_DIR}/sync_uploaded_from_youtube.py" >> "$BUILD_LOG" 2>&1; then
     blog "agentstack_morning: WARN youtube sync failed; using local counter"
+    alert_error "⚠️ AgentStack Daily morning pipeline DEGRADED: YouTube episode-state sync failed; the run is continuing with the local episode counter. Build log: ${BUILD_LOG}"
+  fi
 fi
 
 _LAST_EP=$(tail -1 "$DONE_FILE" | tr -d '[:space:]')
@@ -208,19 +230,20 @@ if [ ! -s "$DRAFT_PATH" ]; then
 fi
 blog "OK EP${NEXT_EP_PAD}: show notes written and QC-passed"
 
-# ── Stage 5: early show-notes post (Telegram, mid-stream reject gate) ───────
-#    Locked 2026-06-27: the review surface is Telegram, not Discord. We post
-#    the show-notes URL to Toby's home channel the moment the show notes
-#    pass QC, BEFORE the expensive transcript + audio steps, so a bad
-#    slate can be rejected mid-stream and the audio compute saved. The
-#    full listenable review (transcript + audio) follows from stage 7.
-# Operator rule (2026-07-07): Telegram carries ONLY listenable review audio.
-# The mid-stream slate gate goes to the Discord build log instead, short:
-# story count + file path. (The old intent=ready Telegram post here looked
-# like a broken final review — EP082 2026-07-07.)
-_SLATE_COUNT=$(grep -Ec '^\s*[0-9]+\.\s+\*\*' "$DRAFT_PATH" 2>/dev/null || echo "?")
-alert "🛠 EP${NEXT_EP_PAD} show notes QC-passed (${_SLATE_COUNT} stories) — transcript + audio generating.
-${DRAFT_PATH}"
+# ── Stage 5: early Discord show-notes post (mid-stream reject gate) ─────────
+#    Post the complete story slate as an attachment to #agent-stack-epNNN as
+#    soon as show notes pass QC. Telegram remains quiet until listenable review
+#    audio exists. This gives Toby a durable place to reject a weak slate before
+#    transcript and audio compute are spent; the full review follows in stage 7.
+if ! python3 "${SCRIPT_DIR}/post_show_notes_draft_discord.py" "$_NEXT_EP" --file "$DRAFT_PATH" \
+      --headline "📝 AgentStack Daily EP${NEXT_EP_PAD} — show notes generated, transcript generation in progress" \
+      --note "🛠 Transcript + audio are building now. Reply here to REJECT mid-stream if these stories are bad. The full listenable review follows shortly through ARIA Telegram and this Discord channel." \
+      >> "$BUILD_LOG" 2>&1; then
+  blog "agentstack_morning: WARN EP${NEXT_EP_PAD} early Discord show-notes post failed (non-fatal; full review still follows)"
+  alert_error "⚠️ EP${NEXT_EP_PAD} morning pipeline DEGRADED: the early Discord show-notes review post failed. Transcript and review-audio generation are continuing, but the early review checkpoint is missing. Build log: ${BUILD_LOG}"
+else
+  blog "agentstack_morning: EP${NEXT_EP_PAD} complete show-notes slate posted to Discord"
+fi
 
 # ── Stage 5.5: pre-generate bespoke art in the background ───────────────────
 #    Art depends only on show notes, so it overlaps the transcript stage.
@@ -246,7 +269,10 @@ blog "OK EP${NEXT_EP_PAD}: transcript written and QC-passed"
 # Close the art race before the build: if the background pre-generation is
 # still running, wait for it so build_episode never generates concurrently.
 if [ -n "$_ART_BG_PID" ]; then
-  wait "$_ART_BG_PID" 2>/dev/null || blog "agentstack_morning: WARN art pre-generation failed; build_episode will regenerate"
+  if ! wait "$_ART_BG_PID" 2>/dev/null; then
+    blog "agentstack_morning: WARN art pre-generation failed; build_episode will regenerate"
+    alert_error "[RETRY] EP${NEXT_EP_PAD} bespoke-art pre-generation failed; build_episode.py is continuing with its own regeneration attempt. Run log: ${RUN_LOG}"
+  fi
 fi
 
 # ── Stage 7: full episode build — audio, cover art, CDN, Discord review post ─
@@ -255,5 +281,5 @@ if ! python3 "${SCRIPT_DIR}/build_episode.py" "$_NEXT_EP" >> "$RUN_LOG" 2>&1; th
   fail_stage "episode-build" "build_episode.py failed (audio/art/CDN/review-post stage; it posts its own step-level failures to build-log)"
 fi
 
-blog "OK EP${NEXT_EP_PAD}: morning pipeline complete — review audio posted to Telegram; publish waits for Toby's ✅"
+blog "OK EP${NEXT_EP_PAD}: morning pipeline complete — review audio posted through ARIA and Discord; publish waits for Toby's verified Discord ✅"
 exit 0

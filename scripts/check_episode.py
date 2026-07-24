@@ -7,7 +7,28 @@ Checks for required structural elements and flags issues.
 import sys
 import re
 import argparse
+from bisect import bisect_right
 from pathlib import Path
+
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from transcript_constraints import (  # noqa: E402
+    NON_RELEASE_SEGMENT_CEILING,
+    RELEASE_SEGMENT_CEILING,
+    RESEARCH_SEGMENT_CEILING,
+    TRANSCRIPT_CEILING,
+    TRANSCRIPT_FLOOR,
+    build_episode_budget_ledger,
+    is_release_segment_title,
+    is_research_segment_title,
+    lane_budget_overages,
+    required_spoken_lanes,
+    segment_word_ceiling,
+    selected_model_labels,
+    transcript_segments,
+)
 
 CHECKS = []
 WARNINGS = []
@@ -25,6 +46,152 @@ THEME_GLUE_PATTERNS = [
     r"\bthe real story is\b",
     r"\bone story told across\b",
 ]
+
+PRESCRIPTIVE_TESTING_PATTERNS = (
+    r"\b(?:recommended|operator|upgrade|smoke|golden|regression) tests?\b",
+    r"\b(?:test|validation|evaluation) (?:plan|plans|process|procedure|workflow|checklist)\b",
+    r"\b(?:actionability )?drill\b",
+    r"\bchecklist\b",
+    r"\b(?:run|write|add|perform|execute) (?:this|these|a|the|your|another)?\s*[^.\n]{0,28}\b(?:checks?|tests?|evals?)\b",
+    r"\b(?:you|builders?|teams?|operators?) (?:should|need to|must|can|could)\s+[^.\n]{0,35}\b(?:test|validate|verify|check|confirm|benchmark)\b",
+    r"\b(?:try this drill|do it in this order|do this,? then do that)\b",
+    r"\b(?:start|begin) by\s+[^.\n]{0,45}\b(?:test|check|verify|validate|confirm|run)\b",
+    r"\b(?:then|next)\s+(?:run|test|check|verify|validate|confirm)\b",
+    r"\b(?:confirm|verify|validate) [^.\n]{0,40}\band\s+(?:confirm|verify|validate)\b",
+    r"\bbefore (?:rollout|rolling out|deployment|deploying|shipping),?\s+[^.\n]{0,45}\b(?:test|check|verify|validate|confirm)\b",
+)
+
+# Research findings belong in the show, but a dense run of experimental-design
+# and statistical labels is not listenable news.  These patterns deliberately
+# exclude ordinary model/product vocabulary (API, model, tokens, context,
+# benchmark, latency, and so on).  A term is harmless in isolation; the gate
+# fires only when eight *different* specialist constructs land inside roughly
+# one spoken minute (160 words).
+RESEARCH_METHOD_WINDOW_WORDS = 160
+RESEARCH_METHOD_DENSITY_THRESHOLD = 8
+RESEARCH_METHOD_CONSTRUCT_PATTERNS = (
+    ("preregistered protocol", r"\bpre[- ]?registered\b"),
+    ("arm-unit pair", r"\barm[- ]units?(?:\s+pairs?)?\b"),
+    ("content-ablated condition", r"\bcontent[- ]ablat(?:ed|ion)\b"),
+    ("mechanism-null result", r"\bmechanism[- ]null\b"),
+    ("intervention-free baseline", r"\bintervention[- ]free\b"),
+    ("p-value notation", r"(?:\bp[- ]?values?\b|\bp\s*(?:=|equals?)\s*(?:0?\.)?\d+(?:\.\d+)?)"),
+    ("non-inferiority", r"\bnon[- ]inferiority\b"),
+    ("equivalence", r"\bequivalen(?:ce|t)\b"),
+    ("log likelihood", r"\blog[- ]likelihood\b"),
+    ("determinizations", r"\bdetermini[sz]ations?\b"),
+    ("Markov decision process", r"\b(?:parameteri[sz]ed\s+action\s+)?Markov decision processes?\b"),
+    ("Datalog", r"\bDatalog\b"),
+    ("BPR-MF", r"\bBPR[- ]MF\b"),
+    ("Recall at 10", r"\bRecall\s*(?:@|at)\s*10\b"),
+    ("HMAC pseudonym", r"\bHMAC\s+pseudonym(?:s|i[sz](?:e|ed|ation))?\b"),
+    ("teacher-forced scoring", r"\bteacher[- ]forc(?:ed|ing)\b"),
+    ("attention-head subspace", r"\battention[- ]heads?\b[^.\n]{0,120}\bsubspace\b"),
+    ("oracle-relative refutation", r"\boracle[- ]relative\s+refutation\b"),
+    ("error-content adapter", r"\berror[- ]content\s+adapter\b"),
+    ("placebo adapter", r"\b(?:SHA[- ]deranged|deranged)?\s*placebo[- ]adapter\b"),
+    ("content-attributable superiority", r"\bcontent[- ]attributable\s+superiority\b"),
+    ("public-tier screening endpoint", r"\bpublic[- ]tier\s+screening\s+endpoint\b"),
+    ("resistant band", r"\bresistant\s+band\b"),
+    ("prompt experimental channel", r"\bprompt\s+channel\b"),
+    ("weight experimental channel", r"\bweight\s+channel\b"),
+)
+
+SPEAKER_TURN_RE = re.compile(
+    r"^\s*(?:\[(NOVA|ALLOY)\]:|\*\*(NOVA|ALLOY):\*\*|"
+    r"\*\*(NOVA|ALLOY)\*\*:|(NOVA|ALLOY):)",
+    re.MULTILINE,
+)
+
+
+def speaker_label_sequence(content):
+    """Return speaker turns for bracketed, bold, or legacy plain labels."""
+    return [next(value for value in match.groups() if value)
+            for match in SPEAKER_TURN_RE.finditer(content)]
+
+
+def segment_turn_cap(title):
+    """Return the slate-story cap, or ``None`` for separately capped support lanes."""
+    heading = re.sub(r"^\[[^\]]+\]\s*", "", title).strip()
+    if re.match(
+        r"(?:GitHub Project Radar|Model Discovery Check|Local LLM Spotlight|"
+        r"Extra Research Candidates?|Practical Queue)\b",
+        heading,
+        re.IGNORECASE,
+    ):
+        return None
+    return 4
+
+
+def per_story_turn_overages(segments):
+    """Describe slate stories that exceed the four-turn exposition cap."""
+    overages = []
+    for index, (timestamp, title, body) in enumerate(segments, 1):
+        cap = segment_turn_cap(title)
+        turns = len(speaker_label_sequence(body))
+        if cap is not None and turns > cap:
+            overages.append(
+                f"story {index} \"{title}\" @ {timestamp} = {turns} turns "
+                f"(>{cap} turn cap)"
+            )
+    return overages
+
+
+def prescriptive_testing_hits(content):
+    hits = []
+    for pattern in PRESCRIPTIVE_TESTING_PATTERNS:
+        hits.extend(match.group(0) for match in re.finditer(pattern, content, re.IGNORECASE))
+    return hits
+
+
+def research_method_density_windows(
+    content,
+    window_words=RESEARCH_METHOD_WINDOW_WORDS,
+    threshold=RESEARCH_METHOD_DENSITY_THRESHOLD,
+):
+    """Return the densest failing research-method window, if one exists.
+
+    Density is based on distinct construct families, not raw repetition.  This
+    keeps a normal product story free to mention one benchmark or p-value while
+    catching passages that stack enough methodology labels to become an oral
+    paper review.  Candidate windows begin at construct hits; any 160-word span
+    containing the threshold has an equivalent span beginning at its first hit.
+    """
+    words = list(re.finditer(r"\b[\w’'-]+\b", content))
+    if not words:
+        return []
+
+    word_starts = [match.start() for match in words]
+    hits = []
+    for label, pattern in RESEARCH_METHOD_CONSTRUCT_PATTERNS:
+        for match in re.finditer(pattern, content, re.IGNORECASE):
+            word_index = max(0, bisect_right(word_starts, match.start()) - 1)
+            hits.append((word_index, label, match.group(0)))
+    hits.sort(key=lambda item: (item[0], item[1]))
+
+    best = None
+    for start_index, _label, _text in hits:
+        end_index = start_index + window_words
+        window_hits = [hit for hit in hits if start_index <= hit[0] < end_index]
+        constructs = {}
+        for _index, hit_label, hit_text in window_hits:
+            constructs.setdefault(hit_label, hit_text)
+        if len(constructs) < threshold:
+            continue
+        if best is None or len(constructs) > len(best["constructs"]):
+            excerpt_end = words[min(len(words), end_index) - 1].end()
+            excerpt = re.sub(
+                r"\s+", " ", content[words[start_index].start():excerpt_end]
+            ).strip()
+            best = {
+                "start_word": start_index + 1,
+                "end_word": min(len(words), end_index),
+                "constructs": sorted(constructs),
+                "matched_text": constructs,
+                "excerpt": excerpt,
+            }
+
+    return [best] if best else []
 
 RELEASE_TAG_MENTION_LIMIT = 4
 
@@ -75,6 +242,58 @@ def extract_release_tags_for_episode(path):
     return deduped
 
 
+def markdown_section(text, heading):
+    """Return a level-two markdown section body, or an empty string."""
+    match = re.search(
+        rf"^## {re.escape(heading)}\s*\n(.+?)(?=\n## |\Z)",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    return match.group(1).strip() if match else ""
+
+
+def compact_words(text):
+    return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def named_item_is_spoken(label, transcript):
+    """Match a show-note item while tolerating spoken punctuation/version forms."""
+    transcript_compact = compact_words(transcript)
+    candidates = [label]
+    # Release-labelled repo extras look like
+    # ``owner/repo ships vX.Y.Z``.  The previous slash fallback kept the
+    # release suffix (``repo ships vX.Y.Z``), so natural TTS wording such as
+    # "the owner/repo project ships point two-five" could never match.  Match
+    # the repository identity itself as well; the check is about whether the
+    # named extra was spoken, not whether a machine version string was read
+    # verbatim.
+    repo_match = re.search(r"\b([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)\b", label)
+    if repo_match:
+        candidates.extend([repo_match.group(0), repo_match.group(2)])
+        # Short repository slugs such as ``5ire`` are meaningful names, but
+        # the generic compact-string matcher below intentionally ignores
+        # candidates shorter than five characters. Match these as complete
+        # spoken tokens so a natural possessive such as "nanbingxyz's 5ire"
+        # satisfies coverage without allowing arbitrary substring matches.
+        repo_slug = repo_match.group(2)
+        if len(repo_slug) >= 3 and re.search(
+            rf"(?<![A-Za-z0-9]){re.escape(repo_slug)}(?![A-Za-z0-9])",
+            transcript,
+            re.IGNORECASE,
+        ):
+            return True
+    if "/" in label:
+        candidates.append(label.rsplit("/", 1)[-1])
+    if ":" in label:
+        candidates.append(label.split(":", 1)[0])
+    # Long academic titles are normally introduced by their short lead clause.
+    words = re.findall(r"[A-Za-z0-9]+", label)
+    if len(words) >= 4:
+        candidates.append(" ".join(words[:4]))
+    return any(len(compact_words(c)) >= 5 and compact_words(c) in transcript_compact
+               for c in candidates)
+
+
 def theme_glue_hits(text):
     hits = []
     lowered = text.lower()
@@ -86,30 +305,9 @@ def theme_glue_hits(text):
 
 
 def timestamped_segments(content):
-    # Boundary headers include both timestamped story segments (## [NN:NN] Title)
-    # and untimestamped episode-level sections (## Local LLM Spotlight, ##
-    # GitHub Project Radar, ## [NN:NN] Practical Queue, etc.). Without this,
-    # the last numbered story swallows everything until the end-of-document
-    # boundary, inflating its word count past the per-story ceiling.
-    boundary_re = re.compile(
-        r"^##\s+(?:\[\d{2}:\d{2}(?:[–-]\d{2}:\d{2})?\]\s*.+"
-        r"|Local LLM Spotlight"
-        r"|GitHub Project Radar"
-        r"|Practical Queue"
-        r"|Model Discovery Check"
-        r"|Extra Research Candidates"
-        r"|Practical Queue"
-        r")\s*$",
-        re.MULTILINE,
-    )
-    matches = list(boundary_re.finditer(content))
-    segments = []
-    for i, match in enumerate(matches):
-        start = match.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
-        title = match.group(0).strip().lstrip("# ").strip()
-        segments.append((match.group(1) if match.lastindex else "", title, content[start:end].strip()))
-    return segments
+    # Shared with the prompt ledger and rescue scoring. Keeping one parser here
+    # prevents a segment from receiving one cap in generation and another in QC.
+    return transcript_segments(content)
 
 def shorten_release_tag(tag):
     """Spoken short form of a release tag: 'v2026.5.28' -> '5.28', 'v2026.5.29.2' -> '5.29.2'.
@@ -134,6 +332,13 @@ def run_checks(path):
     ep_match = re.search(r"episode_(\d{3})_transcript", str(path))
     ep_num = int(ep_match.group(1)) if ep_match else 0
     segments = timestamped_segments(content)
+    notes_path = Path(path).parent.parent / f"show_notes_episode_{ep_num:03d}.md"
+    notes_content = (notes_path.read_text(encoding="utf-8", errors="ignore")
+                     if notes_path.exists() else "")
+    budget_ledger = (build_episode_budget_ledger(notes_content)
+                     if notes_content else None)
+    computed_lane_overages = (lane_budget_overages(content, notes_content)
+                               if ep_num >= 72 and notes_content else [])
 
     print(f"\n📋 Episode QC: {path}")
     print(f"   Word count: {word_count:,}")
@@ -329,7 +534,8 @@ def run_checks(path):
     # Practical implications are good; long repeated architecture/orchestration advice is not.
     orchestration_terms = len(re.findall(r"\b(orchestration|workflow|workflows|lane|lanes|which tool owns|builder workflow|recipe|recipes|state machine|approval workflow|handoff|handoffs)\b", content, re.IGNORECASE))
     whats_new_terms = len(re.findall(r"\b(new|added|updated|released|release|feature|features|version|changed|ships|shipping|now supports|upgrade|preview|launch|announced|capability|capabilities)\b", content, re.IGNORECASE))
-    check("No default orchestration-advice overcorrection", orchestration_terms <= max(90, whats_new_terms),
+    check("No default orchestration-advice overcorrection",
+          orchestration_terms <= max(24, whats_new_terms // 2),
           hint=f"Orchestration/advice terms: {orchestration_terms}; what's-new terms: {whats_new_terms}. Rewrite toward feature updates and ecosystem news, not architecture consulting.")
 
     operator_slog_hits = []
@@ -352,36 +558,80 @@ def run_checks(path):
     check("No generic operator-playbook slog", len(operator_slog_hits) == 0,
           hint=f"Remove generic workflow/checklist/playbook phrasing and rewrite toward concrete news/product changes: {operator_slog_hits[:8]}")
 
-    homework_hits = re.findall(
-        r"\b(?:recommended test|operator test|upgrade test|test here is|test is|actionability drill|checklist|run this test|run these tests|try this drill|do it in this order|do this,? then do that|run [^.\n]{0,30}checks?|run [^.\n]{0,30}tests?|confirm [^.\n]{0,40}and [^.\n]{0,40}confirm|verify [^.\n]{0,40}and [^.\n]{0,40}verify)\b",
+    homework_hits = prescriptive_testing_hits(content)
+    check(
+        "No test-plan/checklist/drill/operator homework filler",
+        len(homework_hits) == 0,
+        hint=(
+            f"Found {len(homework_hits)} prescriptive testing/workflow phrase(s). "
+            "Keep observed benchmark or evaluation RESULTS, concrete specifications, "
+            "capabilities, and mechanisms; remove listener assignments, test plans, "
+            f"checklists, drills, and validation procedures: {homework_hits[:8]}"
+        ),
+    )
+
+    jargon_hits = re.findall(
+        r"\b(?:operationali[sz]e|capability envelope|inference substrate|workflow topology|"
+        r"orchestration layer|control plane|abstraction layer|strategic read|practical read|"
+        r"builder relevance|the (?:architecture|mechanism|failure mode|signal|pattern) is)\b",
         content,
         re.IGNORECASE,
     )
-    check("Episode does not feel like homework",
-          len(homework_hits) <= 2,
-          hint=f"Too many test/checklist/drill phrases ({len(homework_hits)}). Replace repeated assignments with capabilities, observed reactions, real-world experiences, and implications: {homework_hits[:8]}")
+    check(
+        "Technical language stays concrete instead of jargon-heavy",
+        len(jargon_hits) <= 8,
+        hint=(
+            f"Found {len(jargon_hits)} abstract/jargon phrase(s). Preserve specifications, "
+            "capabilities, benchmark numbers, and mechanisms, but explain them in plain "
+            f"English and remove consulting-style labels: {jargon_hits[:8]}"
+        ),
+    )
+
+    dense_method_windows = research_method_density_windows(content)
+    dense_method = dense_method_windows[0] if dense_method_windows else None
+    check(
+        "No dense research-method/statistical jargon cluster",
+        dense_method is None,
+        hint=(
+            "A roughly 160-word passage stacks too many experimental-design or "
+            "statistical constructs for spoken news. Summarize the finding and its "
+            "real-world meaning; keep only the one or two method details needed to "
+            "understand it. "
+            + (
+                f"Found {len(dense_method['constructs'])} distinct constructs around "
+                f"words {dense_method['start_word']}-{dense_method['end_word']}: "
+                f"{dense_method['constructs']}."
+                if dense_method
+                else ""
+            )
+        ),
+    )
 
     if ep_num >= 61:
         # The episode ALWAYS starts with the agent-harness updates, but that
         # front must stay concise/informational — not a long procedural/test
         # block. Cap the first two timestamped segments so the harness coverage
         # doesn't sprawl before the model/news stories.
-        first_two_segment_text = "\n\n".join(seg[2] for seg in segments[:2])
+        first_two = segments[:2]
+        first_two_segment_text = "\n\n".join(seg[2] for seg in first_two)
         first_two_words = len(first_two_segment_text.split())
+        first_two_cap = sum(segment_word_ceiling(seg[1]) for seg in first_two)
         check("Agent-harness front stays concise (not a long procedural block)",
-              first_two_words <= 2800,
-              hint=f"The first two timestamped segments are {first_two_words} words. Keep the harness updates concise and informational — cut release procedure/tests, do not move the model story ahead of the harness updates.")
+              first_two_words <= first_two_cap,
+              hint=f"The first two timestamped segments are {first_two_words} words; their combined hard cap is {first_two_cap}. Keep concrete release changes/specifications and cut procedure, tests, and operator advice; do not move the model story ahead of the harness update.")
 
-    # Boring implementation-minutiae guard: the show should teach builder workflows,
-    # not linger on generic document/file movement or invisible plumbing.
+    # Boring implementation-minutiae guard: reward concrete technology rather
+    # than generic workflow language (which previously encouraged operator slog).
     boring_terms = len(re.findall(r"\b(document|documents|file|files|folder|folders|copy|copies|moving|move|moved|storage|record|records)\b", content, re.IGNORECASE))
-    workflow_terms = len(re.findall(
-        r"\b(workflow|build|builder|use case|use cases|recipe|pattern|when to use|how to use|how you use|you use|using it|use it|set up|configure|in practice|what it provides|what you get|wire|ship|deploy|agent task|operator)\b",
+    substance_terms = len(re.findall(
+        r"\b(specification|specifications|parameter|parameters|context window|modality|"
+        r"capability|capabilities|mechanism|architecture|API|SDK|runtime|latency|throughput|"
+        r"benchmark|accuracy|memory|cache|quantization|inference|training|adapter|protocol|"
+        r"security|permission|release|released|ships|shipped|added|fixed|supports?)\b",
         content, re.IGNORECASE))
-    # Recalibrated for the tighter 5,000-7,500 word format and broadened to
-    # recognize practical "how you use it" phrasing, not just literal "workflow".
-    check("Builder-workflow focus beats file/document minutiae", workflow_terms >= max(10, boring_terms // 3),
-          hint=f"Workflow terms: {workflow_terms}; boring file/document/plumbing terms: {boring_terms}. Rewrite toward what to build and how to use the tools.")
+    check("Concrete technology substance beats file/document minutiae",
+          substance_terms >= max(24, boring_terms // 2),
+          hint=f"Technology/specification terms: {substance_terms}; boring file/document/plumbing terms: {boring_terms}. Preserve actual news, specifications, capabilities, mechanisms, and benchmark results; cut generic plumbing narration.")
 
     release_tags = extract_release_tags_for_episode(path)
 
@@ -508,26 +758,36 @@ def run_checks(path):
     # - EP079 (2026-07-04): floor-less rule produced a 19-min / 2,898-word
     #   show with 10 stories at 150-160 words each. Rejected. Floor is back.
     #
-    # Floor (4,800) and ceiling (5,700) are now BOTH enforced. Anything
+    # Floor (4,800) and ceiling (5,400) are BOTH enforced. Anything
     # below 4,800 is too short to cover a 14-story slate + radar + spotlight
-    # + queue; anything well above ~5,700 trends toward the EP072 drone
+    # + queue; anything above 5,400 trends toward the EP072 drone
     # pattern (8,052 words / 55 min).
-    #
-    # Ceiling widened 5,400 → 5,700 on 2026-07-07 (EP082, editorial call
-    # delegated to ARIA by Toby: "make a editorial call yourself and get me
-    # something to listen to"). A 14-story slate at the per-story budgets
-    # lands ~5,300 words minimum, so 5,400 left no revision headroom —
-    # five runs died with otherwise-clean drafts at ~5,5xx (≈31 min, not
-    # drone territory). Per-story budgets and cadence checks still enforce
-    # density; the anti-drone intent is unchanged.
-    floor = 4800
-    ceiling = 5700
+    # Re-locked at 5,400 on 2026-07-13 after repeated 5,8xx-7,0xx drafts
+    # regressed into testing/operator-workflow filler and excessive jargon.
+    # The prompt ledger targets ~5,100 so substantive fourteen-story coverage
+    # fits without borrowing from the hard ceiling.
+    floor = TRANSCRIPT_FLOOR
+    ceiling = TRANSCRIPT_CEILING
     check(f"Hard floor ({floor:,} words — 30-minute target)",
           word_count >= floor,
           hint=f"Got {word_count:,} words — floor is {floor:,} to land at 30+ minutes. EP079 came in at 2,898 words and was rejected as 'unacceptable' length. Add stories and deepen segments, do not loosen the floor.")
     check(f"Hard ceiling ({ceiling:,} words)",
           word_count <= ceiling,
           hint=f"Got {word_count:,} words — hard ceiling is {ceiling:,}. Anything above is the drone pattern Toby rejected on EP072 (8,052 words / 55 min).")
+    non_model_lane_overages = [
+        item for item in computed_lane_overages
+        if item["lane"] != "model_discovery"
+    ]
+    if ep_num >= 72 and notes_content:
+        check(
+            "Opening, Radar, spotlight, extras, and queue obey computed hard caps",
+            not non_model_lane_overages,
+            hint=(
+                "The prompt ledger and final QC use the same lane caps. Compress repeated "
+                "implications or jargon inside the overlong lane(s): "
+                f"{non_model_lane_overages}"
+            ),
+        )
     # Per-story word budget + turn cap + opening-move cadence. EP072 averaged
     # 6-10 NOVA/ALLOY turns per story with the same news → why-it-matters →
     # deeper-implication → builder-relevance → risk loop and ~600 words per
@@ -535,12 +795,8 @@ def run_checks(path):
     # third enforcement layer (after the global word ceiling) and the drone
     # pattern will not survive this.
     segments = timestamped_segments(content)
-    release_segment_titles = (
-        "release readout", "agent stack release", "harness release",
-        "openclaw", "codex", "claude code", "hermes", "antigravity",
-    )
     over_budget = []
-    over_turn_cap = []
+    over_turn_cap = per_story_turn_overages(segments)
     opening_moves = []  # list of (segment_idx, opening_phrase)
     opening_pattern = re.compile(
         r'^(?:The\s+[A-Z][A-Za-z0-9 .\-]*?\s+is|'
@@ -560,16 +816,13 @@ def run_checks(path):
     for idx, (ts, title, body) in enumerate(segments):
         body_no_label = re.sub(r'^\[PAUSE\]\s*', '', body.strip())
         wc_story = len(body_no_label.split())
-        is_release = any(tok in title.lower() for tok in release_segment_titles)
-        ceiling_story = 480 if is_release else 320
+        is_release = is_release_segment_title(title)
+        is_research = is_research_segment_title(title)
+        ceiling_story = segment_word_ceiling(title)
+        budget_kind = "release" if is_release else ("research digest" if is_research else "non-release")
         if wc_story > ceiling_story:
-            over_budget.append(f"story {idx+1} \"{title}\" @ {ts} = {wc_story}w (>{ceiling_story}w {'release' if is_release else 'non-release'} ceiling)")
-        # Turn cap: count NOVA / ALLOY speaker turns before the next [PAUSE] or
-        # end of segment. Each "**NOVA:**" / "**ALLOY:**" header counts as one
-        # turn. The EP071 v3 fix capped at 4 turns per story.
-        turns = len(re.findall(r'^\s*\*\*(?:NOVA|ALLOY):\*\*', body, re.MULTILINE))
-        if turns > 4:
-            over_turn_cap.append(f"story {idx+1} \"{title}\" @ {ts} = {turns} turns (>4 turn cap)")
+            over_budget.append(f"story {idx+1} \"{title}\" @ {ts} = {wc_story}w "
+                               f"(>{ceiling_story}w {budget_kind} ceiling)")
         # Opening-move cadence: capture the first ~120 chars of the first NOVA/
         # ALLOY paragraph in the segment and fingerprint the opening verb phrase.
         first_speaker = re.search(r'\[(?:NOVA|ALLOY)\]:\s*(.{1,200}?)(?:\.|\n)', body)
@@ -578,17 +831,26 @@ def run_checks(path):
             m = opening_pattern.match(opener)
             if m:
                 opening_moves.append((idx, ts, opener[:60]))
-    check("Per-story word budget (≤320 non-release / ≤480 release)",
+    check(
+          f"Per-story word budget (≤{NON_RELEASE_SEGMENT_CEILING} non-release / "
+          f"≤{RESEARCH_SEGMENT_CEILING} research digest / "
+          f"≤{RELEASE_SEGMENT_CEILING} release)",
           len(over_budget) == 0,
           hint=("Stories exceed the per-story budget. The drone pattern repeats the same "
                 "news → why-it-matters → deeper-implication → builder-relevance loop "
-                "and expands into per-feature breakdowns. Cut the body to a tight "
-                "90-160 word block (160-220 for release stories). "
+                "and expands into per-feature breakdowns. For a fourteen-story slate, "
+                "compress listed NON-RELEASE bodies toward 270-295 words (never above "
+                f"{NON_RELEASE_SEGMENT_CEILING}); only agent-harness release-readout "
+                "titles receive the release allowance. A `Research digest:` title "
+                f"is capped at {RESEARCH_SEGMENT_CEILING} words. Other papers, models, "
+                "products, and datasets remain NON-RELEASE for this cap. "
                 f"Over budget: {over_budget}"))
     check("Per-story turn cap (≤4 NOVA/ALLOY turns)",
           len(over_turn_cap) == 0,
           hint=("A story with more than 4 NOVA/ALLOY turns is the two-voice exposition "
                 "loop Toby bailed on. Vary the arc per story and cap at 4 turns. "
+                "Radar, Model Discovery, Spotlight, Extras, and Practical Queue are "
+                "support lanes governed by their computed word caps instead. "
                 f"Over cap: {over_turn_cap}"))
     # Opening-move cadence: 3+ consecutive stories using the same opening move
     # is the EP072 cadence failure ("The X is the Y", "The headline is", "The
@@ -710,6 +972,38 @@ def run_checks(path):
                 "draw, not for the host to read aloud. "
                 f"Whole-document 'for builders' verdicts: {len(for_builders_hits)} (limit <6). "
                 f"Per-segment over budget: {builders_per_segment_fail}."))
+
+    # ── Host energy / reaction markers (soft heuristic, added 2026-07-20) ──────
+    # Toby: the show reads "bland and terrible" next to a Moonshots-style
+    # conversation. The prompt now asks for contractions, genuine reactions,
+    # and direct listener questions instead of report prose; this is a soft,
+    # WARNING-only trip wire so a route/rescue draft that reverts to dry
+    # corporate-report register (near-zero contractions, no interjections)
+    # is visible in the QC log without blocking a morning run over a
+    # heuristic. Not a hard gate — do not raise this to ERROR without several
+    # episodes of calibration data.
+    contraction_hits = re.findall(r"\b[A-Za-z]+'(?:s|re|t|m|ll|ve|d)\b", content)
+    reaction_hits = re.findall(
+        r"\b(?:Okay|Wait|Whoa|Honestly|Look|Come on|Seriously|Right\?|I mean|"
+        r"That's wild|I don'?t buy|I love|Not gonna lie|Here'?s the thing)\b",
+        content,
+        re.IGNORECASE,
+    )
+    question_hits = re.findall(r"[a-z][^.!?\n]{0,120}\?", content)
+    min_contractions = max(20, len(segments) * 2)
+    min_reactions = max(6, len(segments) // 2)
+    min_questions = 2
+    check("Host energy / reaction markers present (soft heuristic)",
+          len(contraction_hits) >= min_contractions
+          and len(reaction_hits) >= min_reactions
+          and len(question_hits) >= min_questions,
+          severity="WARNING",
+          hint=("This is a soft register signal, not a content gate: contractions "
+                f"{len(contraction_hits)} (want ≥{min_contractions}), reaction/"
+                f"interjection markers {len(reaction_hits)} (want ≥{min_reactions}), "
+                f"questions {len(question_hits)} (want ≥{min_questions}). If this fires "
+                "repeatedly the draft has drifted back toward dry report prose — see "
+                "the HOST VOICES / HUMAN DELIVERY prompt sections."))
 
     # ── No listener-facing pin / version-target advice (locked 2026-06-29, EP076) ─
     # Toby: "you shouldn't be pointing at specific models". The model_pinning_advice_patterns
@@ -877,8 +1171,9 @@ def run_checks(path):
           hint=f"The first minute should sound conversational, not like a rundown: {listy_opening_phrases[:3]}")
 
     # ── Voice / conversational flow checks ──────────────────────────────────
-    nova_lines = len(re.findall(r'^(\[NOVA\]|\*?\*?NOVA\*?\*?):\s', content, re.MULTILINE))
-    alloy_lines = len(re.findall(r'^(\[ALLOY\]|\*?\*?ALLOY\*?\*?):\s', content, re.MULTILINE))
+    all_speaker_turns = speaker_label_sequence(content)
+    nova_lines = all_speaker_turns.count("NOVA")
+    alloy_lines = all_speaker_turns.count("ALLOY")
     check(f"Both hosts present (NOVA={nova_lines}, ALLOY={alloy_lines})",
           nova_lines >= 5 and alloy_lines >= 5,
           hint=f"NOVA has {nova_lines} lines, ALLOY has {alloy_lines} lines. Both must have 5+.")
@@ -889,7 +1184,7 @@ def run_checks(path):
               hint=f"NOVA={nova_lines}, ALLOY={alloy_lines}. One host is dominating — add more back-and-forth.")
 
     # Check for conversational back-and-forth (no monologues >5 consecutive same-speaker blocks)
-    speaker_sequence = re.findall(r'^\*?\*?(NOVA|ALLOY)\*?\*?:', content, re.MULTILINE)
+    speaker_sequence = all_speaker_turns
     max_consecutive = 1
     current_run = 1
     for i in range(1, len(speaker_sequence)):
@@ -906,6 +1201,114 @@ def run_checks(path):
     segment_headers = re.findall(r'^#{1,3} \[[\d:–-]+\]', content, re.MULTILINE)
     check(f"Has timestamped segments ({len(segment_headers)} found)", len(segment_headers) >= 3,
           hint="Episode must have at least 3 timestamped segment headers: ## [HH:MM–HH:MM] Title")
+
+    # Full-surface coverage is part of the spoken product, not optional notes.
+    # EP084 exposed that prompt condensation could remove all four required
+    # sections while the generic word-count and story checks still passed.
+    if ep_num >= 72 and notes_content:
+        expected_sections = required_spoken_lanes(notes_content)
+        missing_sections = []
+        for heading in expected_sections:
+            spoken_heading = (r"Extra Research Candidates?" if heading == "Extra Research Candidates"
+                              else re.escape(heading))
+            # The prompt explicitly allows one short segment per repo/paper,
+            # so headings such as "GitHub Project Radar: XcodeBuildMCP" and
+            # singular "Extra Research Candidate: OpenCoF" are valid.
+            if not re.search(
+                rf"^#{{1,3}}\s+(?:\[[^\]]+\]\s*)?{spoken_heading}(?:\s*:.*)?\s*$",
+                content,
+                re.MULTILINE | re.IGNORECASE,
+            ):
+                missing_sections.append(heading)
+        check(
+            "Required Radar, model, spotlight, and research lanes are spoken",
+            not missing_sections,
+            hint=f"Missing transcript section(s): {missing_sections}",
+        )
+
+        # Model Discovery remains a spoken lane even when no model was selected.
+        # The no-selected beat is a natural market read, never narration about
+        # scans, candidates, selection, research, or the build. The production-
+        # language patterns above enforce that separation.
+        model_segments = [
+            body for _ts, title, body in segments
+            if re.search(r"\bModel Discovery Check\b", title, re.IGNORECASE)
+        ]
+        selected_models = selected_model_labels(notes_content)
+        if model_segments:
+            model_body = model_segments[0]
+            model_words = len(re.sub(r"^\[PAUSE\]\s*", "", model_body.strip()).split())
+            model_ceiling = int(budget_ledger["lanes"]["model_discovery"]["ceiling"])
+            model_over_cap = any(
+                item["lane"] == "model_discovery"
+                for item in computed_lane_overages
+            )
+            if selected_models:
+                missing_models = [label for label in selected_models
+                                  if not named_item_is_spoken(label, model_body)]
+                check(
+                    "Model Discovery names every selected model",
+                    not missing_models,
+                    hint=f"Missing spoken selected model(s): {missing_models}",
+                )
+                check(
+                    "Selected Model Discovery beats obey the computed hard cap",
+                    not model_over_cap,
+                    hint=(
+                        f"Got {model_words} words; hard cap is {model_ceiling} for "
+                        f"{len(selected_models)} selected model beat(s)."
+                    ),
+                )
+            else:
+                check(
+                    "No-selected Model Discovery beat stays short and natural",
+                    20 <= model_words <= model_ceiling and not model_over_cap,
+                    hint=(
+                        f"Got {model_words} words; keep one 20-{model_ceiling} word market read under "
+                        "the Model Discovery heading. State where model progress landed "
+                        "without mentioning scans, candidates, selection, research, or "
+                        "the build."
+                    ),
+                )
+
+        radar_labels = re.findall(
+            r"^-\s+\*\*([^*]+)\*\*",
+            markdown_section(notes_content, "GitHub Project Radar"),
+            re.MULTILINE,
+        )[:3]
+        missing_radar = [label for label in radar_labels
+                         if not named_item_is_spoken(label, content)]
+        check(
+            "GitHub Project Radar names at least three selected repos",
+            len(radar_labels) >= 3 and not missing_radar,
+            hint=f"Missing spoken Radar repo(s): {missing_radar or radar_labels}",
+        )
+
+        extra_labels = re.findall(
+            r"^-\s+\*\*([^*]+)\*\*",
+            markdown_section(notes_content, "Extra Research Candidates"),
+            re.MULTILINE,
+        )[:3]
+        missing_extras = [label for label in extra_labels
+                          if not named_item_is_spoken(label, content)]
+        check(
+            "Extra Research Candidates names all three selected papers",
+            len(extra_labels) >= 3 and not missing_extras,
+            hint=f"Missing spoken research candidate(s): {missing_extras or extra_labels}",
+        )
+
+        spotlight_labels = re.findall(
+            r"^-\s+\*\*([^*]+)\*\*",
+            markdown_section(notes_content, "Local LLM Spotlight"),
+            re.MULTILINE,
+        )
+        missing_spotlight = [label for label in spotlight_labels[:1]
+                             if not named_item_is_spoken(label.split()[0], content)]
+        check(
+            "Local LLM Spotlight names the selected local release",
+            bool(spotlight_labels) and not missing_spotlight,
+            hint=f"Missing spoken local spotlight: {missing_spotlight or spotlight_labels[:1]}",
+        )
     if release_tags:
         segment_matches = list(re.finditer(r'^#{1,3} \[([\d:–-]+)\]\s*(.+)$', content, re.MULTILINE))
         if len(segment_matches) >= 2:
@@ -1210,14 +1613,28 @@ def run_checks(path):
               hint=f"Version-tag housekeeping is not listener value: {unique_version_tags[:8]}")
 
     tech_concrete_terms = re.findall(
-        r"\b(API|SDK|runtime|request|response|schema|parameter|config(?:uration)?|flag|permission|auth|token|provider|adapter|transport|queue|scheduler|timeout|retry|fallback|state|memory|session|trace|log|metric|benchmark|evaluation|latency|throughput|cache|database|migration|sandbox|security|privacy|model card|system card|changelog|release notes|failure mode)\b",
+        r"\b(API|SDK|runtime|request|response|schema|specification|parameter|parameter count|"
+        r"context window|modality|capability|mechanism|config(?:uration)?|flag|permission|auth|"
+        r"token|provider|adapter|transport|queue|scheduler|timeout|retry|fallback|state|memory|"
+        r"session|trace|log|metric|benchmark|accuracy|evaluation|latency|throughput|cache|"
+        r"quantization|inference|training|database|migration|sandbox|security|privacy|model card|"
+        r"system card|changelog|release notes|failure mode)\b",
         content,
         re.IGNORECASE,
     )
-    check("Transcript has enough hard technical mechanism density",
-          len(tech_concrete_terms) >= max(35, word_count // 180),
-          severity="ERROR",
-          hint=f"Found {len(tech_concrete_terms)} technical-mechanism terms; replace recap/fluff with concrete APIs, runtime behavior, config, failure modes, security boundaries, evals, or operator tradeoffs.")
+    # This is a soft anti-fluff signal, not a target to maximize.  The former
+    # hard floor (35 terms or one per 180 words) pushed repair prompts to add
+    # technical labels even when a plain-language product/use-case story was
+    # already substantive.  Ordinary model/product terms remain welcome, but a
+    # low count no longer blocks audio and the threshold is intentionally light.
+    light_technical_floor = max(8, word_count // 600)
+    check("Transcript retains baseline concrete technology substance",
+          len(tech_concrete_terms) >= light_technical_floor,
+          severity="WARNING",
+          hint=(f"Found {len(tech_concrete_terms)} concrete technology terms; a light "
+                f"baseline is {light_technical_floor}. Add a specific shipped capability "
+                "or measured result only where it clarifies the news; do not add research "
+                "jargon or methodology to satisfy this warning."))
 
     # ── Runtime/metadata leak checks ────────────────────────────────────────
     has_transcript_end_leak = bool(re.search(r'end of transcript|approximately \d+ minutes|\d,\d{3} words', content, re.IGNORECASE))

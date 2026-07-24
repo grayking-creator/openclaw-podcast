@@ -57,19 +57,30 @@ fail_guard() {
   exit "$code"
 }
 
-# Pre-flight: routing assertion (locked 2026-06-27, post-EP075 incident).
+handle_guard_signal() {
+  local signal=$1
+  local code=$2
+  # Avoid recursive signal handling while the terminal notice is delivered.
+  trap - HUP INT TERM
+  fail_guard "terminated by SIG${signal} before the morning pipeline reached a terminal result" "$code"
+}
+
+trap 'handle_guard_signal HUP 129' HUP
+trap 'handle_guard_signal INT 130' INT
+trap 'handle_guard_signal TERM 143' TERM
+
+# Pre-flight: routing assertion (restored to ARIA 2026-07-10).
 # Wipe __pycache__ to defeat any stale .pyc from a half-edited module, then
-# run the assertion. The assertion sends a one-line ping to the operator's
-# Telegram DM (chat id 8319992332) to prove the bot is wired to the right
-# place; if anything is wrong it sends a 🚨 ROUTING MIS-WIRED alert and
-# exits 2, which causes this guard to fail the morning build loudly.
+# probe OpenClaw's explicit Telegram ``default`` account. The assertion checks
+# ARIA's immutable bot id without sending a chat-cluttering test message. A
+# mismatch exits 2 and this guard reports the failure to Discord.
 if [ -d "${SCRIPTS_DIR}/__pycache__" ]; then
   rm -rf "${SCRIPTS_DIR}/__pycache__" 2>/dev/null || true
 fi
 if [ -f "${SCRIPTS_DIR}/assert_telegram_routing.py" ]; then
   if ! python3 "${SCRIPTS_DIR}/assert_telegram_routing.py" >> "$RUN_LOG" 2>&1; then
     append_build_log "show_notes_research_guard: ROUTING MIS-WIRED — Telegram pre-flight failed; ABORTING"
-    fail_guard "Telegram routing pre-flight failed (see $RUN_LOG for the assertion output). The morning pipeline refuses to build until the bot is wired to the operator's DM (chat id 8319992332)." 2
+    fail_guard "Telegram routing pre-flight failed (see $RUN_LOG for the assertion output). The morning pipeline refuses to build until OpenClaw account 'default' resolves to ARIA and targets the operator DM (chat id 8319992332)." 2
   fi
   append_build_log "show_notes_research_guard: Telegram routing pre-flight PASS"
 fi
@@ -101,7 +112,10 @@ MAX_RUNS="${SHOW_NOTES_GUARD_MAX_RUNS:-2}"
 RETRY_DELAY_S="${SHOW_NOTES_GUARD_RETRY_DELAY_S:-180}"
 attempt=1
 while :; do
-  /bin/bash "$SCRIPT"
+  # The child logs stage detail, while this guard exclusively owns retry and
+  # terminal Discord notifications. This prevents the repair watcher from
+  # dispatching against a failure that is already being retried here.
+  AGENTSTACK_GUARD_MANAGED=1 /bin/bash "$SCRIPT"
   rc=$?
 
   if [ "$rc" -eq 0 ]; then

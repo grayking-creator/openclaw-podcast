@@ -8,7 +8,7 @@ it does not spawn nested OpenClaw agents or background workers.
 Environment variables:
   TRANSCRIPT_MODEL   Override with one model (e.g. openai/gpt-5.5).
   TRANSCRIPT_MODELS  Comma-separated provider fallback list. Models must
-                     support ~8k-10k output tokens for 6,000+ word transcripts.
+                     support enough output for a complete ~5,100-word draft.
   TRANSCRIPT_GEN_ATTEMPTS  Max regenerate+QC attempts (default: 3).
   TRANSCRIPT_RESCUE_MODEL     Strong repair model used only after the normal
                               route ladder exhausts its QC budget (default:
@@ -19,6 +19,7 @@ Environment variables:
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import os
 import re
@@ -32,31 +33,51 @@ from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 PODCAST_DIR = SCRIPTS_DIR.parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from transcript_constraints import (  # noqa: E402
+    TRANSCRIPT_CEILING,
+    TRANSCRIPT_FLOOR,
+    TRANSCRIPT_TARGET,
+    bullet_labels,
+    candidate_constraint_score,
+    format_episode_budget_ledger,
+    missing_spoken_lanes,
+    segment_overages,
+    selected_model_labels,
+    story_titles_from_show_notes,
+)
+
 DEFAULT_MODEL_SPEC = (
     os.environ.get("TRANSCRIPT_MODEL")
     or os.environ.get("TRANSCRIPT_MODELS")
-    # Route order locked 2026-06-29 after EP076 rejection: MiniMax-M3 is the
-    # only model in this fleet that has the right editorial register (concrete,
-    # direct, no drone-cadence, no listener-facing pin advice, no "for builders"
-    # verdict spam). GPT-5.5 reliably produces the rejected pattern; gemini-3
-    # and nemotron truncate at the wrong place. New order:
-    #   tier 1 (voice match):  minimax/MiniMax-M3
-    #   tier 2 (free fallback): google/gemini-3-flash-preview, nvidia/nemotron-3-super-120b-a12b
-    #   tier 3 (final fallback, sometimes drone): openai/gpt-5.5
-    # Removed from the old list: google-2/gemini-2.5-flash (404),
-    # openai/gpt-5.4-mini (connection error), anthropic/claude-sonnet-4-6 (no
-    # API key for this agent).
-    #   tier 4 (added 2026-07-05, EP080 incident): freecall free-model routes —
+    # Route order locked 2026-07-20 (Toby: transcripts were "bland and
+    # terrible" — supersedes the 2026-06-29 MiniMax-M3-first decision below).
+    # openai/gpt-5.6-sol is now the required primary route for EVERY fresh
+    # draft and every revision — Toby wants one consistent voice generating
+    # the show, not whichever route wins the round-robin. Sol was already the
+    # RESCUE_MODEL (see below) and reliably produced clean, on-register
+    # repairs when the ladder exhausted, so promoting it to tier 1 is not a
+    # new bet. The rest of the ladder stays ONLY as a same-morning-outage
+    # safety net — the pipeline must still finish a run if Sol itself is down
+    # or quota'd, but every route below tier 1 is a degraded fallback, not a
+    # co-equal option.
+    #   tier 1 (required, voice-consistent): openai/gpt-5.6-sol
+    #   tier 2 (fallback, prior voice-match pick): minimax/MiniMax-M3
+    #   tier 3 (fallback, free): google/gemini-3-flash-preview, nvidia/nemotron-3-super-120b-a12b
+    #   tier 4 (fallback, historically drone-prone): openai/gpt-5.5
+    #   tier 5 (added 2026-07-05, EP080 incident): freecall free-model routes —
     #   minimax (MiniMax-M2.7, 200k ctx long-form), nvidia (DeepSeek V3.2),
     #   groq (Llama 3.3 70B). These use the OpenClaw freecall runner with its
     #   own key resolution, so they survive a same-day outage of the openclaw
     #   infer providers above. (mistral omitted 2026-07-05: no resolvable key
     #   on this machine — probe `freecall mistral` before re-adding.)
-    #   tier 5 (added 2026-07-04): exo:auto — the local exo cluster ring (this
+    #   tier 6 (added 2026-07-04): exo:auto — the local exo cluster ring (this
     #   Mac + the DGX node, OpenAI-compatible API). Last resort so the morning
     #   still produces a transcript on local weights when every cloud route is
     #   down or quota'd at 6:30 AM.
-    or "minimax/MiniMax-M3,google/gemini-3-flash-preview,nvidia/nemotron-3-super-120b-a12b,openai/gpt-5.5,"
+    or "openai/gpt-5.6-sol,minimax/MiniMax-M3,google/gemini-3-flash-preview,nvidia/nemotron-3-super-120b-a12b,openai/gpt-5.5,"
        "freecall:minimax,freecall:nvidia,freecall:groq,exo:auto"
 )
 
@@ -104,6 +125,7 @@ MAX_LINEAGE_REPAIRS = max(1, int(os.environ.get("TRANSCRIPT_LINEAGE_REPAIRS", "2
 # not apply here; the voice of the draft it repairs is preserved.
 RESCUE_MODEL = os.environ.get("TRANSCRIPT_RESCUE_MODEL", "openai/gpt-5.6-sol").strip()
 RESCUE_ATTEMPTS = max(0, int(os.environ.get("TRANSCRIPT_RESCUE_ATTEMPTS", "3")))
+COMPACTION_MODEL = os.environ.get("TRANSCRIPT_COMPACTION_MODEL", RESCUE_MODEL).strip()
 
 # A route whose drafts keep getting cut off by its output ceiling (missing the
 # closing phrase) is a bad *revision* target even when it is transport-healthy:
@@ -138,20 +160,17 @@ def recent_transcript_excerpt(ep_num: int) -> str:
     return "\n\n".join(excerpts)
 
 
-# Show-notes sections that only serve the researcher/release tooling; the
-# transcript model needs Story Slate + Show Notes (spoken material) + Chapters.
-# Everything else is dead weight that pushed fresh-draft prompts past the
-# MiniMax M3 / Gemini request ceilings once show notes grew past ~70KB
-# (EP082-083, 2026-07-07/08: both routes returned "No text output" on every
-# fresh draft while a tiny probe prompt succeeded — the outage was prompt size).
+# Show-notes sections that only serve the researcher/release tooling. The
+# transcript model also needs Model Discovery, Local LLM Spotlight, GitHub
+# Project Radar, and Extra Research Candidates because full-surface coverage
+# below makes those spoken lanes mandatory. EP084 exposed the contradiction:
+# dropping the required sections produced a 4,815-word draft that passed the
+# generic QC checks while omitting every one of those lanes.
 _PROMPT_DROP_SECTIONS = (
-    "Model Discovery Check",
-    "Local LLM Spotlight",
-    "GitHub Project Radar",
-    "Extra Research Candidates",
     "Primary Links",
     "Release Coverage Check",
     "Harness Version Reference",
+    "Editorial Mix Check",
 )
 # Hard byte budget for the show-notes block of any prompt. 64KB keeps the full
 # assembled prompt comfortably under the ~76KB that last worked on the
@@ -196,6 +215,7 @@ def build_prompt(
     current_transcript: str = "",
 ) -> str:
     ep_str = f"{ep_num:03d}"
+    budget_ledger = format_episode_budget_ledger(show_notes)
     if current_transcript.strip() and len(show_notes) > 24000:
         # Revision prompts embed the full current draft, which already
         # carries every story. Adding the full ~70KB show-notes research on
@@ -247,6 +267,27 @@ Write the complete AgentStack Daily transcript for EP{ep_str} from the approved 
 Return only the transcript markdown. Do not use a code fence. Do not include analysis,
 notes, comments, word counts, metadata footers, or build-process narration.
 
+HOST VOICES (added 2026-07-20 after Toby called the show "bland and terrible" —
+read this first, it governs every line below): NOVA and ALLOY are two co-hosts
+who actually talk to each other, not two narrators taking turns reading a
+report. NOVA is the sharper, faster one — leads with the concrete fact, gets
+impatient with vague hype, throws in a dry aside. ALLOY zooms out, connects a
+story to what came before, and is more willing to call something exciting,
+worrying, or overhyped out loud. They react to each other: surprise,
+skepticism, genuine excitement, the occasional joke, an "okay, that's actually
+wild" or "I don't buy that yet" moment. They build on each other's points,
+push back, and reference something said a couple of stories earlier. Think of
+two people who are genuinely into this stuff comparing notes — like the
+energy of a Moonshots-style tech-optimist conversation — not a briefing
+document split across two voices. Every rule below about facts, numbers,
+attribution, and structure still applies without exception; the personality
+lives entirely in HOW something is said, never in inventing a fact, softening
+a real risk, dropping a required vendor-claim label, or padding with filler.
+Critically: a reaction is delivered as the opening clause of a turn that also
+carries the real content — it never becomes an extra turn by itself. The
+per-story turn cap below is a hard ceiling regardless of how much banter you
+want; fit the personality inside it.
+
 Hard format requirements:
 - Save-ready transcript body for episodes/episode_{ep_str}_transcript.md.
 - Use alternating speaker turns beginning with [NOVA]: and [ALLOY]:.
@@ -258,45 +299,47 @@ Hard format requirements:
 - Do not mention Toby, request feedback, drafting, review, build logs, artifacts, internal tools, or local paths anywhere else.
 - NEVER narrate the episode's own format or editorial construction. Do not use the word "homework", and never say things like "no homework episode today", "this episode", "today's episode", "the model story in this episode", "in this block/segment", "we'll focus on", or otherwise describe how the show is structured or what kind of episode it is. Just deliver the content directly — the listener should never hear the editorial rules we build it under.
 - REQUIRED: within the first 300 words, include one forward-looking line that tells the listener what is coming, anchored on the word "today" or the phrase "you'll hear" (e.g. "Today: <headline one>, <headline two>, and <headline three>."). This is the allowed way to set the agenda — never "this episode" or "today's episode".
-- Word choice: keep the vocabulary on builder workflows — how you use it, in practice, what you get, build/configure/deploy/wire/ship. Minimize the literal words "document(s)", "file(s)", "folder(s)", "copy", "move(d)", "storage", "record(s)" — when mechanics involve them, name the concrete surface instead (config, session, payload, API, schema). QC counts these words and fails drafts that lean on file/document plumbing language.
+- Word choice: prefer people, products, actions, and outcomes. Name a technical surface only when it explains what changed or what someone can build. Define an unfamiliar term immediately in ordinary language; never stack acronyms, internal variable names, formulas, statistical-test names, or benchmark plumbing.
 - Use SHORTENED version numbers when spoken, never full ones. For OpenClaw "v2026.5.28" say "5.28" (month dot day); for Claude Code "2.1.159" say ".159" or "two point one". Never read a full version aloud: not "v2026.5.28", not "2026.5.28", not "2.1.159".
-- Keep the episode focused on concrete AI/agent/model/tooling news, mechanisms, releases, repos, workflows, and why they matter.
-- LENGTH BAND (locked 2026-07-04, EP079 rejection): the floor IS back. Target 4,800-5,200 words to land the show at 30+ minutes, hard ceiling 5,400 words. EP076 (2026-06-29) said "I don't have a floor anymore ... add more stories" and the floor was dropped; EP079 came in at 2,898 words / 19 minutes and Toby rejected it as "unacceptable to deliver." History: EP072 at 8,052 words / 55 min was rejected as drone — DO NOT regress to that. The new range (4,800-5,400) sits below the drone ceiling and above the floor, and is calibrated against EP071 v3 (the 30-minute approval benchmark) and EP075 recovery. If you are short, deepen model/capability stories with concrete mechanisms, benchmark numbers, and integration patterns — never by adding procedural/tests/checklist material. If you are long, cut repeated closing summaries and operational slog. Never extend past 5,400.
-- CRITICAL STORY-LEVEL RULE: each story segment uses at most 4 NOVA/ALLOY turns before [PAUSE]. The pattern NOVA-news → ALLOY-implication → NOVA-deeper → ALLOY-builder-relevance → [PAUSE] is the two-voice exposition loop; do not repeat the same opening verb phrase across consecutive stories. Vary the arc per story: NOVA-hard-news → ALLOY-one-implication → NOVA-quick-context → ALLOY-bullet-risk; or ALLOY-news → NOVA-mechanism → ALLOY-bullet-risk → NOVA-watch-next; or a single NOVA monologue for short items.
-- HARD WORD BUDGET per story (TTS-spoken body between two [PAUSE] tags, excluding the segment label): 270-320 words target for non-release stories, 350-420 words target for release stories. Anything under 270 (or 350 for release) gets the episode rejected as too short — locked 2026-07-04, EP079 (19-min / 2,898-word rejection). Anything over 320 / 480 is the drone pattern from EP072 — also rejected. Hit the band: dense paragraphs, two concrete mechanisms per story, but no padding filler or repeated closing summaries.
-- If reviewer feedback says the episode is "too long", "too much homework", "do this then do that", or "boring drone", the fix is structural surgery on the slate and transcript, not light phrase cleanup. Cut procedural/test/checklist content and front-loaded operational slog. Replace removed content with a tight 270-320 word block (350-420 for release stories), not with more material.
-- If reviewer feedback says the episode is "too short" / "needs way more news" / "should be 30 minutes" / "unacceptable length" (locked 2026-07-04, EP079), the fix is to ADD stories to the numbered slate (target 14, not 10) and DEEPEN each story segment to the 270-320 word band — never to lower the floor, never to drop coverage of radar / spotlight / extras. Hit the band, not the floor.
-- Do not make the episode feel like homework. Avoid repeated "run this test", "here is the checklist", "recommended test", or "try this drill" framing. Use checks sparingly only where they explain real migration risk or observed breakage. For model releases, prioritize capabilities, improvement size, real-world reaction, what people are doing with it, and where vendor claims still need independent confirmation.
+- Keep the episode focused on actual AI/agent/model/tooling news: concrete specifications, shipped capabilities, mechanisms, benchmark results, releases, repos, and what changed. Explain unfamiliar terms once in plain English. Do not replace substance with jargon.
+- HARD LENGTH BAND: {TRANSCRIPT_FLOOR:,}-{TRANSCRIPT_CEILING:,} words. Draft toward 4,900-5,250 words (computed target about {TRANSCRIPT_TARGET:,}) so revisions retain a safety buffer. EP079 at 2,898 words was rejected as too short; EP072 at 8,052 words was rejected as a drone. Never cross either hard boundary. If short, deepen source-grounded real uses, named deployments, human stakes, market context, useful comparisons, and clearly attributed results. Do not pad with research methodology, benchmark sub-scores, mechanism inventories, test plans, checklists, drills, or operator filler. If long, cut repeated implications, procedural advice, jargon, and closing summaries before cutting substantive facts.
+- CRITICAL STORY-LEVEL RULE: each story segment uses at most 4 NOVA/ALLOY turns before [PAUSE] — this is a HARD ceiling, not 4 exchanges plus extra reaction turns. A reaction is NEVER its own turn: it is always the opening clause of a turn that also carries real content, e.g. "[ALLOY]: Wait, seriously — three dollars a million tokens? K2.6 was ninety-five cents. That's the real story here: ..." is ONE turn, not two. If you want back-and-forth, make it read like back-and-forth within those 4 turns, not four mini-paragraphs stapled together. Do not repeat the same opening verb phrase, the same fact→implication→context→relevance recipe, or the same emotional register across consecutive stories — rotate: some stories open on a reaction, some on a blunt claim, some on a question one host throws at the other, some on the news straight. Example arcs (rotate between these, never lock onto one, and never exceed 4 turns): NOVA-hard-news → ALLOY-reaction-plus-implication → NOVA-pushback-or-context → ALLOY-bullet-risk; or ALLOY-blunt-opinion-leading-into-the-news → NOVA-the-actual-news → ALLOY-follow-up-question → NOVA-answer; or a single NOVA monologue (1-2 turns) with one ALLOY reaction-plus-point turn for short items. At least a third of the numbered stories need one clear moment of a host reacting to, building on, or lightly disagreeing with the other, folded into an existing turn — not a fifth turn and not two solo explanations stacked back to back.
+- HARD WORD BUDGET per story is supplied in the computed ledger below. Only an agent-harness release-readout title gets the release allowance. A heading beginning "Research digest:" is 130-180 words with a 190-word ceiling. Other papers, models, products, benchmarks, and datasets are non-release and may never exceed 320 words. The global 4,800-word floor applies to the complete show; do not inflate every story to an imagined local floor.
+- If reviewer feedback says the episode is "too long", "too much homework", "do this then do that", "too technical", or "boring drone", cut procedural/testing/checklist material, repeated implications, and unexplained jargon. Preserve the concrete specification, shipped capability, mechanism, benchmark result, and actual news in each story.
+- If reviewer feedback says the episode is too short, deepen source-grounded real-world builds, adoption, consequences, comparisons, and actual news within the ledger. Never lengthen a research digest or fill time with methods, tests, validation plans, drills, checklists, setup recipes, or generic operator advice; never drop radar / model discovery / spotlight / extras.
+- Do not make the episode feel like homework. A test is mentionable only when its observed result is itself news. Never prescribe "run this test", "validate this", "here is the checklist", "recommended test", "try this drill", golden-test plans, evaluation procedures, or step-by-step operator workflows. For models and tools, prioritize specifications, capabilities, mechanism, measured improvement, real-world use, and clearly labeled vendor claims.
 - If the show notes contain user feedback that a prior draft felt like "do this, then do that" homework, rebuild the structure from scratch. The episode should feel informational and opinionated, not like a migration checklist. Keep the agent-harness coverage concise and informational — do not spend the first 20 minutes on operational validation/tests.
 - Do not pad the ending with repeated summaries, repeated "one extra detail" blocks, or near-identical practical-move paragraphs. Every paragraph must advance the episode.
 - CLI/agent release coverage = released stable tags ONLY. Do not narrate dist-tags like "npm latest" vs the Anthropic "stable" channel, do not compare "received via update" vs "latest available," and do not frame a story around a package bump or a channel republish. If the only news for a CLI is a dist-tag republish, it is not a story — drop it or skip the segment. Spoken transcript must never say "npm latest" or "received via update" or "latest versus received" for any CLI/agent release.
 - HARD: NEVER say that a harness (OpenClaw, Hermes, Codex, Claude Code, Antigravity) had no release, no update, no changes, "remains at" a version, "held steady", or "didn't ship" this cycle. Harnesses that did not ship are simply not mentioned in release coverage — silence, not a roll call. Only name a harness in release context when it actually shipped.
 - Claude Code is a terminal-based AI coding agent. Refer to it in the spoken intro and in any segment about it as "the terminal-based AI coding agent Claude Code" (or equivalent — the words "terminal-based" + "AI coding agent" must appear together the first time it is named per episode). Codex CLI / rust-v0.138.0 is similarly a terminal-based coding agent — say so the first time it is named. Do not introduce either product as a bare "CLI" without that framing.
 
-REQUIRED STRUCTURE — the episode must ALWAYS start with the agent-harness updates, then move to model/other stories (follow this exact order):
-1. Opening hook (~150-200 words, before the first timestamped segment): in the first two sentences, name the agent-harness release(s) in SHORTENED form (e.g. OpenClaw "5.28", Claude Code ".159", never "v2026.5.28") and state at least two concrete changes using verbs like added/fixed/tightened/introduced, naming concrete surfaces (sessions, plugins, auth, browser, cron, provider, etc.). No abstract "today we connect the dots" framing.
-2. First timestamped segment(s) = the agent-harness updates — OpenClaw, OpenAI Codex, Claude Code CLI, and Hermes Agent wherever they changed this cycle. This is ALWAYS the front of the episode. Deliver it as INFORMATIONAL news: what changed, what it provides, how you actually use it, and real-world reactions/breakage — NOT a list of "run this test, then run that." Keep it concise and dense; do not let it sprawl into operational validation.
-3. After the harness updates, cover the flagship model story (the biggest model drop in the show notes, e.g. MiniMax M3) and then the other slate stories in show-note order — same informational depth: what it is, how you use it, what it provides, who is using it and how it is landing, and where vendor claims still need confirmation.
-4. The agent-harness updates lead; the model/news stories follow. Never open the episode on a non-harness story.
+REQUIRED STRUCTURE — follow the show-note order exactly:
+1. Opening hook (~150-200 words, before the first timestamped segment): lead with the biggest concrete change and at least two examples of what people are building or doing with today's technology. Open like two people who just sat down with something to say — a genuine reaction to the single biggest thing, not a neutral summary paragraph. No abstract "today we connect the dots" framing.
+2. If the show notes contain an agent-harness release readout, it leads and names only the harnesses that actually shipped. If there is no release readout, do not invent one or mention unchanged harnesses; lead with Story 1.
+3. Cover every numbered story in show-note order. Flagship/product and builder stories carry the runtime through real uses, measured outcomes, clearly attributed claims, and what changes next. Research digests stay brief and plain.
 - HARD: the spoken transcript must name every covered release in SHORTENED form (e.g. "5.28") within the first 320 words — never the full "v2026.5.28".
 - HARD: floor 4,800 words (30-minute target); ceiling 5,400 words (drone ceiling). Both enforced by check_episode.py. EP072 at 8,052 words was rejected as drone; EP079 at 2,898 words was rejected as too short.
 - HARD: end with the show-notes CTA and the EXACT phrase "We'll be back soon." Never "we'll be back next week".
 - HARD: never write the words "story slate" or "show notes block" in the spoken transcript, and never write a full version like "2.1.159" or "v2026.5.28" — use the shortened spoken form (".159", "5.28").
 - EDITORIAL REGISTER (locked 2026-06-29, EP076 rejection): write concrete facts and direct observations. Avoid abstract-noun framings like "The X is the Y" / "the signal is" / "the pattern is" / "the mechanism is" / "the architecture is" / "the strategic read is" / "the practical read is" / "the failure mode is" / "the bottleneck is" / "the risk is" / "the builder relevance is" — use them sparingly (no more than 4 times in one segment, 10 times across the whole episode). If a sentence could start with "This is the X," rewrite it as a concrete observation. Never open with "Today, the X is the Y" — open with the news itself. Do not write listener-facing pin/version-target/back-merge advice (no "you should pin", no "as a target version"). Avoid "for builders" verdicts stacked at the end of paragraphs — write one concrete takeaway per story, not a checklist.
+- HUMAN DELIVERY (added 2026-07-20, fixes the "bland and terrible" feedback): write the way these two would actually talk, not the way a research memo reads. Use contractions ("it's", "that's", "they're", "won't") — a transcript with almost none of them reads like a report, not a conversation. Vary sentence length hard: mix short punchy lines ("That's a big jump." "Not cheap.") with longer explanatory ones. When a claim needs a skepticism label (vendor benchmark, unverified result, early numbers), deliver it as an opinion in the host's own voice — e.g. "that number's straight from Moonshot, so it's a claim until someone outside the company reproduces it," never the flatter "those vendor results remain claims until independently reproduced." Never stack more than one hedge/caveat clause in the same sentence. Every story needs at least one line that sounds like a real reaction — surprise, a joke, genuine excitement, calling something overhyped or underhyped — not only measured analysis. Have a host ask the listener a direct question at least twice across the episode. None of this is permission to invent an opinion the show notes don't support, soften a real risk, drop a required attribution, or pad with filler — it changes delivery, never substance.
 
 REQUIRED FULL-SURFACE COVERAGE (locked 2026-06-18, EP072 round 3 — Toby: "you're missing the GitHub projects and all of that stuff that's in the show notes"): the transcript must cover EVERY required show-notes section, not just the 10-story numbered slate. After the slate stories, add spoken segments in this order:
 
-  a. **GitHub Project Radar segment** — at minimum 3 repos from the show notes' GitHub Project Radar. One short segment per repo, each ≤320 words, naming the repo, what it does, the headline mechanism, and a concrete integration angle. Total radar block ≤720 words.
+   a. **GitHub Project Radar segment** — at minimum 3 repos from the show notes' GitHub Project Radar. Give each repo a compact beat with its name, what it does, star count, one traction signal, headline mechanism, and integration angle. Follow the computed ledger; this is not three full-size story segments.
 
-  b. **Model Discovery Check segment** — every model marked "Selected" in the show notes' Model Discovery Check gets its own short spoken beat (≤200 words each). NEVER mention "Not Selected" entries, absent releases, lack of frontier models, lack of model drops, or how the model-discovery section was made. If there is no strong selected model, omit the segment from audio.
+   b. **Model Discovery Check segment** — the heading is always required. Every model marked "Selected" gets a 50-80 word concrete beat. When none is selected, give one short natural market read about where model progress did land, such as serving, evaluation results, or domain adaptation. Do not say "none selected", narrate scanning/candidates/research/build process, or pad it into a release roll call.
 
-  c. **Local LLM Spotlight segment** — one short segment (≤200 words) on the spotlighted model with the practical "Try now" angle from the show notes.
+   c. **Local LLM Spotlight segment** — one short segment within the computed ledger on the spotlighted model's specifications, shipped capabilities, and practical use. Do not turn the "Try now" source note into a listener test plan.
 
-  d. **Extra Research Candidates segment** — three short segments (one per extra), each ≤200 words, drawn from the show notes' Extra Research Candidates block. If the show lands under 30 minutes after the rest of the script is built, expand each extra to a non-release slate story (≤320 words). If the show lands over 30 minutes, summarize as one tight beat naming each extra in one line.
+   d. **Extra Research Candidates segment** — one compact combined beat naming all three extras, each headline finding, and why it matters in plain English. Follow the computed total cap; do not create three additional paper reviews or narrate methodology.
 
   e. **Practical queue** — one line per major thread, no checklist, no repeated summaries.
 
 Treat the show notes as the source of truth for what must be spoken. Skipping any of the above is a hard QC failure.
+
+{budget_ledger}
 
 Approved show notes are the source of truth:
 --- SHOW NOTES START ---
@@ -538,6 +581,156 @@ def basic_shape_check(text: str, ep_num: int) -> None:
         raise RuntimeError("Generated transcript contains internal path/build-log language")
 
 
+def failed_check_count(fail_lines: list[str]) -> int:
+    """Count failed QC checks, not their paired hint lines."""
+    count = sum("❌" in line for line in fail_lines)
+    return count or len(fail_lines)
+
+
+def needs_length_compaction(fail_lines: list[str], transcript: str = "") -> bool:
+    """Return whether one no-expansion compaction can satisfy the length gates.
+
+    A global-ceiling failure is always eligible. A per-story-only failure is
+    eligible only when removing every measured segment overage still leaves the
+    complete draft at or above the 4,800-word floor. Below-floor drafts need a
+    redistribution/expansion repair instead of consuming the one compaction.
+    """
+    joined = "\n".join(fail_lines).lower()
+    if "hard ceiling" in joined:
+        return True
+    if "per-story word budget" not in joined or not transcript:
+        return False
+    words = len(transcript.split())
+    required_cut = sum(item["overage"] for item in segment_overages(transcript))
+    return required_cut > 0 and words - required_cut >= TRANSCRIPT_FLOOR
+
+
+def build_length_compaction_prompt(
+    transcript: str,
+    show_notes: str,
+    fail_lines: list[str],
+) -> str:
+    """Build the single, bounded length-only repair request.
+
+    This intentionally does not use the generic regeneration prompt: a
+    compaction pass must not reinterpret the slate or expand another section.
+    """
+    ledger = format_episode_budget_ledger(show_notes)
+    overages = segment_overages(transcript)
+    overage_lines = [
+        f"- {item['title']}: {item['words']} words; hard cap {item['ceiling']}; "
+        f"remove at least {item['overage']} words."
+        for item in overages
+    ] or ["- The complete transcript exceeds its hard global ceiling."]
+    length_feedback = "\n".join(
+        line for line in fail_lines
+        if "hard ceiling" in line.lower()
+        or "per-story word budget" in line.lower()
+        or "over budget:" in line.lower()
+        or "hard cap" in line.lower()
+    )
+    return f"""LENGTH-ONLY COMPACTION. Return only the corrected FULL transcript markdown.
+
+The draft is structurally complete but too long. Compress it once; do not
+redraft, expand, add a new angle, or narrate this repair.
+
+Immutable preservation rules:
+- Copy every markdown heading verbatim and keep the exact heading order.
+- Preserve every source-grounded claim, proper name, benchmark number, version,
+  specification, capability, and mechanism already present. Keep numeric tokens
+  exactly; compress surrounding prose instead.
+- Preserve all required spoken lanes, both [NOVA]: and [ALLOY]: speakers,
+  [PAUSE] pacing, the site CTA, and the exact closing phrase.
+- Remove repeated implications, test/checklist/drill/evaluation-process prose,
+  step-by-step operator advice, setup recipes, and unexplained jargon before
+  cutting concrete news or technical substance.
+- Do not introduce facts, headings, tests, recommendations, meta commentary,
+  word-count notes, URLs, or production language.
+- Final total must be {TRANSCRIPT_FLOOR:,}-{TRANSCRIPT_CEILING:,} words; target
+  4,900-5,250 words. Every section must obey the computed ledger.
+
+OVERLONG BLOCKS:
+{chr(10).join(overage_lines)}
+
+QC LENGTH FEEDBACK:
+{length_feedback or 'Compress to the hard global and per-segment caps.'}
+
+{ledger}
+
+--- TRANSCRIPT TO COMPACT ---
+{transcript.strip()}
+--- END TRANSCRIPT ---"""
+
+
+def _markdown_headings(text: str) -> list[str]:
+    return [line.rstrip() for line in text.splitlines()
+            if re.match(r"^#{1,3}\s+\S", line)]
+
+
+def _fact_number_counts(text: str) -> Counter[str]:
+    # Preserve numeric facts exactly. Timestamps/headline numbers are harmless
+    # members of the counter because headings are independently required
+    # verbatim. Occurrence counts matter when two distinct facts share a value.
+    return Counter(re.findall(r"(?<![A-Za-z])\d+(?:[.,]\d+)*(?:%|[KMB])?", text))
+
+
+def _label_is_spoken(label: str, text: str) -> bool:
+    compact_text = re.sub(r"[^a-z0-9]+", "", text.lower())
+    candidates = [label]
+    if "/" in label:
+        candidates.append(label.rsplit("/", 1)[-1])
+    if ":" in label:
+        candidates.append(label.split(":", 1)[0])
+    words = re.findall(r"[A-Za-z0-9]+", label)
+    if len(words) >= 4:
+        candidates.append(" ".join(words[:4]))
+    return any(
+        len(compact := re.sub(r"[^a-z0-9]+", "", candidate.lower())) >= 5
+        and compact in compact_text
+        for candidate in candidates
+    )
+
+
+def validate_length_compaction(
+    original: str,
+    candidate: str,
+    show_notes: str,
+) -> list[str]:
+    """Reject a compaction that drops structure or source-grounded anchors."""
+    errors: list[str] = []
+    if _markdown_headings(candidate) != _markdown_headings(original):
+        errors.append("markdown headings/order changed")
+
+    missing_number_counts = _fact_number_counts(original) - _fact_number_counts(candidate)
+    missing_numbers = [
+        f"{token} x{count}" if count > 1 else token
+        for token, count in sorted(missing_number_counts.items())
+    ]
+    if missing_numbers:
+        errors.append(f"numeric facts removed: {missing_numbers[:12]}")
+
+    labels = story_titles_from_show_notes(show_notes)
+    for heading in ("GitHub Project Radar", "Local LLM Spotlight",
+                    "Extra Research Candidates"):
+        labels.extend(bullet_labels(show_notes, heading))
+    labels.extend(selected_model_labels(show_notes))
+    lost_labels = [label for label in labels
+                   if _label_is_spoken(label, original)
+                   and not _label_is_spoken(label, candidate)]
+    if lost_labels:
+        errors.append(f"named facts removed: {lost_labels[:8]}")
+
+    for speaker in ("[NOVA]:", "[ALLOY]:"):
+        if speaker in original and speaker not in candidate:
+            errors.append(f"speaker removed: {speaker}")
+    original_missing = set(missing_spoken_lanes(original, show_notes))
+    newly_missing = [lane for lane in missing_spoken_lanes(candidate, show_notes)
+                     if lane not in original_missing]
+    if newly_missing:
+        errors.append(f"spoken lanes removed: {newly_missing}")
+    return errors
+
+
 def _first_product_mention_is_framed(text: str, product_pattern: str) -> bool:
     match = re.search(product_pattern, text, re.IGNORECASE)
     if not match:
@@ -725,7 +918,9 @@ def main() -> int:
     # same blip before counting it as strike 1.
     strikes: dict[str, int] = {}
     DEMOTE_AT = 2
-    VOICE_MATCH_TIER = {"minimax/MiniMax-M3"}  # add future voice-match models here
+    # 2026-07-20: gpt-5.6-sol is the required tier-1 route (voice consistency);
+    # MiniMax-M3 stays listed as the prior voice-match fallback.
+    VOICE_MATCH_TIER = {"openai/gpt-5.6-sol", "minimax/MiniMax-M3"}
     blip_retries: dict[str, int] = {}  # blip-retry budget per model, separate from strikes
     BLIP_RETRY_BUDGET = 2  # up to 2 inline retries on the same blip before counting a strike
     blip_backoff = 6  # seconds; doubles each retry
@@ -750,6 +945,12 @@ def main() -> int:
     best_text = ""
     best_feedback = ""
     best_fail_count: int | None = None
+    best_score: int | None = None
+    best_metrics: dict[str, int] = {}
+    # Exactly one length-only compaction route is available per run. It fires
+    # on the first global/per-segment length rejection, then the ordinary repair
+    # and rescue budgets remain bounded as before.
+    length_compaction_attempted = False
     # Per-lineage repair tracking: a draft that keeps failing QC after
     # MAX_LINEAGE_REPAIRS revision passes is abandoned, and the next loop
     # iteration drafts fresh from the next route in the rotation (mi already
@@ -899,19 +1100,80 @@ def main() -> int:
             print(f"[EP{ep_str}] Transcript written: {transcript_path} ({label})", flush=True)
             return 0
 
+        if (not length_compaction_attempted and COMPACTION_MODEL
+                and needs_length_compaction(fail_lines, text)):
+            length_compaction_attempted = True
+            compact_label = f"length-only compaction via {COMPACTION_MODEL}"
+            print(f"[EP{ep_str}] {label}: length gate failed — attempting one bounded "
+                  f"{compact_label}.", flush=True)
+            try:
+                compacted_raw = run_model(
+                    build_length_compaction_prompt(text, show_notes, fail_lines),
+                    COMPACTION_MODEL,
+                    args.timeout,
+                )
+                preservation_errors = validate_length_compaction(
+                    text, compacted_raw, show_notes,
+                )
+                if preservation_errors:
+                    raise RuntimeError("; ".join(preservation_errors))
+                compacted, compact_fixes = apply_deterministic_qc_repairs(compacted_raw)
+                basic_shape_check(compacted, ep_num)
+                compact_tmp, compact_rc, compact_fail_lines = run_qc(
+                    compacted, transcript_path, ep_str,
+                )
+                if compact_rc == 0:
+                    tmp_path.unlink(missing_ok=True)
+                    compact_tmp.replace(transcript_path)
+                    print(f"[EP{ep_str}] Transcript written: {transcript_path} "
+                          f"({compact_label})", flush=True)
+                    return 0
+
+                original_score, original_metrics = candidate_constraint_score(
+                    text, show_notes, failed_check_count(fail_lines),
+                )
+                compact_score, compact_metrics = candidate_constraint_score(
+                    compacted, show_notes, failed_check_count(compact_fail_lines),
+                )
+                if compact_score < original_score:
+                    tmp_path.unlink(missing_ok=True)
+                    text = compacted
+                    tmp_path = compact_tmp
+                    fail_lines = compact_fail_lines
+                    print(f"[EP{ep_str}] {compact_label} improved repair score "
+                          f"{original_score}→{compact_score}; keeping compacted draft "
+                          f"({compact_metrics}).", flush=True)
+                else:
+                    compact_tmp.unlink(missing_ok=True)
+                    print(f"[EP{ep_str}] {compact_label} did not improve repair score "
+                          f"{original_score} ({original_metrics}) vs {compact_score} "
+                          f"({compact_metrics}); keeping original draft.", flush=True)
+            except RuntimeError as exc:
+                print(f"[EP{ep_str}] {compact_label} rejected without replacing the "
+                      f"draft: {str(exc)[:240]}", flush=True)
+
         # QC rejected the draft — hand the model its OWN failed draft to revise
         # (targeted edits keep what already passed) and consume one QC repair.
         repair_feedback = "\n".join(fail_lines).strip()
         current_transcript = text
         # Keep the best draft across all lineages for the rescue stage: the
-        # last draft is often a regression (EP084 oscillated 3→10→5→15 errors),
-        # so "fewest failed checks" is the draft worth repairing.
-        if best_fail_count is None or len(fail_lines) < best_fail_count:
-            best_fail_count = len(fail_lines)
+        # last draft is often a regression (EP084 oscillated 3→10→5→15 errors).
+        # Rank candidates by actual global/per-segment word distance, missing
+        # spoken lanes, and remaining failed checks—not failed output-line count.
+        current_fail_count = failed_check_count(fail_lines)
+        current_score, current_metrics = candidate_constraint_score(
+            text, show_notes, current_fail_count,
+        )
+        if best_score is None or current_score < best_score:
+            best_score = current_score
+            best_metrics = current_metrics
+            best_fail_count = current_fail_count
             best_text = text
             best_feedback = repair_feedback
             (transcript_path.parent / f".episode_{ep_str}_transcript.rejected.best.tmp"
              ).write_text(text, encoding="utf-8")
+            print(f"[EP{ep_str}] best rejected draft updated: score={best_score}, "
+                  f"metrics={best_metrics}.", flush=True)
         # QC repairs are NOT reviewer-audio revisions. Keep them in the
         # automated-QC repair channel only. EP083 (2026-07-08) regressed here:
         # after the first QC failure we synthesized listener_feedback, which
@@ -921,8 +1183,9 @@ def main() -> int:
         # analysis and never recovered. repair_feedback + current_transcript are
         # sufficient for targeted QC repair.
         qc_repairs += 1
-        improving = lineage_prev_fails is not None and len(fail_lines) < lineage_prev_fails
-        lineage_prev_fails = len(fail_lines)
+        improving = (lineage_prev_fails is not None
+                     and current_fail_count < lineage_prev_fails)
+        lineage_prev_fails = current_fail_count
         if improving:
             lineage_repairs = 0
             print(f"[EP{ep_str}] lineage error count is shrinking — keeping this "
@@ -933,7 +1196,7 @@ def main() -> int:
         tmp_path.replace(rejected_path)
         last_tmp_path = rejected_path
         print(f"[EP{ep_str}] {label} failed check_episode.py; will revise to fix "
-              f"{len(fail_lines)} issue(s) and retry.", flush=True)
+              f"{current_fail_count} check(s) and retry.", flush=True)
         abandon_lineage_if_exhausted()
 
     # ── Rescue stage ──────────────────────────────────────────────────────
@@ -948,7 +1211,7 @@ def main() -> int:
               f"{route_tries} route tries; dead: {sorted(dead) or 'none'}) — "
               f"entering rescue stage via {RESCUE_MODEL} (≤{RESCUE_ATTEMPTS} attempts; "
               f"best prior draft: "
-              f"{'none' if best_fail_count is None else f'{best_fail_count} failed check(s)'}).",
+              f"{'none' if best_fail_count is None else f'{best_fail_count} failed check(s), score={best_score}, metrics={best_metrics}'}).",
               flush=True)
         for attempt in range(1, RESCUE_ATTEMPTS + 1):
             label = f"rescue attempt {attempt}/{RESCUE_ATTEMPTS} via {RESCUE_MODEL}"

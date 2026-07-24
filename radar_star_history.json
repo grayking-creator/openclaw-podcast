@@ -1,0 +1,110 @@
+{
+  "CoplayDev/unity-mcp": [
+    {
+      "episode": 89,
+      "observed_at": "2026-07-19T10:36:48.269979+00:00",
+      "stars": 12645
+    }
+  ],
+  "DeusData/codebase-memory-mcp": [
+    {
+      "episode": 85,
+      "observed_at": "2026-07-13T10:30:13+00:00",
+      "stars": 30854
+    },
+    {
+      "episode": 86,
+      "observed_at": "2026-07-14T11:00:23.243594+00:00",
+      "stars": 31313
+    },
+    {
+      "episode": 87,
+      "observed_at": "2026-07-15T10:23:59.298390+00:00",
+      "stars": 31667
+    },
+    {
+      "episode": 92,
+      "observed_at": "2026-07-24T11:39:08.912614+00:00",
+      "stars": 34747
+    }
+  ],
+  "PrefectHQ/fastmcp": [
+    {
+      "episode": 85,
+      "observed_at": "2026-07-13T10:30:13+00:00",
+      "stars": 26168
+    },
+    {
+      "episode": 86,
+      "observed_at": "2026-07-14T11:00:23.243594+00:00",
+      "stars": 26195
+    },
+    {
+      "episode": 87,
+      "observed_at": "2026-07-15T10:23:59.298390+00:00",
+      "stars": 26214
+    },
+    {
+      "episode": 92,
+      "observed_at": "2026-07-24T11:39:08.912614+00:00",
+      "stars": 26811
+    }
+  ],
+  "Upsonic/Upsonic": [
+    {
+      "episode": 89,
+      "observed_at": "2026-07-19T10:36:48.269979+00:00",
+      "stars": 7915
+    }
+  ],
+  "exa-labs/exa-mcp-server": [
+    {
+      "episode": 84,
+      "observed_at": "2026-07-10T13:42:59+00:00",
+      "stars": 4689
+    }
+  ],
+  "getsentry/XcodeBuildMCP": [
+    {
+      "episode": 84,
+      "observed_at": "2026-07-10T13:42:59+00:00",
+      "stars": 6056
+    }
+  ],
+  "lastmile-ai/mcp-agent": [
+    {
+      "episode": 89,
+      "observed_at": "2026-07-19T10:36:48.269979+00:00",
+      "stars": 8430
+    }
+  ],
+  "microsoft/mcp-for-beginners": [
+    {
+      "episode": 85,
+      "observed_at": "2026-07-13T10:30:13+00:00",
+      "stars": 16742
+    },
+    {
+      "episode": 86,
+      "observed_at": "2026-07-14T11:00:23.243594+00:00",
+      "stars": 16752
+    },
+    {
+      "episode": 87,
+      "observed_at": "2026-07-15T10:23:59.298390+00:00",
+      "stars": 16756
+    },
+    {
+      "episode": 92,
+      "observed_at": "2026-07-24T11:39:08.912614+00:00",
+      "stars": 16826
+    }
+  ],
+  "the-open-agent/openagent": [
+    {
+      "episode": 84,
+      "observed_at": "2026-07-10T13:42:59+00:00",
+      "stars": 5376
+    }
+  ]
+}

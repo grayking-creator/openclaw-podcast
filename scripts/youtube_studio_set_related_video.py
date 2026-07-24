@@ -459,15 +459,19 @@ def set_related_video(
     *,
     profile_directory: str = "",
     open_fresh_window: bool = False,
+    page_already_open: bool = False,
     close_window_on_success: bool = True,
 ) -> None:
     print(f"{short_video_id}: opening Studio edit page", flush=True)
     url = f"https://studio.youtube.com/video/{short_video_id}/edit"
-    if open_fresh_window and profile_directory:
+    if page_already_open:
+        pass
+    elif open_fresh_window and profile_directory:
         launch_chrome(profile_directory, url, relaunch=False)
     else:
         chrome_navigate(url, profile_directory=profile_directory)
-    time.sleep(8.0)
+    if not page_already_open:
+        time.sleep(8.0)
     ensure_page_ready(short_video_id)
     current = related_video_label(related_title)
     if current == related_title:
@@ -521,8 +525,13 @@ def main() -> int:
     first_url = f"https://studio.youtube.com/video/{first_short}/edit"
     launch_chrome(profile_directory, first_url, relaunch=args.relaunch_chrome)
     time.sleep(8.0)
+    first_page_ready_js = f"""(() => {{
+        return location.href.includes({json.dumps(f'/video/{first_short}/edit')}) && document.body
+          ? 'BODY'
+          : '';
+    }})()"""
     try:
-        wait_for("""(() => document.body ? 'BODY' : '')()""", timeout_s=15.0)
+        wait_for(first_page_ready_js, timeout_s=15.0)
     except Exception as exc:
         print(
             f"Initial Chrome readiness check failed ({exc}); opening a fresh Studio window and retrying",
@@ -531,23 +540,23 @@ def main() -> int:
         )
         launch_chrome(profile_directory, first_url, relaunch=False)
         time.sleep(8.0)
-        wait_for("""(() => document.body ? 'BODY' : '')()""", timeout_s=20.0)
+        wait_for(first_page_ready_js, timeout_s=20.0)
 
     errors = []
-    needs_fresh_window = False
-    for raw_pair in args.pair:
+    short_ids = []
+    for pair_index, raw_pair in enumerate(args.pair):
         short_id, related_id, related_title = raw_pair.split(":", 2)
+        short_ids.append(short_id)
         try:
             set_related_video(
                 short_id,
                 related_id,
                 related_title,
                 profile_directory=profile_directory,
-                open_fresh_window=needs_fresh_window,
-                close_window_on_success=not args.keep_window_open,
+                open_fresh_window=False,
+                page_already_open=pair_index == 0,
+                close_window_on_success=False,
             )
-            if not args.keep_window_open:
-                needs_fresh_window = True
         except Exception as exc:
             try:
                 close_related_video_picker()
@@ -559,6 +568,10 @@ def main() -> int:
                 flush=True,
             )
             errors.append(short_id)
+
+    if not args.keep_window_open:
+        for short_id in short_ids:
+            close_studio_window(short_id)
 
     return 1 if errors else 0
 

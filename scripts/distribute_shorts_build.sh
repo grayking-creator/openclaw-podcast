@@ -10,6 +10,10 @@ set -Eeuo pipefail
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 PODCAST_DIR="$(dirname "$SCRIPTS_DIR")"
 STAGING_ROOT="$PODCAST_DIR/content_staging/shorts"
+mkdir -p "$STAGING_ROOT"
+echo "[$(date)] AgentStack Shorts disabled by policy; no build attempted" >> "$STAGING_ROOT/distribute_build.log"
+exit 0
+
 MEDIA_EN_AUDIO_DIR="$HOME/.openclaw/workspace/openclaw-podcast-media-en/audio"
 CDN_AUDIO_DIR="$HOME/.openclaw/workspace/openclaw-podcast-audio/audio"
 LOCAL_AUDIO_DIR="$PODCAST_DIR/audio"

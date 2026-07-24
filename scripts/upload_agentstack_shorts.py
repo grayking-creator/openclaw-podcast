@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """AgentStack Daily Shorts — scheduled uploader.
 
-Uploads rendered short MP4s from content_staging/shorts/ to the AgentStack
-Daily / OpenClaw Daily YouTube channels on a 3-per-day follow-up cadence
-(08:00, 14:00, and 20:00 ET).
+Legacy uploader retained only as a fail-closed entry point. AgentStack Daily /
+OpenClaw Daily shorts are disabled by standing policy; no rendered package is
+expected and this script must never upload or alert for missing shorts media.
 
 No manual review gate. Liminal and IronVane use the separate crossfire-series
 shorts_upload.py. This script is AgentStack Daily / OpenClaw Daily only.
@@ -47,6 +47,13 @@ YOUTUBE_CHANNEL_STATE_PATH = SCRIPTS_DIR / "youtube_channel_state.json"
 RELATED_VIDEO_SCRIPT = SCRIPTS_DIR / "youtube_studio_set_related_video.py"
 BUILD_LOG_CHANNEL_ID = "1485243812442804327"
 BUILD_LOG_ERROR_CHANNEL_ID = "1524923755019636948"
+_ERROR_NOTIFICATION_DELIVERED = False
+_ERROR_NOTIFICATION_ATTEMPTS = 0
+_ERROR_NOTIFICATION_FAILURES = 0
+DISABLED_POLICY_MESSAGE = (
+    "AgentStack Shorts disabled by policy; no rendered package is expected "
+    "and no upload was attempted."
+)
 
 # AgentStack/OpenClaw Daily shorts auto-upload covers EN plus translated
 # channels. The day-of-publish catch-up can ship two EN clips; following days
@@ -87,23 +94,39 @@ def _load_env_key(name: str) -> str:
     return os.environ.get(name, "")
 
 
+def _record_error_notification(is_error: bool, delivered: bool) -> None:
+    global _ERROR_NOTIFICATION_ATTEMPTS
+    global _ERROR_NOTIFICATION_FAILURES
+    global _ERROR_NOTIFICATION_DELIVERED
+    if not is_error:
+        return
+    _ERROR_NOTIFICATION_ATTEMPTS += 1
+    if not delivered:
+        _ERROR_NOTIFICATION_FAILURES += 1
+    _ERROR_NOTIFICATION_DELIVERED = (
+        _ERROR_NOTIFICATION_ATTEMPTS > 0 and _ERROR_NOTIFICATION_FAILURES == 0
+    )
+
+
 def discord_build_log(msg: str) -> bool:
+    is_error = any(marker in msg for marker in ("❌", "⚠", "🛑", "🚨", "🔴", "[FAIL]", "[HOLD]"))
     try:
         helper_dir = Path.home() / ".openclaw/workspace/scripts/utils"
         if str(helper_dir) not in sys.path:
             sys.path.insert(0, str(helper_dir))
         from post_build_log import post_build_log as routed_post_build_log
 
-        routed_post_build_log(msg)
+        routed_post_build_log(msg, error=is_error, info=not is_error)
+        _record_error_notification(is_error, True)
         return True
-    except Exception:
+    except (Exception, SystemExit):
         pass
     try:
         token = _load_env_key("DISCORD_BOT_TOKEN")
         if not token:
             print("WARN: DISCORD_BOT_TOKEN missing; Build Log post skipped", file=sys.stderr)
+            _record_error_notification(is_error, False)
             return False
-        is_error = any(marker in msg for marker in ("❌", "⚠", "🛑", "🚨", "🔴", "[FAIL]", "[HOLD]"))
         channel = BUILD_LOG_ERROR_CHANNEL_ID if is_error else BUILD_LOG_CHANNEL_ID
         payload = json.dumps({"content": msg}).encode()
         req = urllib.request.Request(
@@ -119,10 +142,13 @@ def discord_build_log(msg: str) -> bool:
         with urllib.request.urlopen(req, timeout=8) as resp:
             if resp.status not in (200, 201):
                 print(f"WARN: Discord Build Log post returned HTTP {resp.status}", file=sys.stderr)
+                _record_error_notification(is_error, False)
                 return False
+        _record_error_notification(is_error, True)
         return True
     except Exception as exc:
         print(f"WARN: Discord Build Log post failed: {exc}", file=sys.stderr)
+        _record_error_notification(is_error, False)
         return False
 
 
@@ -1013,15 +1039,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["cron", "status"], default="cron")
     parser.add_argument("--catch-up-now", action="store_true", help="Upload the next pending batch immediately.")
-    args = parser.parse_args()
+    parser.parse_args()
 
-    state = load_state()
-
-    if args.mode == "status":
-        run_status(state)
-        return 0
-
-    return run_cron(state, catch_up_now=args.catch_up_now)
+    print(DISABLED_POLICY_MESSAGE)
+    return 0
 
 
 if __name__ == "__main__":

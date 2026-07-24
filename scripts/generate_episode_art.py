@@ -45,7 +45,15 @@ def extract_episode_title(show_notes_text, ep_num):
     if title_match:
         return title_match.group(1).strip()
 
-    heading_match = re.search(rf"^#\s*EP{ep_num:03d}\s*[—-]\s*(.+)$", show_notes_text, re.MULTILINE)
+    inline_match = re.search(r"^\*\*Title:\*\*\s*(.+?)\s*$", show_notes_text, re.MULTILINE)
+    if inline_match:
+        return collapse_ws(inline_match.group(1))
+
+    heading_match = re.search(
+        rf"^#\s*(?:AgentStack Daily\s+)?EP{ep_num:03d}\s*[—-]\s*(.+)$",
+        show_notes_text,
+        re.MULTILINE | re.IGNORECASE,
+    )
     if heading_match:
         return heading_match.group(1).strip()
 
@@ -56,6 +64,9 @@ def extract_tagline(show_notes_text):
     tagline_match = re.search(r"## Tagline\s*\n(.+?)(?=\n## |\Z)", show_notes_text, re.DOTALL)
     if tagline_match:
         return collapse_ws(tagline_match.group(1))
+    inline_match = re.search(r"^\*\*Tagline:\*\*\s*(.+?)\s*$", show_notes_text, re.MULTILINE)
+    if inline_match:
+        return collapse_ws(inline_match.group(1))
     return ""
 
 
@@ -63,9 +74,73 @@ def collapse_ws(text):
     return re.sub(r"\s+", " ", text or "").strip()
 
 
+def art_context_without_episode_branding(show_notes_text, ep_num):
+    """Keep story context while withholding episode/podcast branding from the image model."""
+    cleaned = re.sub(r"^#.*$", "", show_notes_text, count=1, flags=re.MULTILINE)
+    cleaned = re.sub(r"^\*\*(?:Title|Tagline):\*\*.*$", "", cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(rf"\bEP\s*0*{ep_num}\b", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(rf"\bEpisode\s+0*{ep_num}\b", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bAgentStack Daily\b", "", cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
+
+
+def extract_weighted_story_context(show_notes_text, ep_num):
+    """Give the image model the full slate's editorial choices without prompt bloat."""
+    slate = re.search(
+        r"## Story Slate\s*(.+?)(?=\n## (?:Model Discovery|Local LLM|GitHub|Source|Links)|\Z)",
+        show_notes_text,
+        re.DOTALL | re.IGNORECASE,
+    )
+    source = slate.group(1) if slate else show_notes_text
+    entries = re.findall(
+        r"^\d+\.\s+\*\*(.+?)\*\*\s*\n(.+?)(?=^\d+\.\s+\*\*|\Z)",
+        source,
+        re.MULTILINE | re.DOTALL,
+    )
+    if not entries:
+        # No "## Story Slate" match means `source` is the raw show notes text,
+        # which still carries the episode/podcast branding header — strip it.
+        return collapse_ws(art_context_without_episode_branding(source, ep_num))[:6000]
+    briefs = []
+    for index, (heading, body) in enumerate(entries, 1):
+        first_paragraph = re.split(r"\n(?:Technical depth|Actionability|Listener hook)", body, 1)[0]
+        briefs.append(f"Story {index}: {collapse_ws(heading)} — {collapse_ws(first_paragraph)[:420]}")
+    return "\n".join(briefs)[:8000]
+
+
 def derive_visual_anchor_hint(title, tagline, show_notes_text):
     lowered = f"{title} {tagline} {show_notes_text[:1200]}".lower()
 
+    if "kimi k3" in lowered:
+        return (
+            "Start from Kimi K3 as the headline priority, then weigh the full slate for the most "
+            "distinctive supporting visual. Kimi's lunar/crescent identity and the Ternary-Bonsai "
+            "story can form one unusually coherent scene: a monumental artificial moon illuminating "
+            "a compact neural bonsai, with scale contrast suggesting 2.8 trillion parameters versus "
+            "a compressed local model. Treat this as an editorial concept, not a required logo-plus-object collage. "
+            "Do not use a control panel, server rack, circuitry wall, dashboard, gauge, robot, "
+            "glowing mystery core, or other generic AI machinery."
+        )
+    if "gpt-5.6 sol" in lowered and "bonsai 27b" in lowered:
+        return (
+            "Make GPT-5.6 Sol's finished-work capability the dominant subject: show one concrete "
+            "software task moving through tool use into a visibly completed deliverable with a "
+            "clear completion mark. Beside it, show Bonsai 27B running locally on a real smartphone "
+            "with a compact 3.9 GB memory motif, and an AMD desktop workstation with four populated "
+            "memory banks representing 128 GB unified memory. Include a smaller screen-operation cue "
+            "for Gemini 3.5 Flash. Use these literal product mechanisms instead of a glowing core, "
+            "server skyline, power grid, generic dashboard, or abstract data streams."
+        )
+    if "terrazero" in lowered:
+        return (
+            "Build the scene around TerraZero: a clearly recognizable autonomous car learning "
+            "from scratch inside a procedural multi-lane city-driving simulator, with many "
+            "parallel trajectory traces accelerating toward a 1.3-million-steps-per-second "
+            "throughput motif. Integrate PalmClaw as a real smartphone running an on-device agent, "
+            "and visualize Estimate-Execute-Expand as a compact three-stage code pipeline that "
+            "shrinks a large token stream by 91 percent. These must read as one episode-specific "
+            "editorial composition, not as a generic control desk or robot dashboard."
+        )
     if "project deal" in lowered or ("anthropic" in lowered and "google" in lowered):
         return "Render a concrete agent-market deal table: Anthropic-inspired bars and a Google-colored G/handshake meeting over a signed deal card, with connector/app icons around it."
     if "comfyui" in lowered:
@@ -93,16 +168,32 @@ def build_prompt(ep_num, show_notes_text):
     episode_title = extract_episode_title(show_notes_text, ep_num)
     tagline = extract_tagline(show_notes_text)
     visual_anchor_hint = derive_visual_anchor_hint(episode_title, tagline, show_notes_text)
+    art_context = art_context_without_episode_branding(show_notes_text, ep_num)
+    weighted_story_context = extract_weighted_story_context(show_notes_text, ep_num)
     return textwrap.dedent(f"""
-        Create square podcast cover center art for AgentStack Daily episode {ep_num:03d}.
+        Create a square technical editorial illustration for a podcast cover.
         This is only the image layer; do not include any legible text, titles, captions,
         episode numbers, podcast names, watermarks, or UI labels. Typography will be added
         later by a local renderer.
 
-        Episode title: {episode_title}
+        Story title: {episode_title}
         Tagline: {tagline or "(none provided)"}
 
+        Make an editorial concept decision before composing. Weight the title/headline at roughly
+        55 percent. Rank the full story slate for the remaining weight using listener importance,
+        novelty, visual distinctiveness, concrete imagery, and whether a story can reinforce the
+        headline inside one coherent scene. Use at most one or two supporting story cues. Do not
+        illustrate every story, do not follow rundown order, and do not create a checklist collage.
+        Routine harness releases should receive effectively zero visual weight unless named in the title.
+
         Visual anchor requirement: {visual_anchor_hint}
+
+        Translate the strongest proper nouns, mechanisms, scale contrast, and quantitative hooks
+        into one memorable visual metaphor. The finished image must be identifiable from this
+        episode's title and weighted slate, not merely from generic AI aesthetics.
+        Do not substitute a generic AI dashboard, robot arm, glowing core, server console, or
+        interchangeable agent-network scene. Use at least two title-specific visual cues, with
+        the headline subject as the dominant cue. Do not invent brand logos.
 
         Style: premium technical editorial illustration, concrete recognizable central object,
         high contrast, cinematic lighting, crisp product/interface shapes, not generic sci-fi,
@@ -110,8 +201,11 @@ def build_prompt(ep_num, show_notes_text):
 
         Leave clean negative space near the top and bottom so local cover text can overlay later.
 
-        Show notes summary:
-        {show_notes_text[:1800]}
+        Full weighted story slate:
+        {weighted_story_context}
+
+        Additional opening context:
+        {art_context[:1200]}
     """).strip()
 
 

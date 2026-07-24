@@ -14,8 +14,8 @@ Covers:
      segment band — rejects the EP079-style 160-word segment.
   3. fallback_story output CLEARS the same floors by construction (fallback
      output is never validated, so this is the only fence it has).
-  4. check_episode.py transcript floor/ceiling are 4,800 / 5,400 (AST-read,
-     no import — check_episode has import-time side effects).
+  4. The shared transcript constraint module pins the 4,800 / 5,400 band and
+     check_episode.py consumes it rather than redefining drifting literals.
   5. check_show_notes.py enforces >= 14 slate topics and the >= 4,200-word
      show-notes-block pre-audio gate for EP079+.
   6. generate_episode_transcript.py's prompt states the same floor/ceiling
@@ -36,6 +36,7 @@ SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import build_show_notes as bsn  # noqa: E402
+import transcript_constraints as tc  # noqa: E402
 
 TRANSCRIPT_FLOOR = 4800
 TRANSCRIPT_CEILING = 5400
@@ -131,17 +132,17 @@ def test_fallback_story_clears_floor_thin_source():
 
 
 def test_check_episode_floor_and_ceiling_constants():
-    """The transcript hard band in check_episode.py stays 4,800-5,400."""
-    path = SCRIPTS / "check_episode.py"
-    floor = _ast_int_assign(path, "floor")
-    ceiling = _ast_int_assign(path, "ceiling")
-    assert floor == TRANSCRIPT_FLOOR, (
-        f"check_episode.py floor is {floor}; the EP079 lock requires {TRANSCRIPT_FLOOR}. "
+    """Shared constraints and final QC stay locked to 4,800-5,400."""
+    assert tc.TRANSCRIPT_FLOOR == TRANSCRIPT_FLOOR, (
+        f"shared floor is {tc.TRANSCRIPT_FLOOR}; the EP079 lock requires {TRANSCRIPT_FLOOR}. "
         f"Do not loosen the floor — add stories and deepen segments instead."
     )
-    assert ceiling == TRANSCRIPT_CEILING, (
-        f"check_episode.py ceiling is {ceiling}; the EP072 drone lock requires {TRANSCRIPT_CEILING}."
+    assert tc.TRANSCRIPT_CEILING == TRANSCRIPT_CEILING, (
+        f"shared ceiling is {tc.TRANSCRIPT_CEILING}; the EP072 drone lock requires {TRANSCRIPT_CEILING}."
     )
+    checker_src = (SCRIPTS / "check_episode.py").read_text()
+    assert "floor = TRANSCRIPT_FLOOR" in checker_src
+    assert "ceiling = TRANSCRIPT_CEILING" in checker_src
 
 
 def test_check_show_notes_gates_present():
@@ -162,11 +163,12 @@ def test_transcript_prompt_matches_qc_band():
     check_episode.py enforces — drift between prompt and QC burns repair
     rounds every morning."""
     src = (SCRIPTS / "generate_episode_transcript.py").read_text()
-    for token in ("4,800", "5,400"):
-        assert token in src, (
-            f"generate_episode_transcript.py prompt no longer states {token} — "
-            f"it must match check_episode.py's hard band"
+    for constant in ("TRANSCRIPT_FLOOR", "TRANSCRIPT_CEILING"):
+        assert constant in src, (
+            f"generate_episode_transcript.py no longer consumes {constant} — "
+            "the prompt must share final QC's hard band"
         )
+    assert "4,900-5,250" in src, "prompt lost the safety-buffer drafting target"
 
 
 if __name__ == "__main__":
