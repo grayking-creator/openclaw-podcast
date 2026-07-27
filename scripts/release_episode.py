@@ -818,13 +818,20 @@ Return ONLY the corrected JSON object (same shape as before), nothing else."""
             )
             return last_meta
 
-    # All attempts produced an English body — return the last one and let QC
-    # surface the failure rather than silently keep retrying forever.
+    # All attempts produced an unusable result.  If every backend response
+    # lacked parseable JSON, fail explicitly here instead of returning None;
+    # phase_translate immediately dereferences the metadata and otherwise
+    # masks the provider failure as "'NoneType' object has no attribute get".
     log(
         f"  ❌ [translate_metadata] {lang}: 3 attempts all returned English body "
         f"(last title: {last_meta.get('title') if last_meta else '<none>'!r}); "
         "QC will fail — investigate model output"
     )
+    if last_meta is None:
+        raise RuntimeError(
+            f"{lang.upper()} metadata translation returned no parseable JSON "
+            "after 3 attempts"
+        )
     return last_meta
 
 TRANSCRIPT_SPEAKER_RE = re.compile(r"^\[(NOVA|ALLOY)\]:\s*(.+)$", re.DOTALL)
