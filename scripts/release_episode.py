@@ -31,6 +31,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 import migrate_media_releases as media_releases
+from podcast_description import prepare_episode_summary
 
 SCRIPTS_DIR = Path(__file__).parent
 PODCAST_DIR = SCRIPTS_DIR.parent
@@ -716,7 +717,10 @@ def translate_metadata(ep_num, lang):
     # Extract title, tagline, description from show notes
     en_title = extract_episode_title(notes, ep_num)
     en_tagline = extract_tagline(notes)
-    en_desc = extract_feed_description(notes) or en_tagline or en_title
+    en_desc = prepare_episode_summary(
+        extract_feed_description(notes) or en_tagline or en_title,
+        fallback=en_title,
+    )
 
     # Cover text - extract from cover script if it exists, else derive from title
     cover_script = SCRIPTS_DIR / f"generate_episode_{ep_num:03d}_cover.py"
@@ -1273,7 +1277,10 @@ def get_en_release_metadata(ep_num, state):
             f"'**Title:**' line before publishing."
         )
     en_title = f"Episode {ep_num}: {en_episode_title}"
-    en_desc = extract_feed_description(notes) or en_episode_title
+    en_desc = prepare_episode_summary(
+        extract_feed_description(notes) or en_episode_title,
+        fallback=en_episode_title,
+    )
     duration = state.get("audio_duration", "33:00")
     en_size = state.get("audio_size")
     if not en_size:

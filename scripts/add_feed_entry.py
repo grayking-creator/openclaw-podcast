@@ -29,6 +29,8 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+from podcast_description import prepare_episode_summary
+
 
 def validate_xml(path):
     """Parse XML and return True if valid, False otherwise."""
@@ -49,6 +51,7 @@ def check_duplicate(content, episode_number):
 def build_item_block(args):
     """Build the XML <item> block for the new episode."""
     show_notes_line = f"\n\nShow notes: {args.link}" if args.link else ""
+    description = prepare_episode_summary(args.description, fallback=args.title)
     guid = args.guid or args.audio_url  # Keep guid stable when enclosure host changes
     enclosure_url = f"https://op3.dev/e/{args.audio_url}"
     length = args.length
@@ -58,7 +61,7 @@ def build_item_block(args):
       <title>{args.title}</title>
       <guid isPermaLink="false">{guid}</guid>
       <link>{args.link}</link>
-      <description><![CDATA[{args.description}{show_notes_line}]]></description>
+      <description><![CDATA[{description}{show_notes_line}]]></description>
       <pubDate>{args.pub_date}</pubDate>
       <enclosure url="{enclosure_url}" length="{length}" type="audio/mpeg"/>
       <itunes:duration>{args.duration}</itunes:duration>

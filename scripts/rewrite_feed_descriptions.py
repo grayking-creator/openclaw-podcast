@@ -12,6 +12,8 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
+from podcast_description import prepare_episode_summary
+
 ROOT = Path(__file__).resolve().parent.parent
 FEED_PATH = ROOT / "feed.xml"
 
@@ -78,7 +80,10 @@ def main():
         if not notes_path.exists():
             raise FileNotFoundError(notes_path)
         notes = notes_path.read_text()
-        desc = extract_feed_description(notes) or f"Episode {ep}"
+        desc = prepare_episode_summary(
+            extract_feed_description(notes),
+            fallback=f"Episode {ep}",
+        )
         desc = f"{desc}\n\nShow notes: https://tobyonfitnesstech.com/podcasts/episode-{ep}/"
         content = replace_item_description(content, ep, desc)
 
