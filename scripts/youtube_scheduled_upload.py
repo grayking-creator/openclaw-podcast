@@ -1019,8 +1019,16 @@ def upload_to_youtube(
 
     yt = build("youtube", "v3", credentials=creds)
 
-    # Hard pre-upload gate.
-    verify_expected_channel(yt, token_path, expected_channel)
+    # A rejected cached access token can still have a future local expiry.
+    try:
+        verify_expected_channel(yt, token_path, expected_channel)
+    except HttpError as exc:
+        if exc.resp.status != 401 or not creds.refresh_token:
+            raise
+        creds.refresh(Request())
+        Path(token_path).write_text(creds.to_json())
+        yt = build("youtube", "v3", credentials=creds)
+        verify_expected_channel(yt, token_path, expected_channel)
 
     # Duplicate guard: abort if this episode is already on the channel.
     if episode_number is not None:
@@ -1041,14 +1049,34 @@ def upload_to_youtube(
         }
     }
     
-    media = MediaFileUpload(str(video_path), mimetype="video/mp4", resumable=True)
-    req = yt.videos().insert(part="snippet,status", body=body, media_body=media)
-    
+    media = MediaFileUpload(
+        str(video_path), mimetype="video/mp4", chunksize=8 * 1024 * 1024, resumable=True
+    )
     response = None
-    while response is None:
-        status, response = req.next_chunk()
-        if status:
-            print(f"    {int(status.progress()*100)}%...")
+    for session_attempt in range(3):
+        req = yt.videos().insert(part="snippet,status", body=body, media_body=media)
+        try:
+            while response is None:
+                status, response = req.next_chunk(num_retries=3)
+                if status:
+                    print(f"    {int(status.progress()*100)}%...")
+            break
+        except HttpError as exc:
+            if exc.resp.status not in (401, 404, 410) or session_attempt == 2:
+                raise
+            print(f"    Upload session rejected ({exc.resp.status}); checking before restart...")
+            time.sleep(2 ** (session_attempt + 1))
+            if exc.resp.status == 401 and creds.refresh_token:
+                creds.refresh(Request())
+                Path(token_path).write_text(creds.to_json())
+                yt = build("youtube", "v3", credentials=creds)
+            verify_expected_channel(yt, token_path, expected_channel)
+            # Never create another video if the previous attempt actually completed.
+            if episode_number is not None:
+                existing_id, _ = check_episode_already_uploaded(yt, episode_number)
+                if existing_id:
+                    response = {"id": existing_id}
+                    break
 
     video_id = response["id"]
     if thumbnail_path and Path(thumbnail_path).exists():
