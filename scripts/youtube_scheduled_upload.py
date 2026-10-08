@@ -82,6 +82,8 @@ def _append_unique_issue(collection, seen, label, detail):
 
 
 def _post_youtube_issues(ep_str, failures, warnings, deferred):
+    if os.environ.get("AGENTSTACK_PARENT_OWNS_TERMINAL_FAILURE") == "1":
+        return
     deferred = list(dict.fromkeys(deferred))
     if not failures and not warnings and not deferred:
         return
