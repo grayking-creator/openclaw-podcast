@@ -1019,18 +1019,26 @@ def upload_to_youtube(
         with open(token_path, "w") as f:
             f.write(creds.to_json())
 
-    yt = build("youtube", "v3", credentials=creds)
+    def verified_client(refresh=False):
+        # New Google tokens can briefly return 401 before becoming usable.
+        if refresh and creds.refresh_token:
+            creds.refresh(Request())
+            Path(token_path).write_text(creds.to_json())
+            time.sleep(3)
+        service = build("youtube", "v3", credentials=creds)
+        for auth_attempt in range(3):
+            try:
+                verify_expected_channel(service, token_path, expected_channel)
+                return service
+            except HttpError as exc:
+                if exc.resp.status != 401 or not creds.refresh_token or auth_attempt == 2:
+                    raise
+                creds.refresh(Request())
+                Path(token_path).write_text(creds.to_json())
+                time.sleep(3 * (auth_attempt + 1))
+                service = build("youtube", "v3", credentials=creds)
 
-    # A rejected cached access token can still have a future local expiry.
-    try:
-        verify_expected_channel(yt, token_path, expected_channel)
-    except HttpError as exc:
-        if exc.resp.status != 401 or not creds.refresh_token:
-            raise
-        creds.refresh(Request())
-        Path(token_path).write_text(creds.to_json())
-        yt = build("youtube", "v3", credentials=creds)
-        verify_expected_channel(yt, token_path, expected_channel)
+    yt = verified_client()
 
     # Duplicate guard: abort if this episode is already on the channel.
     if episode_number is not None:
@@ -1068,11 +1076,7 @@ def upload_to_youtube(
                 raise
             print(f"    Upload session rejected ({exc.resp.status}); checking before restart...")
             time.sleep(2 ** (session_attempt + 1))
-            if exc.resp.status == 401 and creds.refresh_token:
-                creds.refresh(Request())
-                Path(token_path).write_text(creds.to_json())
-                yt = build("youtube", "v3", credentials=creds)
-            verify_expected_channel(yt, token_path, expected_channel)
+            yt = verified_client(refresh=True)
             # Never create another video if the previous attempt actually completed.
             if episode_number is not None:
                 existing_id, _ = check_episode_already_uploaded(yt, episode_number)

@@ -30,7 +30,7 @@ class UploadRecoveryTests(unittest.TestCase):
                 if not isinstance(outcome, Exception):
                     req.next_chunk.return_value = (None, {'id': outcome})
             yt.videos.return_value.insert.side_effect = requests
-            identity = [identity_error, None] if identity_error else None
+            identity = identity_error if isinstance(identity_error, list) else ([identity_error, None] if identity_error else None)
             with patch.object(y.Credentials, 'from_authorized_user_info', return_value=creds), \
                  patch.object(y, 'build', return_value=yt), \
                  patch.object(y, 'verify_expected_channel', side_effect=identity), \
@@ -53,6 +53,15 @@ class UploadRecoveryTests(unittest.TestCase):
         result, _, creds = self.run_upload(['video'], identity_error=error(401))
         self.assertEqual(result, 'video')
         creds.refresh.assert_called_once()
+
+    def test_new_token_rejection_is_bounded_and_retried(self):
+        result, _, creds = self.run_upload(['video'], identity_error=[error(401), error(401), None])
+        self.assertEqual(result, 'video')
+        self.assertEqual(creds.refresh.call_count, 2)
+
+    def test_repeated_auth_failure_stops(self):
+        with self.assertRaises(HttpError):
+            self.run_upload(['video'], identity_error=[error(401), error(401), error(401)])
 
     def test_session_auth_failure_refreshes(self):
         result, _, creds = self.run_upload([error(401), 'video'])
