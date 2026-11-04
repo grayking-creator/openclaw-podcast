@@ -147,12 +147,8 @@ def check_lang(ep_num, lang, en_title):
     else:
         err_local(f"{prefix} Cover art missing: images/episode_{ep_str}_cover_{lang}.png")
 
-    # 7. Cover in website dir
-    website_cover = WEBSITE_DIR / f"episode_{ep_str}_cover_{lang}.png"
-    if website_cover.exists():
-        ok_local(f"{prefix} Cover in website dir")
-    else:
-        warn_local(f"{prefix} Cover missing from website: {website_cover.name}")
+    # Website previews are generated on DGX after the public release upload.
+    # The source cover is checked above; local website PNG copies are obsolete.
 
     # 8. Description translated (check it's not identical to EN)
     en_feed = PODCAST_DIR / "feed.xml"
@@ -190,15 +186,14 @@ def main():
     for lang in langs_to_check:
         check_lang(ep_num, lang, en_title)
 
-    # Also check EN cover in website for full-run only
+    # Validate the source art; the website stores only small WebP previews.
     ep_str = f"{ep_num:03d}"
     if not args.lang:
-        en_website_cover = WEBSITE_DIR / f"episode_{ep_str}_cover.png"
-        if en_website_cover.exists():
-            ok("[EN] Cover in website dir")
+        en_cover = PODCAST_DIR / "images" / f"episode_{ep_str}_cover.png"
+        if en_cover.exists():
+            ok("[EN] Source cover exists")
         else:
-            err("[EN] Cover missing from website dir",
-                f"cp images/episode_{ep_str}_cover.png → websiteBuilder/.../podcast/")
+            err("[EN] Source cover missing", str(en_cover))
 
     print("── Results ──")
     for p in passes:
