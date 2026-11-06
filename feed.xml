@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/podcasts/</link>
     <description>Daily updates on agentic AI, local-first infrastructure, developer tools, model releases, and the systems behind modern AI workflows. Hosted by Nova and Alloy.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 04 Nov 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 06 Nov 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Daily updates on agentic AI, local-first infrastructure, developer tools, model releases, and the systems behind modern AI workflows — everything builders and operators need to track the future of AI systems.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,22 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_en.png"/>
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 127 -->
+    <item>
+      <title>Episode 127: OpenAI Patches 948 Linux Kernel Vulnerabilities</title>
+      <guid isPermaLink="false">https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/releases/download/ep127/episode_127.mp3</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/episode-127/</link>
+      <description><![CDATA[OpenAI’s discovery and patching of 948 Linux kernel vulnerabilities anchors today’s developer news, alongside Astra’s direct neural-network weight editing...
+
+Show notes: https://tobyonfitnesstech.com/podcasts/episode-127/]]></description>
+      <pubDate>Fri, 06 Nov 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/releases/download/ep127/episode_127.mp3" length="32100563" type="audio/mpeg"/>
+      <itunes:duration>33:26</itunes:duration>
+      <itunes:episode>127</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/releases/download/ep127/episode_127_cover.png"/>
+    </item>
+
     <!-- Episode 126 -->
     <item>
       <title>Episode 126: Gemini 4 Carbon Targets Long-Running Engineering and Cyber Defense</title>
