@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/es/podcasts/openclaw/</link>
     <description>Actualizaciones diarias sobre IA agentiva, infraestructura local-first, herramientas para desarrolladores, lanzamientos de modelos y los sistemas detrás de los flujos modernos de IA.</description>
     <language>es-es</language>
-    <lastBuildDate>Wed, 04 Nov 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 06 Nov 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova y Alloy</itunes:author>
     <itunes:summary>Actualizaciones diarias sobre IA agentiva, infraestructura local-first, herramientas para desarrolladores, lanzamientos de modelos y los sistemas detrás de los flujos modernos de IA.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,22 @@
     <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-es/releases/download/channel-art/show_art.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 127 -->
+    <item>
+      <title>Episodio 127: OpenAI parchea 948 vulnerabilidades del kernel Linux</title>
+      <guid isPermaLink="false">https://github.com/clawdassistant85-netizen/openclaw-podcast-media-es/releases/download/ep127/episode_127.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-127/</link>
+      <description><![CDATA[El descubrimiento y la corrección por parte de OpenAI de 948 vulnerabilidades del kernel Linux protagoniza las noticias de desarrollo de hoy, junto con la...
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-127/]]></description>
+      <pubDate>Fri, 06 Nov 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://openclaw-audio-proxy.tobypeters.workers.dev/audio/es/episode_127.mp3" length="36053621" type="audio/mpeg"/>
+      <itunes:duration>37:33</itunes:duration>
+      <itunes:episode>127</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-es/releases/download/ep127/episode_127_cover.png"/>
+    </item>
+
     <!-- Episode 126 -->
     <item>
       <title>Episodio 126: Gemini 4 Carbon se enfoca en la ingeniería de larga duración y la defensa cibernética</title>
