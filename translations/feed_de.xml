@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/</link>
     <description>Tägliche Updates zu agentischer KI, local-first Infrastruktur, Entwicklertools, Modell-Releases und den Systemen hinter modernen KI-Workflows.</description>
     <language>de-de</language>
-    <lastBuildDate>Wed, 04 Nov 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 06 Nov 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Tägliche Updates zu agentischer KI, local-first Infrastruktur, Entwicklertools, Modell-Releases und den Systemen hinter modernen KI-Workflows.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,22 @@
     <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-de/releases/download/channel-art/show_art.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 127 -->
+    <item>
+      <title>Folge 127: OpenAI patcht 948 Schwachstellen im Linux-Kernel</title>
+      <guid isPermaLink="false">https://github.com/clawdassistant85-netizen/openclaw-podcast-media-de/releases/download/ep127/episode_127.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-127/</link>
+      <description><![CDATA[OpenAIs Entdeckung und Behebung von 948 Schwachstellen im Linux-Kernel steht im Mittelpunkt der heutigen Entwickler-Nachrichten, während Astra einen anderen...
+
+Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-127/]]></description>
+      <pubDate>Fri, 06 Nov 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://openclaw-audio-proxy.tobypeters.workers.dev/audio/de/episode_127.mp3" length="39092602" type="audio/mpeg"/>
+      <itunes:duration>40:43</itunes:duration>
+      <itunes:episode>127</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-de/releases/download/ep127/episode_127_cover.png"/>
+    </item>
+
     <!-- Episode 126 -->
     <item>
       <title>Folge 126: Gemini 4 Carbon zielt auf langfristige Entwicklungs- und Cyberabwehrarbeit</title>
