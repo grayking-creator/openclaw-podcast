@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/hi/podcasts/openclaw/</link>
     <description>Agentic AI, local-first infrastructure, developer tools, model releases, और modern AI workflows के पीछे के systems पर daily updates.</description>
     <language>hi-in</language>
-    <lastBuildDate>Wed, 04 Nov 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 12 Nov 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>नोवा और अलॉय</itunes:author>
     <itunes:summary>Agentic AI, local-first infrastructure, developer tools, model releases, और modern AI workflows के पीछे के systems पर daily updates.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,22 @@
     <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-hi/releases/download/channel-art/show_art.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 128 -->
+    <item>
+      <title>एपिसोड 128: OpenAI ने पेश किया GPT-6 साइबर</title>
+      <guid isPermaLink="false">https://github.com/clawdassistant85-netizen/openclaw-podcast-media-hi/releases/download/ep128/episode_128.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-128/</link>
+      <description><![CDATA[OpenAI का GPT-6 साइबर इन खबरों में सबसे आगे है, जिसमें OpenAI द्वारा तैयार किए गए 948 सत्यापित Linux कर्नेल सुरक्षा पैच भी शामिल हैं।
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-128/]]></description>
+      <pubDate>Thu, 12 Nov 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://openclaw-audio-proxy.tobypeters.workers.dev/audio/hi/episode_128.mp3" length="44939433" type="audio/mpeg"/>
+      <itunes:duration>46:48</itunes:duration>
+      <itunes:episode>128</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-hi/releases/download/ep128/episode_128_cover.png"/>
+    </item>
+
     <!-- Episode 126 -->
     <item>
       <title>एपिसोड 126: जेमिनी 4 कार्बन लंबे समय तक चलने वाली इंजीनियरिंग और साइबर रक्षा को लक्षित करता है</title>
