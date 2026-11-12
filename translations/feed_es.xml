@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/es/podcasts/openclaw/</link>
     <description>Actualizaciones diarias sobre IA agentiva, infraestructura local-first, herramientas para desarrolladores, lanzamientos de modelos y los sistemas detrás de los flujos modernos de IA.</description>
     <language>es-es</language>
-    <lastBuildDate>Fri, 06 Nov 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 12 Nov 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova y Alloy</itunes:author>
     <itunes:summary>Actualizaciones diarias sobre IA agentiva, infraestructura local-first, herramientas para desarrolladores, lanzamientos de modelos y los sistemas detrás de los flujos modernos de IA.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,22 @@
     <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-es/releases/download/channel-art/show_art.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 128 -->
+    <item>
+      <title>Episodio 128: OpenAI presenta GPT-6 Cyber</title>
+      <guid isPermaLink="false">https://github.com/clawdassistant85-netizen/openclaw-podcast-media-es/releases/download/ep128/episode_128.mp3</guid>
+      <link>https://tobyonfitnesstech.com/es/podcasts/episode-128/</link>
+      <description><![CDATA[GPT-6 Cyber de OpenAI encabeza una lista de noticias que también incluye 948 parches de seguridad validados para el kernel de Linux generados por OpenAI.
+
+Show notes: https://tobyonfitnesstech.com/es/podcasts/episode-128/]]></description>
+      <pubDate>Thu, 12 Nov 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://openclaw-audio-proxy.tobypeters.workers.dev/audio/es/episode_128.mp3" length="36533438" type="audio/mpeg"/>
+      <itunes:duration>38:03</itunes:duration>
+      <itunes:episode>128</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-es/releases/download/ep128/episode_128_cover.png"/>
+    </item>
+
     <!-- Episode 127 -->
     <item>
       <title>Episodio 127: OpenAI parchea 948 vulnerabilidades del kernel Linux</title>
