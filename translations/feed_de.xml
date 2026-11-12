@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/de/podcasts/openclaw/</link>
     <description>Tägliche Updates zu agentischer KI, local-first Infrastruktur, Entwicklertools, Modell-Releases und den Systemen hinter modernen KI-Workflows.</description>
     <language>de-de</language>
-    <lastBuildDate>Fri, 06 Nov 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 12 Nov 2026 18:00:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Tägliche Updates zu agentischer KI, local-first Infrastruktur, Entwicklertools, Modell-Releases und den Systemen hinter modernen KI-Workflows.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,22 @@
     <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-de/releases/download/channel-art/show_art.png" />
     <itunes:category text="Technology" />
     <itunes:explicit>false</itunes:explicit>
+    <!-- Episode 128 -->
+    <item>
+      <title>Folge 128: OpenAI stellt GPT-6 Cyber vor</title>
+      <guid isPermaLink="false">https://github.com/clawdassistant85-netizen/openclaw-podcast-media-de/releases/download/ep128/episode_128.mp3</guid>
+      <link>https://tobyonfitnesstech.com/de/podcasts/episode-128/</link>
+      <description><![CDATA[OpenAIs GPT-6 Cyber steht an der Spitze einer Auswahl, zu der auch 948 von OpenAI generierte und validierte Sicherheitspatches für den Linux-Kernel gehören.
+
+Show notes: https://tobyonfitnesstech.com/de/podcasts/episode-128/]]></description>
+      <pubDate>Thu, 12 Nov 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://openclaw-audio-proxy.tobypeters.workers.dev/audio/de/episode_128.mp3" length="40792442" type="audio/mpeg"/>
+      <itunes:duration>42:29</itunes:duration>
+      <itunes:episode>128</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-de/releases/download/ep128/episode_128_cover.png"/>
+    </item>
+
     <!-- Episode 127 -->
     <item>
       <title>Folge 127: OpenAI patcht 948 Schwachstellen im Linux-Kernel</title>
