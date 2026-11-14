@@ -16,13 +16,15 @@ Usage:
 
 This script:
   - Validates the feed XML before and after modification
-  - Inserts the new episode as the FIRST <item> in the channel (newest first)
+  - Inserts the new episode in descending publication-date order
   - Checks for duplicate episode numbers before inserting
-  - Updates lastBuildDate to match the new episode's pubDate
+  - Updates lastBuildDate without regressing it during historical recovery
   - Preserves all existing entries and formatting
 
 MINIMAX: Use this script instead of hand-editing feed XML files.
 """
+
+from email.utils import parsedate_to_datetime
 
 import argparse
 import html
@@ -116,22 +118,26 @@ def main():
     # Build the new item block
     item_block = build_item_block(args)
 
-    # Find the first <item> and insert before it
-    first_item = re.search(r'(\n\s*)(<!-- Episode \d+|<item>|<item><title>)', content)
-    if not first_item:
-        print("ERROR: Could not find any existing <item> in the feed. Is this a valid podcast feed?", file=sys.stderr)
-        sys.exit(1)
-
-    insert_pos = first_item.start()
+    # Keep historical recovery entries in descending publication order.
+    new_date = parsedate_to_datetime(args.pub_date)
+    blocks = list(re.finditer(r'(?:[ \t]*<!-- (?:Episode \d+|Bonus episode) -->\s*)?<item\b[^>]*>.*?</item>', content, re.S))
+    if not blocks:
+        raise SystemExit("ERROR: Could not find existing feed entries")
+    insert_pos = blocks[-1].end()
+    for block in blocks:
+        old_date = re.search(r'<pubDate>(.*?)</pubDate>', block.group(), re.S)
+        if old_date and new_date >= parsedate_to_datetime(old_date.group(1)):
+            insert_pos = block.start()
+            break
     new_content = content[:insert_pos] + "\n" + item_block + content[insert_pos:]
-
-    # Update lastBuildDate
-    new_content = re.sub(
-        r'<lastBuildDate>[^<]+</lastBuildDate>',
-        f'<lastBuildDate>{args.pub_date}</lastBuildDate>',
-        new_content,
-        count=1
-    )
+    # A backfill must never regress the feed's build timestamp.
+    old_build = re.search(r'<lastBuildDate>(.*?)</lastBuildDate>', content)
+    build_date = args.pub_date
+    if old_build and parsedate_to_datetime(old_build.group(1)) > new_date:
+        build_date = old_build.group(1)
+    new_content = re.sub(r'<lastBuildDate>[^<]+</lastBuildDate>',
+                         f'<lastBuildDate>{build_date}</lastBuildDate>',
+                         new_content, count=1)
 
     if args.dry_run:
         print(new_content)

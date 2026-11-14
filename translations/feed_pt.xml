@@ -31,6 +31,22 @@ Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-128/]]></descripti
       <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-pt/releases/download/ep128/episode_128_cover.png"/>
     </item>
 
+
+    <!-- Episode 127 -->
+    <item>
+      <title>Episódio 127: OpenAI cria correções para 948 vulnerabilidades do kernel Linux</title>
+      <guid isPermaLink="false">https://github.com/clawdassistant85-netizen/openclaw-podcast-media-pt/releases/download/ep127/episode_127.mp3</guid>
+      <link>https://tobyonfitnesstech.com/pt/podcasts/episode-127/</link>
+      <description><![CDATA[A descoberta e a geração de correções para 948 vulnerabilidades do kernel Linux pela OpenAI abrem as notícias para desenvolvedores, ao lado da edição direta...
+
+Show notes: https://tobyonfitnesstech.com/pt/podcasts/episode-127/]]></description>
+      <pubDate>Fri, 06 Nov 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://openclaw-audio-proxy.tobypeters.workers.dev/audio/pt/episode_127.mp3" length="36896644" type="audio/mpeg"/>
+      <itunes:duration>38:25</itunes:duration>
+      <itunes:episode>127</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-pt/releases/download/ep127/episode_127_cover.png"/>
+    </item>
     <!-- Episode 126 -->
     <item>
       <title>Episódio 126: Gemini 4 Carbon mira engenharia de longa duração e defesa cibernética</title>

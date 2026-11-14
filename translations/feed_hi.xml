@@ -31,6 +31,22 @@ Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-128/]]></descripti
       <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-hi/releases/download/ep128/episode_128_cover.png"/>
     </item>
 
+
+    <!-- Episode 127 -->
+    <item>
+      <title>एपिसोड 127: OpenAI ने Linux कर्नेल की 948 कमजोरियों के पैच बनाए</title>
+      <guid isPermaLink="false">https://github.com/clawdassistant85-netizen/openclaw-podcast-media-hi/releases/download/ep127/episode_127.mp3</guid>
+      <link>https://tobyonfitnesstech.com/hi/podcasts/episode-127/</link>
+      <description><![CDATA[OpenAI की स्वायत्त पाइपलाइन ने Linux कर्नेल की 948 कमजोरियाँ खोजकर उनके पैच तैयार किए। साथ में Astra का न्यूरल नेटवर्क वेट्स में सीधा संपादन, OpenAI के तेज़...
+
+Show notes: https://tobyonfitnesstech.com/hi/podcasts/episode-127/]]></description>
+      <pubDate>Fri, 06 Nov 2026 18:00:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://openclaw-audio-proxy.tobypeters.workers.dev/audio/hi/episode_127.mp3" length="44497650" type="audio/mpeg"/>
+      <itunes:duration>46:21</itunes:duration>
+      <itunes:episode>127</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-hi/releases/download/ep127/episode_127_cover.png"/>
+    </item>
     <!-- Episode 126 -->
     <item>
       <title>एपिसोड 126: जेमिनी 4 कार्बन लंबे समय तक चलने वाली इंजीनियरिंग और साइबर रक्षा को लक्षित करता है</title>
