@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/podcasts/</link>
     <description>Daily updates on agentic AI, local-first infrastructure, developer tools, model releases, and the systems behind modern AI workflows. Hosted by Nova and Alloy.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 12 Nov 2026 18:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 14 Nov 2026 21:37:00 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Daily updates on agentic AI, local-first infrastructure, developer tools, model releases, and the systems behind modern AI workflows — everything builders and operators need to track the future of AI systems.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,22 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_en.png"/>
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
+    <!-- Bonus episode -->
+    <item>
+      <title>Agent Stack Shorts: Muse in Chrome, Poppy, and Free Models Worth Testing</title>
+      <guid isPermaLink="false">agent-stack-shorts-2026-11-14-v2</guid>
+      <link>https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/releases/tag/agent-stack-shorts-2026-11-14-v2</link>
+      <description><![CDATA[Muse in Chrome, Poppy, Claude Code billing fixes, Antigravity workflows, and three free models worth testing.
+
+Show notes: https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/releases/tag/agent-stack-shorts-2026-11-14-v2]]></description>
+      <pubDate>Sat, 14 Nov 2026 21:37:00 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/releases/download/agent-stack-shorts-2026-11-14-v2/agent-stack-shorts-2026-11-14-v2.mp3" length="7580987" type="audio/mpeg"/>
+      <itunes:duration>05:16</itunes:duration>
+      
+      <itunes:episodeType>bonus</itunes:episodeType>
+      <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/releases/download/agent-stack-shorts-2026-11-14-v2/agent-stack-shorts-2026-11-14-cover.png"/>
+    </item>
+
     <!-- Episode 128 -->
     <item>
       <title>Episode 128: OpenAI Introduces GPT-6 Cyber</title>

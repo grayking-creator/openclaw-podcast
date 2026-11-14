@@ -25,6 +25,7 @@ MINIMAX: Use this script instead of hand-editing feed XML files.
 """
 
 import argparse
+import html
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -56,17 +57,21 @@ def build_item_block(args):
     enclosure_url = f"https://op3.dev/e/{args.audio_url}"
     length = args.length
 
-    return f"""    <!-- Episode {args.episode} -->
+    title_xml = html.escape(args.title)
+    episode_type = getattr(args, 'episode_type', 'full')
+    episode_line = f'<itunes:episode>{args.episode}</itunes:episode>' if args.episode is not None else ''
+    label = f'Episode {args.episode}' if args.episode is not None else 'Bonus episode'
+    return f"""    <!-- {label} -->
     <item>
-      <title>{args.title}</title>
+      <title>{title_xml}</title>
       <guid isPermaLink="false">{guid}</guid>
       <link>{args.link}</link>
       <description><![CDATA[{description}{show_notes_line}]]></description>
       <pubDate>{args.pub_date}</pubDate>
       <enclosure url="{enclosure_url}" length="{length}" type="audio/mpeg"/>
       <itunes:duration>{args.duration}</itunes:duration>
-      <itunes:episode>{args.episode}</itunes:episode>
-      <itunes:episodeType>full</itunes:episodeType>
+      {episode_line}
+      <itunes:episodeType>{episode_type}</itunes:episodeType>
       <itunes:image href="{args.cover_url}"/>
     </item>
 """
@@ -75,7 +80,8 @@ def build_item_block(args):
 def main():
     parser = argparse.ArgumentParser(description="Add episode to podcast feed XML")
     parser.add_argument("feed_file", help="Path to feed XML file")
-    parser.add_argument("--episode", type=int, required=True, help="Episode number")
+    parser.add_argument("--episode", type=int, help="Episode number; omit only for a bonus with explicit GUID")
+    parser.add_argument("--episode-type", choices=['full', 'bonus'], default='full')
     parser.add_argument("--title", required=True, help="Episode title")
     parser.add_argument("--description", required=True, help="Episode description")
     parser.add_argument("--pub-date", required=True, help="RFC 2822 publish date")
@@ -88,10 +94,14 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Print result without writing")
 
     args = parser.parse_args()
+    if args.episode is None and (args.episode_type != 'bonus' or not args.guid):
+        parser.error('Unnumbered entries require --episode-type bonus and a stable --guid')
 
     # Read current feed
     with open(args.feed_file, 'r', encoding='utf-8') as f:
         content = f.read()
+    if args.guid and any(x.text == args.guid for x in ET.fromstring(content).findall('./channel/item/guid')):
+        parser.error('This GUID already exists in the feed')
 
     # Pre-flight: validate existing XML
     if not validate_xml(args.feed_file):
@@ -99,7 +109,7 @@ def main():
         sys.exit(1)
 
     # Check for duplicates
-    if check_duplicate(content, args.episode):
+    if args.episode is not None and check_duplicate(content, args.episode):
         print(f"ERROR: Episode {args.episode} already exists in {args.feed_file}", file=sys.stderr)
         sys.exit(1)
 
