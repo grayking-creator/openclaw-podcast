@@ -5,8 +5,8 @@ import unittest
 import xml.etree.ElementTree as ET
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / 'add_feed_entry.py'
-FIXTURE = '''<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><lastBuildDate>old</lastBuildDate>
-<item><title>Existing</title><guid>original</guid><itunes:episode>129</itunes:episode></item></channel></rss>'''
+FIXTURE = '''<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><lastBuildDate>Fri, 13 Nov 2026 21:00:00 +0000</lastBuildDate>
+<item><title>Existing</title><guid>original</guid><pubDate>Fri, 13 Nov 2026 21:00:00 +0000</pubDate><itunes:episode>129</itunes:episode></item></channel></rss>'''
 
 class BonusFeedTests(unittest.TestCase):
     def test_bonus_preserves_numbered_items_and_rejects_duplicate_guid(self):

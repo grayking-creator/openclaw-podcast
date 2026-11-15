@@ -79,7 +79,55 @@ def build_item_block(args):
 """
 
 
+
+def update_item_link(feed_file, guid, link):
+    """Change only one existing item's landing link and matching notes URL."""
+    from pathlib import Path
+    from urllib.parse import urlparse
+    if urlparse(link).scheme != 'https':
+        raise ValueError('Landing link must use HTTPS')
+    path = Path(feed_file)
+    original = path.read_text(encoding='utf-8')
+    root = ET.fromstring(original)
+    items = root.findall('./channel/item')
+    blocks = list(re.finditer(r'<item\b[^>]*>.*?</item>', original, re.S))
+    assert len(items) == len(blocks)
+    matches = [(b, i) for b, i in zip(blocks, items) if i.findtext('guid') == guid]
+    if len(matches) != 1:
+        raise ValueError('Expected exactly one existing GUID')
+    block, item = matches[0]
+    old = item.findtext('link')
+    if not old:
+        raise ValueError('Existing item has no landing link')
+    replacement = re.sub(r'<link>.*?</link>', '<link>' + html.escape(link) + '</link>', block.group(), count=1, flags=re.S)
+    replacement = replacement.replace('Show notes: ' + old, 'Show notes: ' + link)
+    new = original[:block.start()] + replacement + original[block.end():]
+    before = ET.fromstring(original)
+    after = ET.fromstring(new)
+    before_items = before.findall('./channel/item')
+    after_items = after.findall('./channel/item')
+    assert len(before_items) == len(after_items)
+    for a, b in zip(before_items, after_items):
+        if a.findtext('guid') == guid:
+            for child in a:
+                if child.tag not in ('link', 'description'):
+                    assert ET.tostring(child) == ET.tostring(b.find(child.tag))
+            assert b.findtext('description') == a.findtext('description').replace('Show notes: ' + old, 'Show notes: ' + link)
+        else:
+            assert ET.tostring(a) == ET.tostring(b)
+    path.write_text(new, encoding='utf-8')
+
+
 def main():
+    if '--update-link' in sys.argv:
+        updater = argparse.ArgumentParser(description='Update a single existing episode landing link without republishing')
+        updater.add_argument('feed_file')
+        updater.add_argument('--guid', required=True)
+        updater.add_argument('--update-link', required=True)
+        update = updater.parse_args()
+        update_item_link(update.feed_file, update.guid, update.update_link)
+        print('OK: Existing episode landing link updated; GUID, date, audio unchanged')
+        return
     parser = argparse.ArgumentParser(description="Add episode to podcast feed XML")
     parser.add_argument("feed_file", help="Path to feed XML file")
     parser.add_argument("--episode", type=int, help="Episode number; omit only for a bonus with explicit GUID")
