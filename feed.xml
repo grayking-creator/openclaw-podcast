@@ -5,7 +5,7 @@
     <link>https://tobyonfitnesstech.com/podcasts/</link>
     <description>Daily updates on agentic AI, local-first infrastructure, developer tools, model releases, and the systems behind modern AI workflows. Hosted by Nova and Alloy.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 14 Nov 2026 21:37:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 18 Nov 2026 13:48:41 +0000</lastBuildDate>
     <itunes:author>Nova &amp; Alloy</itunes:author>
     <itunes:summary>Daily updates on agentic AI, local-first infrastructure, developer tools, model releases, and the systems behind modern AI workflows — everything builders and operators need to track the future of AI systems.</itunes:summary>
     <itunes:owner>
@@ -15,6 +15,21 @@
     <itunes:image href="https://clawdassistant85-netizen.github.io/openclaw-podcast-audio/show_art_en.png"/>
     <itunes:category text="Technology"/>
     <itunes:explicit>false</itunes:explicit>
+    <!-- Bonus episode -->
+    <item>
+      <title>Agent Stack Shorts: GPT-6.2, Remote Agents, and More Reliable Coding Workflows</title>
+      <guid isPermaLink="false">agent-stack-shorts-2026-11-18-v2</guid>
+      <link>https://tobyonfitnesstech.com/podcasts/agent-stack-shorts-2026-11-18-v2/</link>
+      <description><![CDATA[GPT-6.2 Astra and Sol, Antigravity remote Linux work, OpenCode long-running commands and prompt caching, and Claude Code reliability fixes.
+
+Full source-linked show notes and transcript: https://tobyonfitnesstech.com/podcasts/agent-stack-shorts-2026-11-18-v2/]]></description>
+      <pubDate>Wed, 18 Nov 2026 13:48:41 +0000</pubDate>
+      <enclosure url="https://op3.dev/e/https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/releases/download/agent-stack-shorts-2026-11-18-v2/Agent-Stack-Shorts-2026-11-18-v2.mp3" length="7310777" type="audio/mpeg"/>
+      <itunes:duration>05:05</itunes:duration>
+      <itunes:episodeType>bonus</itunes:episodeType>
+      <itunes:image href="https://github.com/clawdassistant85-netizen/openclaw-podcast-media-en/releases/download/agent-stack-shorts-2026-11-18-v2/agent-stack-shorts-2026-11-18-cover.png"/>
+    </item>
+
     <!-- Bonus episode -->
     <item>
       <title>Agent Stack Shorts: Muse in Chrome, Poppy, and Free Models Worth Testing</title>
